@@ -2,6 +2,7 @@ package middleware
 
 import (
 	"fmt"
+	"net"
 	"net/http"
 	"strconv"
 	"sync"
@@ -94,11 +95,18 @@ func RateLimit(installLimiter, ipLimiter *RateLimiter, perInstallLimit, perIPLim
 	}
 }
 
+// realIP returns the client IP for rate-limit keying.
+// Trusts X-Real-IP (set by nginx from $remote_addr, not forwarded from client).
+// Never trusts X-Forwarded-For — it appends client-supplied values and is spoofable.
 func realIP(r *http.Request) string {
-	if xff := r.Header.Get("X-Forwarded-For"); xff != "" {
-		return xff
+	if ip := r.Header.Get("X-Real-IP"); ip != "" {
+		return ip
 	}
-	return r.RemoteAddr
+	host, _, err := net.SplitHostPort(r.RemoteAddr)
+	if err != nil {
+		return r.RemoteAddr
+	}
+	return host
 }
 
 func nextMinuteUnix() int64 {
