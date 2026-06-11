@@ -131,7 +131,7 @@ func MapHAFASJourney(
 	originalETA *time.Time,
 	now time.Time,
 ) journey.Journey {
-	legs := mapLegs(hj.Legs)
+	legs := mapLegs(hj.Legs, now)
 	stops := collectStops(hj.Legs)
 	summary := computeSummary(legs, destination, filters, originalETA, now)
 
@@ -150,7 +150,7 @@ func MapHAFASJourney(
 	}
 }
 
-func mapLegs(hafasLegs []HAFASLeg) []journey.Leg {
+func mapLegs(hafasLegs []HAFASLeg, now time.Time) []journey.Leg {
 	legs := make([]journey.Leg, 0, len(hafasLegs))
 	for i, hl := range hafasLegs {
 		leg := journey.Leg{
@@ -189,7 +189,7 @@ func mapLegs(hafasLegs []HAFASLeg) []journey.Leg {
 		}
 		leg.PlatformPlanned = firstNonNilStr(hl.PlannedDeparturePlatform, hl.PlannedArrivalPlatform)
 		leg.PlatformActual = firstNonNilStr(hl.DeparturePlatform, hl.ArrivalPlatform)
-		leg.Status = inferLegStatus(hl)
+		leg.Status = inferLegStatus(hl, now)
 		legs = append(legs, leg)
 	}
 	return legs
@@ -241,7 +241,7 @@ func collectStops(hafasLegs []HAFASLeg) []journey.Stop {
 	return stops
 }
 
-func inferLegStatus(hl HAFASLeg) journey.LegStatus {
+func inferLegStatus(hl HAFASLeg, now time.Time) journey.LegStatus {
 	if hl.Cancelled {
 		return journey.LegStatusCancelled
 	}
@@ -249,7 +249,6 @@ func inferLegStatus(hl HAFASLeg) journey.LegStatus {
 		(hl.ArrivalDelay != nil && *hl.ArrivalDelay > 0) {
 		return journey.LegStatusDelayed
 	}
-	now := time.Now()
 	dep := firstNonNil(hl.Departure, hl.PlannedDeparture)
 	arr := firstNonNil(hl.Arrival, hl.PlannedArrival)
 	if dep != nil && arr != nil && now.After(*dep) && now.Before(*arr) {
