@@ -50,12 +50,35 @@ func TestMapTripToTrainResponse_NormalizesTrainNumber(t *testing.T) {
 			{Stop: hafas.HAFASPlace{ID: "8000261", Name: "München Hbf"}, PlannedDeparture: &dep},
 		},
 	}
-	resp := hafas.MapTripToTrainResponse(trip, "2026-06-10")
+	resp := hafas.MapTripToTrainResponse(trip, "2026-06-10", time.Now())
 	if resp.TrainNumber != "ICE 123" {
 		t.Errorf("TrainNumber: got %q, want %q", resp.TrainNumber, "ICE 123")
 	}
 	if len(resp.Stops) != 1 {
 		t.Errorf("expected 1 stop, got %d", len(resp.Stops))
+	}
+}
+
+func TestMapTripToTrainResponse_RunningStatus(t *testing.T) {
+	dep := time.Now().Add(-1 * time.Hour)
+	arr := time.Now().Add(3 * time.Hour)
+	trip := hafas.HAFASTrip{
+		Line:        hafas.HAFASLine{Name: "IC 42"},
+		Departure:   &dep,
+		Arrival:     &arr,
+		Stopovers:   []hafas.HAFASStopover{},
+	}
+	resp := hafas.MapTripToTrainResponse(trip, "2026-06-11", time.Now())
+	if resp.Status != "running" {
+		t.Errorf("status: got %q, want \"running\"", resp.Status)
+	}
+}
+
+func TestMapTripToTrainResponse_StopsNeverNull(t *testing.T) {
+	trip := hafas.HAFASTrip{Line: hafas.HAFASLine{Name: "RE 1"}}
+	resp := hafas.MapTripToTrainResponse(trip, "2026-06-11", time.Now())
+	if resp.Stops == nil {
+		t.Error("Stops must never be nil (would serialize as JSON null)")
 	}
 }
 

@@ -47,21 +47,24 @@ type TrainResponse struct {
 }
 
 // MapTripToTrainResponse maps a HAFASTrip to the train validation response.
-func MapTripToTrainResponse(trip HAFASTrip, date string) TrainResponse {
-	resp := TrainResponse{
-		TrainNumber: NormalizeTrainNumber(trip.Line.Name),
-		Date:        date,
-		Origin:      journey.StationRef{ID: trip.Origin.ID, Name: trip.Origin.Name},
-		Destination: journey.StationRef{ID: trip.Destination.ID, Name: trip.Destination.Name},
-		Status:      inferTripStatus(trip),
-	}
+// now is used to determine whether the trip is currently running; pass time.Now() in
+// production or a fixed time in tests to exercise the "running"/"delayed" branches.
+func MapTripToTrainResponse(trip HAFASTrip, date string, now time.Time) TrainResponse {
+	stops := make([]journey.StationRef, 0)
 	for _, s := range trip.Stopovers {
 		if s.Stop.ID == "" {
 			continue
 		}
-		resp.Stops = append(resp.Stops, journey.StationRef{ID: s.Stop.ID, Name: s.Stop.Name})
+		stops = append(stops, journey.StationRef{ID: s.Stop.ID, Name: s.Stop.Name})
 	}
-	return resp
+	return TrainResponse{
+		TrainNumber: NormalizeTrainNumber(trip.Line.Name),
+		Date:        date,
+		Origin:      journey.StationRef{ID: trip.Origin.ID, Name: trip.Origin.Name},
+		Destination: journey.StationRef{ID: trip.Destination.ID, Name: trip.Destination.Name},
+		Status:      inferTripStatus(trip, now),
+		Stops:       stops,
+	}
 }
 
 // FilterTripsByDate returns trips whose first stopover planned departure falls on date (YYYY-MM-DD).
@@ -90,7 +93,7 @@ func FilterTripsByDate(trips []HAFASTrip, date string) []HAFASTrip {
 	return out
 }
 
-func inferTripStatus(trip HAFASTrip) string {
+func inferTripStatus(trip HAFASTrip, now time.Time) string {
 	for _, s := range trip.Stopovers {
 		if s.Cancelled {
 			return "cancelled"
@@ -104,7 +107,6 @@ func inferTripStatus(trip HAFASTrip) string {
 			break
 		}
 	}
-	now := time.Now()
 	if trip.Departure != nil && trip.Arrival != nil &&
 		now.After(*trip.Departure) && now.Before(*trip.Arrival) {
 		if hasDelay {

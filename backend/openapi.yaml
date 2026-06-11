@@ -1,0 +1,1069 @@
+openapi: "3.1.0"
+
+info:
+  title: Verspätungsbegleiter API
+  version: "1.0.0"
+  license:
+    name: MIT
+    identifier: MIT
+  description: |
+    Routing and travel companion API for Deutsche Bahn journeys.
+
+    **No authentication.** Abuse-shaped via `X-Install-Id` UUID header + IP rate limiting.
+    API is open source — see repository for details.
+
+    All timestamps are UTC ISO 8601. Frontend is responsible for local timezone formatting.
+
+    Error responses use RFC 7807 `application/problem+json` with URN-based `type` identifiers.
+    Error catalog: `urn:vbb:error:<slug>` — see error responses below.
+
+servers:
+  - url: /v1
+    description: Current version
+
+tags:
+  - name: Journeys
+    description: Journey creation, monitoring, and alternatives
+  - name: Trains
+    description: Train number validation
+  - name: Stations
+    description: Station autocomplete
+  - name: Health
+    description: Liveness and readiness probes
+
+security: []
+
+paths:
+  /journeys:
+    post:
+      operationId: createJourney
+      summary: Create journey and compute alternatives
+      tags: [Journeys]
+      parameters:
+        - $ref: '#/components/parameters/InstallId'
+        - in: header
+          name: Idempotency-Key
+          schema:
+            type: string
+            format: uuid
+          description: |
+            Optional idempotency key (10-minute window).
+            Same key + identical canonical body → 200 with existing journey.
+            Same key + different body → 409 Conflict.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateJourneyRequest'
+            example:
+              trainNumber: "ICE 123"
+              destination: "8000105"
+              iAmOnThisTrain: true
+              filters:
+                dbOnly: true
+                maxTransfers: null
+                safetyLevel: "normal"
+      responses:
+        "201":
+          description: Journey created
+          headers:
+            Location:
+              schema:
+                type: string
+              description: "/v1/journeys/{id}"
+            Idempotency-Replayed:
+              schema:
+                type: boolean
+              description: Present and true when returning existing journey via Idempotency-Key
+            X-RateLimit-Limit:
+              $ref: '#/components/headers/RateLimitLimit'
+            X-RateLimit-Remaining:
+              $ref: '#/components/headers/RateLimitRemaining'
+            X-RateLimit-Reset:
+              $ref: '#/components/headers/RateLimitReset'
+            X-Request-Id:
+              $ref: '#/components/headers/RequestId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreateJourneyResponse'
+        "200":
+          description: Existing journey returned (Idempotency-Key replay)
+          headers:
+            Idempotency-Replayed:
+              schema:
+                type: boolean
+                example: true
+            X-Request-Id:
+              $ref: '#/components/headers/RequestId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreateJourneyResponse'
+        "400":
+          $ref: '#/components/responses/MalformedRequest'
+        "409":
+          $ref: '#/components/responses/IdempotencyConflict'
+        "422":
+          $ref: '#/components/responses/ValidationError'
+        "429":
+          $ref: '#/components/responses/TooManyRequests'
+        "503":
+          $ref: '#/components/responses/ServiceUnavailable'
+
+  /journeys/{id}:
+    parameters:
+      - $ref: '#/components/parameters/JourneyId'
+    get:
+      operationId: getJourney
+      summary: Full journey — summary + legs combined (initial screen load only)
+      description: |
+        Called once on AlternativesScreen initial load.
+        Do NOT use for polling — use GET /summary instead.
+      tags: [Journeys]
+      parameters:
+        - $ref: '#/components/parameters/InstallId'
+      responses:
+        "200":
+          description: Full journey
+          headers:
+            X-RateLimit-Limit:
+              $ref: '#/components/headers/RateLimitLimit'
+            X-RateLimit-Remaining:
+              $ref: '#/components/headers/RateLimitRemaining'
+            X-RateLimit-Reset:
+              $ref: '#/components/headers/RateLimitReset'
+            X-Request-Id:
+              $ref: '#/components/headers/RequestId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Journey'
+        "404":
+          $ref: '#/components/responses/JourneyNotFound'
+        "429":
+          $ref: '#/components/responses/TooManyRequests'
+        "500":
+          $ref: '#/components/responses/InternalError'
+    delete:
+      operationId: deleteJourney
+      summary: Terminate monitoring and cancel poller goroutine
+      description: |
+        204 on success. 404 on unknown or expired journey ID.
+        Second DELETE on same ID returns 404 — not silently idempotent.
+      tags: [Journeys]
+      parameters:
+        - $ref: '#/components/parameters/InstallId'
+      responses:
+        "204":
+          description: Journey terminated
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/RequestId'
+        "404":
+          $ref: '#/components/responses/JourneyNotFound'
+        "429":
+          $ref: '#/components/responses/TooManyRequests'
+
+  /journeys/{id}/summary:
+    parameters:
+      - $ref: '#/components/parameters/JourneyId'
+    get:
+      operationId: getJourneySummary
+      summary: Compact status — fast polling path (30s foreground / 90s background tab)
+      tags: [Journeys]
+      parameters:
+        - $ref: '#/components/parameters/InstallId'
+        - in: header
+          name: If-None-Match
+          schema:
+            type: string
+          description: ETag from previous response for conditional fetch
+      responses:
+        "200":
+          description: Journey summary (state changed since last ETag)
+          headers:
+            ETag:
+              schema:
+                type: string
+              description: "Format: <journeyId>:<redisLoadEpoch>:<counter>"
+              example: "jrn_01j2k3m4n5:1749600000:42"
+            Cache-Control:
+              schema:
+                type: string
+              example: "private, no-cache, must-revalidate"
+            X-RateLimit-Limit:
+              $ref: '#/components/headers/RateLimitLimit'
+            X-RateLimit-Remaining:
+              $ref: '#/components/headers/RateLimitRemaining'
+            X-RateLimit-Reset:
+              $ref: '#/components/headers/RateLimitReset'
+            X-Request-Id:
+              $ref: '#/components/headers/RequestId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JourneySummary'
+        "304":
+          description: Not modified — ETag matches, no state change
+          headers:
+            X-RateLimit-Limit:
+              $ref: '#/components/headers/RateLimitLimit'
+            X-RateLimit-Remaining:
+              $ref: '#/components/headers/RateLimitRemaining'
+            X-RateLimit-Reset:
+              $ref: '#/components/headers/RateLimitReset'
+        "404":
+          $ref: '#/components/responses/JourneyNotFound'
+        "429":
+          $ref: '#/components/responses/TooManyRequests'
+
+  /journeys/{id}/legs:
+    parameters:
+      - $ref: '#/components/parameters/JourneyId'
+    get:
+      operationId: getJourneyLegs
+      summary: Leg and stop deltas for Perlschnur timeline
+      description: |
+        Called once on CompanionScreen mount, then again when `alternativeAvailable` flag changes.
+      tags: [Journeys]
+      parameters:
+        - $ref: '#/components/parameters/InstallId'
+        - in: header
+          name: If-None-Match
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Journey legs and stops
+          headers:
+            ETag:
+              schema:
+                type: string
+            Cache-Control:
+              schema:
+                type: string
+              example: "private, no-cache, must-revalidate"
+            X-RateLimit-Limit:
+              $ref: '#/components/headers/RateLimitLimit'
+            X-RateLimit-Remaining:
+              $ref: '#/components/headers/RateLimitRemaining'
+            X-RateLimit-Reset:
+              $ref: '#/components/headers/RateLimitReset'
+            X-Request-Id:
+              $ref: '#/components/headers/RequestId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JourneyLegs'
+        "304":
+          description: Not modified
+          headers:
+            X-RateLimit-Limit:
+              $ref: '#/components/headers/RateLimitLimit'
+            X-RateLimit-Remaining:
+              $ref: '#/components/headers/RateLimitRemaining'
+            X-RateLimit-Reset:
+              $ref: '#/components/headers/RateLimitReset'
+        "404":
+          $ref: '#/components/responses/JourneyNotFound'
+        "429":
+          $ref: '#/components/responses/TooManyRequests'
+
+  /journeys/{id}/alternatives:
+    parameters:
+      - $ref: '#/components/parameters/JourneyId'
+    get:
+      operationId: listAlternatives
+      summary: Current alternatives list (cached)
+      tags: [Journeys]
+      parameters:
+        - $ref: '#/components/parameters/InstallId'
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            default: 5
+            minimum: 1
+            maximum: 20
+          description: Maximum number of alternatives to return
+      responses:
+        "200":
+          description: Alternatives list
+          headers:
+            X-RateLimit-Limit:
+              $ref: '#/components/headers/RateLimitLimit'
+            X-RateLimit-Remaining:
+              $ref: '#/components/headers/RateLimitRemaining'
+            X-RateLimit-Reset:
+              $ref: '#/components/headers/RateLimitReset'
+            X-Request-Id:
+              $ref: '#/components/headers/RequestId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AlternativesList'
+        "404":
+          $ref: '#/components/responses/JourneyNotFound'
+        "429":
+          $ref: '#/components/responses/TooManyRequests'
+    post:
+      operationId: triggerAlternativeComputation
+      summary: Trigger fresh alternative recomputation
+      description: |
+        Triggers a new HAFAS call + BFS routing pass. Returns 202 immediately.
+        Client polls GET /alternatives for results.
+      tags: [Journeys]
+      parameters:
+        - $ref: '#/components/parameters/InstallId'
+      responses:
+        "202":
+          description: Computation triggered
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/RequestId'
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status, pollPath]
+                properties:
+                  status:
+                    type: string
+                    enum: [computing]
+                  pollPath:
+                    type: string
+                    example: "/v1/journeys/jrn_01j2k3m4n5/alternatives"
+        "404":
+          $ref: '#/components/responses/JourneyNotFound'
+        "429":
+          $ref: '#/components/responses/TooManyRequests'
+        "503":
+          $ref: '#/components/responses/ServiceUnavailable'
+
+  /trains/{number}:
+    get:
+      operationId: getTrain
+      summary: Validate train number and return metadata
+      description: |
+        Called from StartScreen before POST /journeys to avoid wasting a journey creation on an invalid train.
+        `number` in path: whitespace-stripped, uppercased. Examples: ICE123, RB27, S3, IRE200.
+      tags: [Trains]
+      parameters:
+        - $ref: '#/components/parameters/InstallId'
+        - in: path
+          name: number
+          required: true
+          schema:
+            type: string
+            pattern: '^[A-Z]+[0-9]+$'
+          description: "Train number — whitespace stripped, uppercased. ICE 123 → ICE123."
+        - in: query
+          name: date
+          schema:
+            type: string
+            format: date
+          description: "ISO 8601 date YYYY-MM-DD. Defaults to today in UTC."
+      responses:
+        "200":
+          description: Train found
+          headers:
+            X-RateLimit-Limit:
+              $ref: '#/components/headers/RateLimitLimit'
+            X-RateLimit-Remaining:
+              $ref: '#/components/headers/RateLimitRemaining'
+            X-RateLimit-Reset:
+              $ref: '#/components/headers/RateLimitReset'
+            X-Request-Id:
+              $ref: '#/components/headers/RequestId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Train'
+              example:
+                trainNumber: "ICE 123"
+                date: "2026-06-10"
+                origin:
+                  id: "8000261"
+                  name: "München Hbf"
+                destination:
+                  id: "8011160"
+                  name: "Berlin Hbf"
+                stops: []
+                status: "running"
+        "404":
+          $ref: '#/components/responses/TrainNotFound'
+        "429":
+          $ref: '#/components/responses/TooManyRequests'
+
+  /stations:
+    get:
+      operationId: searchStations
+      summary: Station name autocomplete (proxied from db.transport.rest, Redis-cached 5min)
+      tags: [Stations]
+      parameters:
+        - $ref: '#/components/parameters/InstallId'
+        - in: query
+          name: q
+          required: true
+          schema:
+            type: string
+            minLength: 2
+          description: "Search query, minimum 2 characters. Prefix + substring match, diacritic-insensitive."
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            default: 10
+            minimum: 1
+            maximum: 50
+          description: Maximum number of results
+      responses:
+        "200":
+          description: "Station results. Empty array when no match — never 404."
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+              example: "public, max-age=300"
+            X-RateLimit-Limit:
+              $ref: '#/components/headers/RateLimitLimit'
+            X-RateLimit-Remaining:
+              $ref: '#/components/headers/RateLimitRemaining'
+            X-RateLimit-Reset:
+              $ref: '#/components/headers/RateLimitReset'
+            X-Request-Id:
+              $ref: '#/components/headers/RequestId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StationList'
+              example:
+                stations:
+                  - id: "8000105"
+                    name: "Frankfurt (Main) Hbf"
+                  - id: "8000104"
+                    name: "Frankfurt (Main) Süd"
+        "400":
+          $ref: '#/components/responses/MalformedRequest'
+        "429":
+          $ref: '#/components/responses/TooManyRequests'
+        "503":
+          $ref: '#/components/responses/ServiceUnavailable'
+
+  /health:
+    get:
+      operationId: healthCheck
+      summary: Liveness probe
+      tags: [Health]
+      responses:
+        "200":
+          description: Service is alive
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status]
+                properties:
+                  status:
+                    type: string
+                    enum: [ok]
+              example:
+                status: "ok"
+        "429":
+          $ref: '#/components/responses/TooManyRequests'
+
+  /readyz:
+    get:
+      operationId: readinessCheck
+      summary: Readiness probe — checks Redis, Postgres, HAFAS connectivity
+      tags: [Health]
+      responses:
+        "200":
+          description: Service is ready
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReadinessResponse'
+        "429":
+          $ref: '#/components/responses/TooManyRequests'
+        "503":
+          description: Service not ready — one or more dependencies unavailable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReadinessResponse'
+
+components:
+  parameters:
+    InstallId:
+      in: header
+      name: X-Install-Id
+      schema:
+        type: string
+        format: uuid
+      description: |
+        UUID v4 device identifier for abuse shaping.
+        Generated on first app launch, stored in IndexedDB + localStorage backup.
+        Falls back to IP-based rate limiting if absent.
+        Not authentication — open API.
+
+    JourneyId:
+      in: path
+      name: id
+      required: true
+      schema:
+        type: string
+        pattern: '^jrn_[0-9a-z]{12,26}$'
+      description: "Journey identifier. Format: jrn_<ulid-style>"
+      example: "jrn_01j2k3m4n5p6q7r8"
+
+  headers:
+    RateLimitLimit:
+      schema:
+        type: integer
+      description: Request limit per window
+      example: 60
+    RateLimitRemaining:
+      schema:
+        type: integer
+      description: Requests remaining in current window
+      example: 47
+    RateLimitReset:
+      schema:
+        type: integer
+      description: Unix timestamp when window resets
+      example: 1749600420
+    RequestId:
+      schema:
+        type: string
+        format: uuid
+      description: Server-generated request ID for log correlation. Echoed in error instance field.
+
+  schemas:
+    CreateJourneyRequest:
+      type: object
+      required: [trainNumber, destination]
+      properties:
+        trainNumber:
+          type: string
+          description: "Train number. Normalized by backend: ICE123 and ICE 123 are identical."
+          example: "ICE 123"
+        destination:
+          type: string
+          description: "HAFAS station ID. Never a name string. Use GET /stations to resolve names."
+          example: "8000105"
+        iAmOnThisTrain:
+          type: boolean
+          default: true
+          description: "User assertion. Backend never rejects based on this; returns plausibility assessment."
+        filters:
+          $ref: '#/components/schemas/JourneyFilters'
+
+    JourneyFilters:
+      type: object
+      properties:
+        dbOnly:
+          type: boolean
+          default: true
+          description: "Filter to DB-operated trains only. Default ON — user-toggleable."
+        maxTransfers:
+          type: [integer, 'null']
+          default: null
+          description: "Maximum transfers. null = no limit."
+        safetyLevel:
+          type: string
+          enum: [aggressive, normal, cautious]
+          default: normal
+          description: |
+            Min transfer buffer thresholds:
+            - aggressive: 3 minutes
+            - normal: 8 minutes
+            - cautious: 15 minutes
+
+    CreateJourneyResponse:
+      type: object
+      required: [journeyId, plausibility, summary, alternatives]
+      properties:
+        journeyId:
+          type: string
+          pattern: '^jrn_[0-9a-z]{12,26}$'
+          example: "jrn_01j2k3m4n5p6q7r8"
+        plausibility:
+          $ref: '#/components/schemas/Plausibility'
+        summary:
+          $ref: '#/components/schemas/JourneySummary'
+        alternatives:
+          type: array
+          items:
+            $ref: '#/components/schemas/Alternative'
+
+    Plausibility:
+      type: object
+      required: [onTrainConfidence]
+      properties:
+        onTrainConfidence:
+          type: string
+          enum: [high, low, unknown]
+          description: |
+            - high: train is running and destination is a valid future stop
+            - low: train has passed destination or has no realtime data
+            - unknown: train data unavailable from HAFAS
+        reason:
+          type: [string, 'null']
+          description: Human-readable reason when confidence is not high
+
+    JourneySummary:
+      type: object
+      required: [eta, status, criticalTransfer, alternativeAvailable, dataFetchedAt, lastUpdatedAt]
+      properties:
+        eta:
+          type: string
+          format: date-time
+          description: "Estimated arrival at destination. UTC ISO 8601."
+          example: "2026-06-10T17:24:00Z"
+        status:
+          type: string
+          enum: [ok, critical, failed]
+          description: |
+            - ok: journey stable, all transfers safe
+            - critical: at least one transfer tight or strong delay
+            - failed: route no longer continuable (cancelled leg, missed connection, no onward service)
+        timeGainVsOriginalMinutes:
+          type: [integer, 'null']
+          description: "Minutes saved vs. original train ETA. Null when on original train."
+        timeGainVsCurrentRouteMinutes:
+          type: [integer, 'null']
+          description: "Minutes saved vs. previously active route. Null if no prior alternative selected."
+        minTransferBufferMinutes:
+          type: [integer, 'null']
+          description: "Smallest transfer buffer across all transfers in current route."
+        criticalTransfer:
+          type: boolean
+          description: "True if at least one transfer is below the safety level threshold."
+        alternativeAvailable:
+          type: boolean
+          description: "True if a better (earlier ETA) alternative exists."
+        dataConfidence:
+          type: string
+          enum: [high, low, unavailable]
+          description: |
+            HAFAS data quality for this journey.
+            - high: full realtime data present for all active legs
+            - low: realtime partially missing or older than 5 minutes
+            - unavailable: no realtime data in HAFAS response
+            Frontend shows a data-freshness indicator when not "high".
+        nextStep:
+          oneOf:
+            - $ref: '#/components/schemas/NextStep'
+            - type: 'null'
+          description: "Null when journey is complete."
+        dataFetchedAt:
+          type: string
+          format: date-time
+          description: "When backend last successfully fetched HAFAS data. UTC ISO 8601."
+        lastUpdatedAt:
+          type: string
+          format: date-time
+          description: "When ETag last changed (state change). UTC ISO 8601."
+
+    NextStep:
+      type: object
+      required: [type, stationName, stationId]
+      properties:
+        type:
+          type: string
+          enum: [ride, transfer, disembark]
+          description: |
+            - ride: currently on a train, no action needed
+            - transfer: upcoming transfer — details required
+            - disembark: final destination, get off the train
+        stationName:
+          type: string
+          example: "Kassel Hbf"
+        stationId:
+          type: string
+          description: HAFAS station ID
+          example: "8000294"
+        trainNumber:
+          type: [string, 'null']
+          description: "Train to board. Null for disembark."
+          example: "RE 4321"
+        platform:
+          type: [string, 'null']
+          description: "Departure platform when known."
+          example: "5"
+        departureTime:
+          type: [string, 'null']
+          format: date-time
+          description: "Departure of connecting train. UTC ISO 8601. Null for ride/disembark."
+        bufferMinutes:
+          type: [integer, 'null']
+          description: "Minutes between arrival and departure at transfer point."
+
+    Journey:
+      type: object
+      required: [journeyId, summary, legs, stops]
+      properties:
+        journeyId:
+          type: string
+          pattern: '^jrn_[0-9a-z]{12,26}$'
+        summary:
+          $ref: '#/components/schemas/JourneySummary'
+        legs:
+          type: array
+          items:
+            $ref: '#/components/schemas/Leg'
+        stops:
+          type: array
+          items:
+            $ref: '#/components/schemas/Stop'
+
+    JourneyLegs:
+      type: object
+      required: [legs, stops]
+      properties:
+        legs:
+          type: array
+          items:
+            $ref: '#/components/schemas/Leg'
+        stops:
+          type: array
+          items:
+            $ref: '#/components/schemas/Stop'
+
+    Leg:
+      type: object
+      required: [legId, vehicleNumber, lineName, operator, departureTimePlanned, arrivalTimePlanned, status, isWalkingSegment]
+      properties:
+        legId:
+          type: string
+        vehicleNumber:
+          type: string
+          example: "ICE 123"
+        lineName:
+          type: string
+          example: "ICE 123"
+        operator:
+          type: string
+          description: "HAFAS operator string. Empirically verified against db.transport.rest."
+          example: "DB Fernverkehr AG"
+        departureTimePlanned:
+          type: string
+          format: date-time
+        departureTimeActual:
+          type: [string, 'null']
+          format: date-time
+        arrivalTimePlanned:
+          type: string
+          format: date-time
+        arrivalTimeActual:
+          type: [string, 'null']
+          format: date-time
+        delayMinutes:
+          type: [integer, 'null']
+        platformPlanned:
+          type: [string, 'null']
+        platformActual:
+          type: [string, 'null']
+        status:
+          type: string
+          enum: [planned, running, delayed, cancelled]
+        isWalkingSegment:
+          type: boolean
+          default: false
+
+    Stop:
+      type: object
+      required: [stationId, stationName, arrivalTimePlanned]
+      properties:
+        stationId:
+          type: string
+          example: "8000294"
+        stationName:
+          type: string
+          example: "Kassel Hbf"
+        arrivalTimePlanned:
+          type: string
+          format: date-time
+        arrivalTimeActual:
+          type: [string, 'null']
+          format: date-time
+        departureTimePlanned:
+          type: [string, 'null']
+          format: date-time
+        departureTimeActual:
+          type: [string, 'null']
+          format: date-time
+        delayMinutes:
+          type: [integer, 'null']
+        platformPlanned:
+          type: [string, 'null']
+        platformActual:
+          type: [string, 'null']
+        transferBufferMinutes:
+          type: [integer, 'null']
+          description: "Buffer at this stop if a transfer occurs here."
+
+    Alternative:
+      type: object
+      required: [journeyId, summary, legs]
+      properties:
+        journeyId:
+          type: string
+          pattern: '^jrn_[0-9a-z]{12,26}$'
+        summary:
+          $ref: '#/components/schemas/JourneySummary'
+        legs:
+          type: array
+          items:
+            $ref: '#/components/schemas/Leg'
+
+    AlternativesList:
+      type: object
+      required: [data]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Alternative'
+        totalCount:
+          type: [integer, 'null']
+          description: "Total alternatives found, may exceed returned list size."
+
+    Train:
+      type: object
+      required: [trainNumber, date, origin, destination, status]
+      properties:
+        trainNumber:
+          type: string
+          example: "ICE 123"
+        date:
+          type: string
+          format: date
+          example: "2026-06-10"
+        origin:
+          $ref: '#/components/schemas/StationRef'
+        destination:
+          $ref: '#/components/schemas/StationRef'
+        stops:
+          type: array
+          items:
+            $ref: '#/components/schemas/StationRef'
+          description: "All stops including origin and destination."
+        status:
+          type: string
+          enum: [planned, running, delayed, cancelled]
+
+    StationRef:
+      type: object
+      required: [id, name]
+      properties:
+        id:
+          type: string
+          description: HAFAS station ID
+          example: "8000105"
+        name:
+          type: string
+          example: "Frankfurt (Main) Hbf"
+
+    StationList:
+      type: object
+      required: [stations]
+      properties:
+        stations:
+          type: array
+          items:
+            $ref: '#/components/schemas/StationRef'
+          description: "Empty array when no match. Never 404 for missing results."
+
+    ReadinessResponse:
+      type: object
+      required: [status, checks]
+      properties:
+        status:
+          type: string
+          enum: [ok, degraded, unavailable]
+        checks:
+          type: object
+          required: [redis, postgres, hafas]
+          properties:
+            redis:
+              type: string
+              enum: [ok, error]
+            postgres:
+              type: string
+              enum: [ok, error]
+            hafas:
+              type: string
+              enum: [ok, error]
+
+    Problem:
+      type: object
+      required: [type, title, status]
+      description: "RFC 7807 Problem Details. type is a stable URN identifier, not a dereferenceable URL."
+      properties:
+        type:
+          type: string
+          description: "URN error identifier. Format: urn:vbb:error:<slug>"
+          example: "urn:vbb:error:train-not-found"
+        title:
+          type: string
+          example: "Train Not Found"
+        status:
+          type: integer
+          example: 404
+        detail:
+          type: string
+          description: Human-readable, actionable error description.
+          example: "Train ICE 123 does not operate on 2026-06-10."
+        instance:
+          type: string
+          description: "Request path + X-Request-Id for log correlation."
+          example: "/v1/trains/ICE123"
+        errors:
+          type: array
+          description: "Field-level validation errors. Present on 422 responses only."
+          items:
+            type: object
+            required: [field, message]
+            properties:
+              field:
+                type: string
+                example: "destination"
+              message:
+                type: string
+                example: "Must be a valid HAFAS station ID."
+
+  responses:
+    MalformedRequest:
+      description: "Malformed request — unparseable JSON or missing Content-Type"
+      headers:
+        X-Request-Id:
+          $ref: '#/components/headers/RequestId'
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+          example:
+            type: "urn:vbb:error:malformed-request"
+            title: "Malformed Request"
+            status: 400
+            detail: "Request body is not valid JSON."
+            instance: "/v1/journeys"
+
+    ValidationError:
+      description: "Semantic validation failure — valid JSON but invalid field values"
+      headers:
+        X-Request-Id:
+          $ref: '#/components/headers/RequestId'
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+          example:
+            type: "urn:vbb:error:validation-error"
+            title: "Validation Error"
+            status: 422
+            detail: "Request body has invalid fields."
+            instance: "/v1/journeys"
+            errors:
+              - field: "destination"
+                message: "Must be a valid HAFAS station ID."
+              - field: "filters.safetyLevel"
+                message: "Must be one of: aggressive, normal, cautious."
+
+    TrainNotFound:
+      description: Train not found for this date
+      headers:
+        X-Request-Id:
+          $ref: '#/components/headers/RequestId'
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+          example:
+            type: "urn:vbb:error:train-not-found"
+            title: "Train Not Found"
+            status: 404
+            detail: "Train ICE 123 does not operate on 2026-06-10."
+            instance: "/v1/trains/ICE123"
+
+    JourneyNotFound:
+      description: Journey not found or expired
+      headers:
+        X-Request-Id:
+          $ref: '#/components/headers/RequestId'
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+          example:
+            type: "urn:vbb:error:journey-not-found"
+            title: "Journey Not Found"
+            status: 404
+            detail: "Journey jrn_01j2k3m4n5 does not exist or has expired."
+            instance: "/v1/journeys/jrn_01j2k3m4n5"
+
+    IdempotencyConflict:
+      description: "Idempotency-Key reused with different request body"
+      headers:
+        X-Request-Id:
+          $ref: '#/components/headers/RequestId'
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+          example:
+            type: "urn:vbb:error:idempotency-conflict"
+            title: "Idempotency Conflict"
+            status: 409
+            detail: "Idempotency-Key was already used with a different request body."
+
+    TooManyRequests:
+      description: Rate limit exceeded
+      headers:
+        Retry-After:
+          schema:
+            type: integer
+          description: "Seconds to wait. Client should apply exponential backoff: min(Retry-After × 2^n, 300)."
+        X-Request-Id:
+          $ref: '#/components/headers/RequestId'
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+          example:
+            type: "urn:vbb:error:rate-limit-exceeded"
+            title: "Rate Limit Exceeded"
+            status: 429
+
+    ServiceUnavailable:
+      description: "Backend dependency unavailable (db.transport.rest unreachable or MAX_ACTIVE_JOURNEYS capacity reached)"
+      headers:
+        X-Request-Id:
+          $ref: '#/components/headers/RequestId'
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+          example:
+            type: "urn:vbb:error:upstream-unavailable"
+            title: "Service Unavailable"
+            status: 503
+
+    InternalError:
+      description: Unexpected server error
+      headers:
+        X-Request-Id:
+          $ref: '#/components/headers/RequestId'
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+          example:
+            type: "urn:vbb:error:internal-error"
+            title: "Internal Server Error"
+            status: 500
+            detail: "An unexpected error occurred."

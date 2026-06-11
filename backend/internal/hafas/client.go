@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"net/url"
 	"sync"
@@ -95,7 +96,8 @@ func (c *Client) CircuitState() int {
 	return int(c.cb.state)
 }
 
-// RecordFailureForTest exposes circuit breaker failure recording for unit tests only.
+// RecordFailureForTest is exported for use in external test packages (hafas_test).
+// Not part of the production API — do not call from non-test code.
 func (c *Client) RecordFailureForTest() {
 	c.cb.recordFailure()
 }
@@ -206,12 +208,15 @@ func (c *Client) get(ctx context.Context, path string, params url.Values, out an
 	if err != nil {
 		return fmt.Errorf("hafas fetch: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		io.Copy(io.Discard, resp.Body) // drain so connection can be reused
+		resp.Body.Close()
+	}()
 	if resp.StatusCode >= 500 {
 		return fmt.Errorf("%w: HTTP %d", ErrUpstreamUnavailable, resp.StatusCode)
 	}
 	if resp.StatusCode >= 400 {
 		return fmt.Errorf("hafas error: HTTP %d", resp.StatusCode)
 	}
-	return json.NewDecoder(resp.Body).Decode(out)
+	return json.NewDecoder(io.LimitReader(resp.Body, 4<<20)).Decode(out)
 }

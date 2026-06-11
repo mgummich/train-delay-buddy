@@ -46,6 +46,17 @@ func (rl *RateLimiter) Allow(key string) bool {
 	return e.lim.Allow()
 }
 
+// Remaining returns the approximate remaining token count for key.
+// Returns burst capacity for keys not yet seen.
+func (rl *RateLimiter) Remaining(key string) int {
+	rl.mu.Lock()
+	defer rl.mu.Unlock()
+	if e, ok := rl.entries[key]; ok {
+		return int(e.lim.Tokens())
+	}
+	return rl.burst
+}
+
 // Cleanup removes entries not seen in the last olderThan duration.
 func (rl *RateLimiter) Cleanup(olderThan time.Duration) {
 	rl.mu.Lock()
@@ -65,18 +76,22 @@ func RateLimit(installLimiter, ipLimiter *RateLimiter, perInstallLimit, perIPLim
 			installID := r.Header.Get("X-Install-Id")
 
 			var allowed bool
-			var limit int
+			var limit, remaining int
 			if installID != "" {
 				allowed = installLimiter.Allow(installID)
+				remaining = installLimiter.Remaining(installID)
 				limit = perInstallLimit
 			} else {
-				allowed = ipLimiter.Allow(realIP(r))
+				ip := realIP(r)
+				allowed = ipLimiter.Allow(ip)
+				remaining = ipLimiter.Remaining(ip)
 				limit = perIPLimit
 			}
 
 			reset := nextMinuteUnix()
 			w.Header().Set("X-RateLimit-Limit", strconv.Itoa(limit))
 			w.Header().Set("X-RateLimit-Reset", strconv.FormatInt(reset, 10))
+			w.Header().Set("X-RateLimit-Remaining", strconv.Itoa(remaining))
 
 			if !allowed {
 				w.Header().Set("Retry-After", "30")
@@ -89,7 +104,6 @@ func RateLimit(installLimiter, ipLimiter *RateLimiter, perInstallLimit, perIPLim
 				return
 			}
 
-			w.Header().Set("X-RateLimit-Remaining", strconv.Itoa(limit))
 			next.ServeHTTP(w, r)
 		})
 	}

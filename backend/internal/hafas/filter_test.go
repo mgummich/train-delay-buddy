@@ -72,3 +72,12 @@ func TestIsDBOnlyJourney_NilOperatorFails(t *testing.T) {
 		t.Error("nil operator: expected false (conservative reject)")
 	}
 }
+
+func TestIsDBOnlyJourney_EmptyLegsReturnsFalse(t *testing.T) {
+	if hafas.IsDBOnlyJourney(nil) {
+		t.Error("nil legs: expected false (unclassifiable)")
+	}
+	if hafas.IsDBOnlyJourney([]hafas.HAFASLeg{}) {
+		t.Error("empty legs: expected false (unclassifiable)")
+	}
+}

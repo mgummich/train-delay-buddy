@@ -39,6 +39,7 @@ func (h *TrainsHandler) Get(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// TODO(plan3): coalesce concurrent requests on normalized+date key
 	trips, err := h.hafas.SearchTrips(r.Context(), normalized, 5)
 	if err != nil {
 		problem.Write(w, r, problem.Problem{
@@ -61,6 +62,6 @@ func (h *TrainsHandler) Get(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	resp := hafas.MapTripToTrainResponse(filtered[0], date)
+	resp := hafas.MapTripToTrainResponse(filtered[0], date, time.Now())
 	writeJSON(w, http.StatusOK, resp)
 }

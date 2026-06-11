@@ -98,3 +98,20 @@ func TestRateLimit_Middleware_FallsBackToIPWhenNoInstallId(t *testing.T) {
 		t.Fatal("second IP call must be 429 (IP burst=1)")
 	}
 }
+
+func TestRateLimiter_RemainingDecrements(t *testing.T) {
+	rl := middleware.NewRateLimiter(10) // burst = 10
+	rl.Allow("u")
+	rl.Allow("u")
+	remaining := rl.Remaining("u")
+	if remaining >= 10 {
+		t.Errorf("Remaining should be < 10 after 2 allows, got %d", remaining)
+	}
+}
+
+func TestRateLimiter_RemainingUnseenKeyReturnsBurst(t *testing.T) {
+	rl := middleware.NewRateLimiter(60)
+	if got := rl.Remaining("never-seen"); got != 60 {
+		t.Errorf("unseen key: expected burst=60, got %d", got)
+	}
+}
