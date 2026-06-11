@@ -6,7 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"log"
+	"log/slog"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -100,15 +100,17 @@ type RedisPostgresStore struct {
 	rdb      *redis.Client
 	ttl      time.Duration
 	writeTTL time.Duration
+	log      *slog.Logger
 }
 
 // NewStore creates a RedisPostgresStore with the given dependencies.
-func NewStore(db *pgxpool.Pool, rdb *redis.Client, ttlHours int, writeTimeout time.Duration) *RedisPostgresStore {
+func NewStore(db *pgxpool.Pool, rdb *redis.Client, ttlHours int, writeTimeout time.Duration, log *slog.Logger) *RedisPostgresStore {
 	return &RedisPostgresStore{
 		db:       db,
 		rdb:      rdb,
 		ttl:      time.Duration(ttlHours) * time.Hour,
 		writeTTL: writeTimeout,
+		log:      log,
 	}
 }
 
@@ -314,7 +316,7 @@ func (s *RedisPostgresStore) Terminate(ctx context.Context, id string) error {
 	if _, err := pipe.Exec(ctx); err != nil {
 		// Redis eviction failed but Postgres is the source of truth — journey is terminated.
 		// Log and continue; next Get will miss Redis and read the terminated row from Postgres.
-		log.Printf("store.Terminate: redis eviction failed (non-fatal): %v", err)
+		s.log.Warn("store.Terminate: redis eviction failed (non-fatal)", "error", err, "journeyId", id)
 	}
 	return nil
 }
@@ -324,7 +326,7 @@ func (s *RedisPostgresStore) GetActive(ctx context.Context, ttlHours int) ([]Jou
 	rows, err := s.db.Query(ctx, `
 		SELECT id, install_id, train_number, destination_id, destination_name,
 		       filters_json, summary_json, legs_json, stops_json,
-		       etag_counter, created_at, last_polled_at
+		       etag_counter, etag_epoch, created_at, last_polled_at
 		FROM journeys
 		WHERE terminated_at IS NULL
 		  AND created_at > now() - ($1 || ' hours')::interval
@@ -344,7 +346,7 @@ func (s *RedisPostgresStore) GetActive(ctx context.Context, ttlHours int) ([]Jou
 			&j.ID, &j.InstallID, &j.TrainNumber,
 			&j.Destination.ID, &j.Destination.Name,
 			&filtersJSON, &summaryJSON, &legsJSON, &stopsJSON,
-			&j.ETagCounter, &j.CreatedAt, &j.LastPolledAt,
+			&j.ETagCounter, &j.ETagEpoch, &j.CreatedAt, &j.LastPolledAt,
 		); err != nil {
 			return nil, err
 		}
@@ -369,7 +371,10 @@ func (s *RedisPostgresStore) CountActive(ctx context.Context) (int, error) {
 func (s *RedisPostgresStore) GetIdempotency(ctx context.Context, key string) (*IdempotencyEntry, error) {
 	raw, err := s.rdb.Get(ctx, idempKey(key)).Bytes()
 	if err != nil {
-		return nil, nil // not found = no entry
+		if errors.Is(err, redis.Nil) {
+			return nil, nil // cache miss — no entry
+		}
+		return nil, fmt.Errorf("store.GetIdempotency redis: %w", err)
 	}
 	var entry IdempotencyEntry
 	if err := json.Unmarshal(raw, &entry); err != nil {
