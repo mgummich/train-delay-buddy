@@ -133,7 +133,7 @@ func MapHAFASJourney(
 ) journey.Journey {
 	legs := mapLegs(hj.Legs, now)
 	stops := collectStops(hj.Legs)
-	summary := computeSummary(legs, destination, filters, originalETA, now)
+	summary := journey.ComputeSummary(legs, destination, filters, originalETA, now)
 
 	return journey.Journey{
 		ID:          id,
@@ -257,175 +257,11 @@ func inferLegStatus(hl HAFASLeg, now time.Time) journey.LegStatus {
 	return journey.LegStatusPlanned
 }
 
-func computeSummary(legs []journey.Leg, destination journey.StationRef, filters journey.Filters, originalETA *time.Time, now time.Time) journey.Summary {
-	if len(legs) == 0 {
-		return journey.Summary{}
-	}
-	first := legs[0]
-	last := legs[len(legs)-1]
-
-	eta := last.ArrivalTimePlanned
-	if last.ArrivalTimeActual != nil {
-		eta = *last.ArrivalTimeActual
-	}
-
-	minBuf := computeMinTransferBuffer(legs)
-	threshold := journey.SafetyThresholdMinutes(filters.SafetyLevel)
-	criticalTransfer := minBuf != nil && *minBuf < threshold
-
-	var timeGain *int
-	if originalETA != nil {
-		g := int(originalETA.Sub(eta).Minutes())
-		timeGain = &g
-	}
-
-	fromStation := ""
-	if len(first.Stops) > 0 {
-		fromStation = first.Stops[0].StationName
-	}
-
-	return journey.Summary{
-		FromStation:               fromStation,
-		FromTime:                  first.DepartureTimePlanned,
-		ToStation:                 destination.Name,
-		ToTime:                    last.ArrivalTimePlanned,
-		ETA:                       eta,
-		TimeGainVsOriginalMinutes: timeGain,
-		MinTransferBufferMinutes:  minBuf,
-		Status:                    computeStatus(legs, criticalTransfer),
-		CriticalTransfer:          criticalTransfer,
-		DataConfidence:            computeDataConfidence(legs),
-		NextStep:                  computeNextStep(legs, now, destination.ID),
-		DataFetchedAt:             now,
-		LastUpdatedAt:             now,
-	}
-}
-
-func computeMinTransferBuffer(legs []journey.Leg) *int {
-	var minBuf *int
-	for i := 0; i < len(legs)-1; i++ {
-		curr, next := legs[i], legs[i+1]
-		currArr := firstNonNilTime(curr.ArrivalTimeActual, &curr.ArrivalTimePlanned)
-		nextDep := firstNonNilTime(next.DepartureTimeActual, &next.DepartureTimePlanned)
-		if currArr == nil || nextDep == nil {
-			continue
-		}
-		buf := int(nextDep.Sub(*currArr).Minutes())
-		if minBuf == nil || buf < *minBuf {
-			b := buf
-			minBuf = &b
-		}
-	}
-	return minBuf
-}
-
-func computeStatus(legs []journey.Leg, criticalTransfer bool) journey.Status {
-	for _, leg := range legs {
-		if leg.Status == journey.LegStatusCancelled {
-			return journey.StatusFailed
-		}
-	}
-	if criticalTransfer {
-		return journey.StatusCritical
-	}
-	for _, leg := range legs {
-		if leg.Status == journey.LegStatusDelayed {
-			return journey.StatusCritical
-		}
-	}
-	return journey.StatusOK
-}
-
-func computeDataConfidence(legs []journey.Leg) journey.DataConfidence {
-	hasRealtime, missing := false, false
-	for _, leg := range legs {
-		if leg.DepartureTimeActual != nil || leg.ArrivalTimeActual != nil {
-			hasRealtime = true
-		} else {
-			missing = true
-		}
-	}
-	if hasRealtime && !missing {
-		return journey.DataConfidenceHigh
-	}
-	if hasRealtime {
-		return journey.DataConfidenceLow
-	}
-	return journey.DataConfidenceUnavailable
-}
-
-func computeNextStep(legs []journey.Leg, now time.Time, destinationID string) *journey.NextStep {
-	for i, leg := range legs {
-		dep := firstNonNilTime(leg.DepartureTimeActual, &leg.DepartureTimePlanned)
-		arr := firstNonNilTime(leg.ArrivalTimeActual, &leg.ArrivalTimePlanned)
-		if dep == nil || arr == nil {
-			continue
-		}
-		// Currently riding this leg
-		if now.After(*dep) && now.Before(*arr) {
-			if i+1 < len(legs) {
-				next := legs[i+1]
-				nextDep := firstNonNilTime(next.DepartureTimeActual, &next.DepartureTimePlanned)
-				buf := 0
-				if arr != nil && nextDep != nil {
-					buf = int(nextDep.Sub(*arr).Minutes())
-				}
-				transferStation := ""
-				transferStationID := ""
-				if len(leg.Stops) > 0 {
-					last := leg.Stops[len(leg.Stops)-1]
-					transferStation = last.StationName
-					transferStationID = last.StationID
-				}
-				tn := next.VehicleNumber
-				return &journey.NextStep{
-					Type:          journey.NextStepTransfer,
-					StationName:   transferStation,
-					StationID:     transferStationID,
-					TrainNumber:   &tn,
-					DepartureTime: nextDep,
-					BufferMinutes: &buf,
-					Platform:      next.PlatformActual,
-				}
-			}
-			// On last leg — disembark
-			dest := ""
-			destID := destinationID
-			if len(leg.Stops) > 0 {
-				last := leg.Stops[len(leg.Stops)-1]
-				dest = last.StationName
-			}
-			return &journey.NextStep{Type: journey.NextStepDisembark, StationName: dest, StationID: destID}
-		}
-		// Hasn't departed yet — ride
-		if now.Before(*dep) {
-			tn := leg.VehicleNumber
-			origin := ""
-			originID := ""
-			if len(leg.Stops) > 0 {
-				origin = leg.Stops[0].StationName
-				originID = leg.Stops[0].StationID
-			}
-			return &journey.NextStep{
-				Type:        journey.NextStepRide,
-				StationName: origin,
-				StationID:   originID,
-				TrainNumber: &tn,
-			}
-		}
-	}
-	return nil
-}
-
 func firstNonNil(a, b *time.Time) *time.Time {
 	if a != nil {
 		return a
 	}
 	return b
-}
-
-func firstNonNilTime(a, b *time.Time) *time.Time {
-	return firstNonNil(a, b)
 }
 
 func firstNonNilStr(a, b *string) *string {

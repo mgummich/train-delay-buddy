@@ -191,6 +191,7 @@ func (c *Client) GetTrip(ctx context.Context, tripID string) (*HAFASTrip, error)
 	return &resp.Trip, nil
 }
 
+
 func (c *Client) get(ctx context.Context, path string, params url.Values, out any) error {
 	u := c.baseURL + path
 	if len(params) > 0 {
