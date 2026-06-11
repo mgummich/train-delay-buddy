@@ -23,7 +23,9 @@ func CORS(origins []string) func(http.Handler) http.Handler {
 					"ETag, X-Request-Id, X-RateLimit-Limit, X-RateLimit-Remaining, X-RateLimit-Reset, Location")
 			}
 			if r.Method == http.MethodOptions {
-				w.WriteHeader(http.StatusNoContent)
+				if allowed[origin] {
+					w.WriteHeader(http.StatusNoContent)
+				}
 				return
 			}
 			next.ServeHTTP(w, r)
