@@ -58,12 +58,15 @@ func (h *HealthHandler) Readiness(w http.ResponseWriter, r *http.Request) {
 		req, _ := http.NewRequestWithContext(ctx, http.MethodGet,
 			h.hafasBaseURL+"/stations?query=test&results=1", nil)
 		resp, err := http.DefaultClient.Do(req)
-		if err != nil || resp.StatusCode >= 500 {
+		if err != nil {
 			checks["hafas"] = "error"
 			overall = "degraded"
-		}
-		if resp != nil {
+		} else {
 			resp.Body.Close()
+			if resp.StatusCode >= 500 {
+				checks["hafas"] = "error"
+				overall = "degraded"
+			}
 		}
 	}
 

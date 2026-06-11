@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -36,7 +37,9 @@ func main() {
 	}
 	defer db.Close()
 
-	if err := migrate.Run(context.Background(), db, cfg.MigrationsDir); err != nil {
+	migrateCtx, migrateCancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer migrateCancel()
+	if err := migrate.Run(migrateCtx, db, cfg.MigrationsDir); err != nil {
 		logger.Error("migration failed", "error", err)
 		os.Exit(1)
 	}
@@ -110,7 +113,7 @@ func connectDB(ctx context.Context, cfg config.Config) (*pgxpool.Pool, error) {
 
 func newLogger(level string) *slog.Logger {
 	var l slog.Level
-	switch level {
+	switch strings.ToUpper(level) {
 	case "DEBUG":
 		l = slog.LevelDebug
 	case "WARN":
