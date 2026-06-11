@@ -37,7 +37,7 @@ React 19 + TypeScript PWA split into 4 sequential implementation plans. Each pla
 | `frontend/src/store/journeyStore.ts` | Zustand slice: `journeyId`, `etag`, `status`, `alternativeAvailable` |
 | `frontend/src/store/installStore.ts` | Zustand slice: `installId`, `filters` (persisted to localStorage) |
 | `frontend/src/store/uiStore.ts` | Zustand slice: `confirmDialogOpen`, `toasts` |
-| `frontend/src/hooks/useOfflineState.ts` | Async IndexedDB read → Zustand hydration; must resolve before RouterProvider renders |
+| `frontend/src/hooks/useOfflineState.ts` | Async IndexedDB read → Zustand hydration; must resolve before RouterProvider renders. Implemented as `use(indexedDBReadPromise)` inside a `<OfflineStateLoader>` component that wraps RouterProvider in a Suspense boundary — NOT a plain `useEffect+useState` (which does not block render). |
 | `frontend/src/router.tsx` | React Router 6.4 routes; 3 routes wired with stub components; error boundaries per route |
 | `frontend/src/main.tsx` | QueryClientProvider + RouterProvider; `useOfflineState` Suspense boundary wraps RouterProvider |
 | `frontend/src/screens/StartScreen.tsx` | Shell only — returns placeholder div |
@@ -59,10 +59,15 @@ typecheck   → tsc --noEmit
 lint        → eslint + prettier --check
 test        → vitest run
 build       → vite build
-size-limit  → fail if JS bundle > 150KB gzipped
+size-limit  → fail if initial JS chunk > 200KB gzipped (see note below)
 codegen:check → openapi-typescript --check (fail if types out of sync with openapi.yaml)
 test:e2e    → playwright test (stub — no tests yet)
 ```
+
+**Bundle budget note:** The full dependency set (React 19 ~40KB + React Router ~20KB + TanStack Query ~13KB + react-hook-form ~13KB + Zod ~12KB + i18next ~20KB + openapi-fetch ~4KB + Zustand ~2KB) totals ~124KB gzipped before app code. Budget is 200KB for the initial chunk. Achieve this via:
+- `React.lazy()` on all 3 screen components — screens load only when navigated to
+- Vite's built-in route-based code splitting: each `screens/*.tsx` becomes its own chunk
+- shadcn/ui components are tree-shaken by Vite — only imported primitives are bundled
 
 **shadcn/ui init:** Run `npx shadcn-ui@latest init` targeting Radix + Tailwind. Add: Dialog, Sheet, Switch, Toast, Popover, Badge, Button, Skeleton.
 
@@ -122,6 +127,7 @@ All time/number values: `font-variant-numeric: tabular-nums; white-space: nowrap
   --radius-card: 14px;
   --radius-sheet: 22px;
   --radius-btn: 12px;
+  --radius-badge: 999px;
 
   /* Shadows */
   --shadow-card: 0 1px 2px rgba(31,35,41,.04), 0 4px 16px rgba(31,35,41,.06);
@@ -167,12 +173,18 @@ All time/number values: `font-variant-numeric: tabular-nums; white-space: nowrap
   0%, 100% { opacity: 1; }
   50% { opacity: 0.3; }
 }
-.vb-pulse { animation: vb-pulse 2.4s ease-in-out infinite; }
-.vb-blink { animation: vb-blink 1.6s ease-in-out infinite; }
+@keyframes vb-train-scroll {
+  0%   { top: 20%; }
+  100% { top: 80%; }
+}
+.vb-pulse  { animation: vb-pulse 2.4s ease-in-out infinite; }
+.vb-blink  { animation: vb-blink 1.6s ease-in-out infinite; }
+/* .vb-train applied to the 24px train marker inside active leg rail */
+.vb-train  { animation: vb-train-scroll 3s linear infinite; }
 .tnum { font-variant-numeric: tabular-nums; white-space: nowrap; }
 
 @media (prefers-reduced-motion: reduce) {
-  .vb-pulse, .vb-blink { animation: none; }
+  .vb-pulse, .vb-blink, .vb-train { animation: none; }
 }
 ```
 
@@ -181,8 +193,8 @@ All time/number values: `font-variant-numeric: tabular-nums; white-space: nowrap
 theme: {
   extend: {
     fontFamily: {
-      display: 'var(--font-display)',
-      body: 'var(--font-body)',
+      display: ['var(--font-display)'],
+      body: ['var(--font-body)'],
     },
     colors: {
       'bg-app': 'var(--bg-app)',
@@ -207,6 +219,7 @@ theme: {
       'card': 'var(--radius-card)',
       'sheet': 'var(--radius-sheet)',
       'btn': 'var(--radius-btn)',
+      'badge': 'var(--radius-badge)',
     },
     boxShadow: {
       'card': 'var(--shadow-card)',
@@ -265,11 +278,14 @@ Browsers without View Transitions API fall through to normal navigation — no e
 | `/settings` | SettingsScreen stub (V2 full impl) | `<FullPageError />` |
 
 **Hydration order (cold start):**
-1. `main.tsx` renders App — `useOfflineState` awaits IndexedDB read via Suspense
-2. If journey found: hydrate Zustand `journeyStore` with `journeyId` + ETag
-3. React Router renders; loaders fire `queryClient.ensureQueryData(...)`
-4. TanStack Query reads primed cache, starts polling
-5. If loader 404 + IndexedDB empty → redirect to `/`
+1. `main.tsx` renders `<Suspense fallback={null}><OfflineStateLoader /></Suspense>`
+2. `OfflineStateLoader` calls `use(readIndexedDB())` — React 19's `use()` suspends until the promise resolves; Suspense fallback renders in the meantime
+3. On resolve: hydrate Zustand `journeyStore` with `journeyId` + ETag (if found), then render `<RouterProvider />`
+4. React Router renders; loaders fire `queryClient.ensureQueryData(...)`
+5. TanStack Query reads primed cache, starts polling
+6. If loader 404 + IndexedDB empty → redirect to `/`
+
+Do **not** use `useEffect + useState` for this — it does not block render and breaks the hydration guarantee.
 
 ---
 
@@ -303,7 +319,11 @@ Browsers without View Transitions API fall through to normal navigation — no e
 **Input component spec:**
 - Height: 48px, width: 100%, `radius-input` (10px), 1.5px `border-strong`
 - Default: bg `bg-card`
-- Focus: border `accent`, box-shadow `0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent)`
+- Focus: border `accent`, box-shadow with `color-mix()` + rgba fallback for Safari < 16.2:
+  ```css
+  box-shadow: 0 0 0 3px rgba(15,118,110,.18);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent);
+  ```
 - Error: border `warn`, error text faint 12.5 below field
 - Leading icon 18px (train icon for Zugnummer, pin icon for Zielbahnhof)
 
@@ -313,7 +333,7 @@ Browsers without View Transitions API fall through to normal navigation — no e
 - Destination: autocomplete via `useStationSearch`; selection stores HAFAS station ID; validate on submit only
 - `POST /v1/journeys` 422 `errors[]`: map backend field names → `setError()` on form fields
 - Submit button disabled while train validation or POST inflight
-- `Idempotency-Key` (UUID v4) generated per submit attempt; injected in `client.ts`
+- `Idempotency-Key` (UUID v4) generated in the form submit handler (per-submit, not per-request); passed as a request header option to the typed API call — NOT auto-injected by `client.ts` (which would reuse the same key across retries, defeating idempotency semantics)
 
 **Toggle "Ich sitze in diesem Zug" (design wording):**
 - Default ON; subtext "Wir nehmen deine aktuelle Position als Startpunkt."
@@ -353,7 +373,7 @@ Browsers without View Transitions API fall through to normal navigation — no e
 | Path | Purpose |
 |------|---------|
 | `frontend/src/screens/AlternativesScreen.tsx` | Full implementation |
-| `frontend/src/hooks/useJourneySummary.ts` | One-shot `GET /v1/journeys/{id}` on screen mount; primed by router loader |
+| `frontend/src/hooks/useJourneyFull.ts` | One-shot `GET /v1/journeys/{id}` on screen mount; primed by router loader |
 | `frontend/src/components/AlternativeCard/index.tsx` | Time gain title, arrival subline, transfer count, min buffer, badges; tap → detail Sheet |
 | `frontend/src/components/RiskBadge/index.tsx` | Variants: Riskant, Schnellste, Am stabilsten, Nur DB, custom |
 | `frontend/src/i18n/de.json` | Fill AlternativesScreen string keys |
@@ -421,10 +441,6 @@ export const alternativesLoader = (queryClient: QueryClient) =>
 - `POST /v1/journeys/{id}/alternatives` → 202 Accepted
 - Then poll `GET /v1/journeys/{id}/alternatives` until fresh data
 - Spinner in button; previous card list stays visible (not cleared) until response
-
-**Nullfall (no better alternative):**
-- Info text per product spec
-- "Route überwachen" CTA → navigate to companion
 
 **ErrorBanner** already built in Plan 2 — wire all variants here.
 
@@ -527,10 +543,6 @@ Per-stop content (right column):
 - Leg block: line name 14.5/600 + direction faint 13.5 + duration muted 13 + (if current:) blinking `.vb-blink` dot badge "Jetzt unterwegs · +10 Min"
 - Transfer block: `accent-soft` (ok) or `warn-soft` (critical), radius 12, padding 11/12; check or alert icon + "Umstieg · Puffer {N} Min" + "Weiter mit **{train}** ab Gleis {N}"; if critical: "Umstieg kritisch — Alternative ansehen →" warn-colored link → navigate to AlternativesScreen
 
-**Critical state UX:**
-- `status === 'critical'` OR `criticalTransfer === true`: warn badge on affected stop
-- Transfer block shows "Umstieg kritisch" link in warn color
-
 **Map view (Karte tab):**
 - Same sticky header + Tab bar as Timeline (Karte tab active)
 - Schematic map card (height 340, radius 16, `bg-subtle` bg with faint 36px grid lines via `background-image: linear-gradient`)
@@ -550,8 +562,9 @@ Per-stop content (right column):
 - Critical transfer block: `warn-soft` bg, warn-colored text and icon
 
 **Critical state UX:**
-- `status === 'critical'` OR `criticalTransfer === true`: warn badge on affected stop
-- Action card: "Umstieg kritisch – Alternative +X Minuten schneller ansehen" → opens alternatives Sheet
+- `criticalTransfer === true` on a stop: transfer block renders with `warn-soft` bg + "Umstieg kritisch — Alternative ansehen →" warn-colored link
+- Tapping that link navigates back to AlternativesScreen (stack pop via React Router, NOT a Sheet overlay — matches `nav.go('alternativen')` in companion.jsx)
+- `status === 'critical'` at journey level: SummaryHeader shows warn badge; same link visible
 
 **"Zu 'Jetzt' springen" floating button:** scrolls timeline to current leg.
 
@@ -620,7 +633,8 @@ Each plan is strictly sequential. No plan should be started before the previous 
 ## What Is Not in These Plans (V2+)
 
 - Von/Nach secondary start flow
-- Filter sheet: max transfers + safety level UI (Plan 3 wires DB-only only; full filter UI is V2)
+- Filter sheet: max transfers (Block 3) + safety level (Block 4) fully wired — V1 renders them as disabled stubs; V2 enables them
+- "Benachrichtigen wenn schneller möglich" toggle in empty state (Leer) — V1 renders toggle UI but notification dispatch is V2
 - Re-routing suggestion card in companion header
 - Journey history view
 - Push notifications
