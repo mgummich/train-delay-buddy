@@ -1,3 +1,124 @@
 package main
 
-func main() {}
+import (
+	"context"
+	"log/slog"
+	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
+	"time"
+
+	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/redis/go-redis/v9"
+
+	"github.com/verspaetungsbegleiter/backend/internal/api"
+	"github.com/verspaetungsbegleiter/backend/internal/api/handlers"
+	"github.com/verspaetungsbegleiter/backend/internal/config"
+	"github.com/verspaetungsbegleiter/backend/internal/migrate"
+)
+
+func main() {
+	cfg := config.Load()
+	logger := newLogger(cfg.LogLevel)
+
+	rdb, err := connectRedis(cfg.RedisURL)
+	if err != nil {
+		logger.Error("redis connect failed", "error", err)
+		os.Exit(1)
+	}
+	defer rdb.Close()
+
+	db, err := connectDB(context.Background(), cfg)
+	if err != nil {
+		logger.Error("postgres connect failed", "error", err)
+		os.Exit(1)
+	}
+	defer db.Close()
+
+	if err := migrate.Run(context.Background(), db, cfg.MigrationsDir); err != nil {
+		logger.Error("migration failed", "error", err)
+		os.Exit(1)
+	}
+	logger.Info("migrations complete")
+
+	router := api.NewRouter(api.Deps{
+		Health:      handlers.NewHealthHandler(db, rdb, cfg.HAFASBaseURL),
+		Logger:      logger,
+		CORSOrigins: cfg.CORSAllowedOrigins,
+	})
+
+	srv := &http.Server{
+		Addr:         ":" + cfg.Port,
+		Handler:      router,
+		ReadTimeout:  15 * time.Second,
+		WriteTimeout: 20 * time.Second,
+		IdleTimeout:  60 * time.Second,
+	}
+
+	done := make(chan struct{})
+	go func() {
+		quit := make(chan os.Signal, 1)
+		signal.Notify(quit, syscall.SIGTERM, syscall.SIGINT)
+		sig := <-quit
+		logger.Info("shutdown signal received", "signal", sig)
+
+		ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+		defer cancel()
+		if err := srv.Shutdown(ctx); err != nil {
+			logger.Error("shutdown error", "error", err)
+		}
+		close(done)
+	}()
+
+	logger.Info("server starting", "port", cfg.Port)
+	if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+		logger.Error("server error", "error", err)
+		os.Exit(1)
+	}
+	<-done
+	logger.Info("server stopped")
+}
+
+func connectRedis(url string) (*redis.Client, error) {
+	opt, err := redis.ParseURL(url)
+	if err != nil {
+		return nil, err
+	}
+	c := redis.NewClient(opt)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	return c, c.Ping(ctx).Err()
+}
+
+func connectDB(ctx context.Context, cfg config.Config) (*pgxpool.Pool, error) {
+	pcfg, err := pgxpool.ParseConfig(cfg.DatabaseURL)
+	if err != nil {
+		return nil, err
+	}
+	pcfg.MaxConns = int32(cfg.DBMaxOpenConns)
+	pcfg.MinConns = int32(cfg.DBMaxIdleConns)
+
+	db, err := pgxpool.NewWithConfig(ctx, pcfg)
+	if err != nil {
+		return nil, err
+	}
+	ctx2, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+	return db, db.Ping(ctx2)
+}
+
+func newLogger(level string) *slog.Logger {
+	var l slog.Level
+	switch level {
+	case "DEBUG":
+		l = slog.LevelDebug
+	case "WARN":
+		l = slog.LevelWarn
+	case "ERROR":
+		l = slog.LevelError
+	default:
+		l = slog.LevelInfo
+	}
+	return slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: l}))
+}
