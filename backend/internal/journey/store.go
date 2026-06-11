@@ -76,9 +76,9 @@ func NewStore(db *pgxpool.Pool, rdb *redis.Client, ttlHours int, writeTimeout ti
 	}
 }
 
-func redisKey(id string) string    { return "journey:" + id }
-func altsKey(id string) string     { return "alts:" + id }
-func idempKey(key string) string   { return "idemp:" + key }
+func redisKey(id string) string  { return "journey:" + id }
+func altsKey(id string) string   { return "alts:" + id }
+func idempKey(key string) string { return "idemp:" + key }
 
 // Create writes to Postgres synchronously, then to Redis.
 func (s *RedisPostgresStore) Create(ctx context.Context, j *Journey, alts []Alternative) error {
