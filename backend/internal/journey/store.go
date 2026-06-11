@@ -144,7 +144,7 @@ func (s *RedisPostgresStore) Create(ctx context.Context, j *Journey, alts []Alte
 	}
 
 	if err := s.writeToRedis(ctx, j, alts); err != nil {
-		return fmt.Errorf("store.Create redis: %w", err)
+		s.log.Warn("store.Create: redis cache write failed (non-fatal)", "error", err, "journeyId", j.ID)
 	}
 	return nil
 }

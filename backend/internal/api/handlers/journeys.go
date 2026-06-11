@@ -44,8 +44,6 @@ type createResponse struct {
 
 // Create handles POST /v1/journeys.
 func (h *JourneysHandler) Create(w http.ResponseWriter, r *http.Request) {
-	r.Body = http.MaxBytesReader(w, r.Body, 4096)
-
 	ct, _, _ := mime.ParseMediaType(r.Header.Get("Content-Type"))
 	if ct != "application/json" {
 		problem.Write(w, r, problem.Problem{
@@ -56,6 +54,8 @@ func (h *JourneysHandler) Create(w http.ResponseWriter, r *http.Request) {
 		})
 		return
 	}
+
+	r.Body = http.MaxBytesReader(w, r.Body, 4096)
 
 	var req createRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -178,7 +178,16 @@ func (h *JourneysHandler) Create(w http.ResponseWriter, r *http.Request) {
 		Alternatives: result.Alternatives,
 	}
 
-	respBody, _ := json.Marshal(resp)
+	var respBody []byte
+	respBody, err = json.Marshal(resp)
+	if err != nil {
+		problem.Write(w, r, problem.Problem{
+			Type:   "urn:verspbegl:error:internal-error",
+			Title:  "Internal Server Error",
+			Status: http.StatusInternalServerError,
+		})
+		return
+	}
 
 	if idempKey != "" {
 		h.store.SetIdempotency(r.Context(), idempKey, journey.IdempotencyEntry{
