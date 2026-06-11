@@ -113,11 +113,12 @@ Expected: FAIL.
 - [ ] **Step 3: Create `frontend/src/hooks/useJourney.ts`**
 
 ```typescript
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { apiClient } from '@/api/client'
 import { queryKeys } from '@/lib/queryClient'
 import { saveJourney } from '@/lib/indexeddb'
 import { useJourneyStore } from '@/store/journeyStore'
+import type { JourneySummary } from '@/api/validation'
 
 /**
  * Returns refetch interval based on journey status.
@@ -152,13 +153,21 @@ async function fetchSummary(journeyId: string, etag: string | null) {
 
 export function useJourney(journeyId: string, currentEtag?: string | null) {
   const { setStatus, setEtag } = useJourneyStore()
+  const qc = useQueryClient()
 
   return useQuery({
     queryKey: queryKeys.journeySummary(journeyId),
-    queryFn:  async () => {
+    queryFn:  async (): Promise<JourneySummary> => {
       const etag = currentEtag ?? useJourneyStore.getState().etag
       const result = await fetchSummary(journeyId, etag)
-      if (!result) return useJourneyStore.getState() // 304 — return current state placeholder
+
+      if (!result) {
+        // 304 — state unchanged. Return current TQ cache data to avoid overwriting with null.
+        const cached = qc.getQueryData<JourneySummary>(queryKeys.journeySummary(journeyId))
+        if (cached) return cached
+        // Cache miss on 304 is unexpected but safe to handle: skip update
+        throw new Error('304 with no prior cache — will retry')
+      }
 
       const { data, newEtag } = result
 
@@ -966,7 +975,7 @@ import { http, HttpResponse } from 'msw'
 import { server, DEFAULT_JOURNEY_ID, DEFAULT_SUMMARY } from '@/test/msw-handlers'
 import { buildSummary, buildCriticalSummary, buildLeg, buildStop } from '@/test/factories'
 import { CompanionScreen } from './CompanionScreen'
-import '../../src/i18n/index'
+import '../i18n/index'
 
 const FULL_JOURNEY = {
   journeyId: DEFAULT_JOURNEY_ID,
@@ -1071,7 +1080,7 @@ Expected: FAIL.
 import { useState, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { useSuspenseQuery } from '@tanstack/react-query'
+import { useQuery } from '@tanstack/react-query'
 import { SubAppBar } from '@/components/SubAppBar'
 import { SummaryHeader } from '@/components/SummaryHeader'
 import { MapView } from '@/components/MapView'
@@ -1147,8 +1156,8 @@ export function CompanionScreen() {
   const [tab, setTab] = useState<'timeline' | 'karte'>('timeline')
   const currentNodeRef = useRef<HTMLDivElement>(null)
 
-  // Load full journey (primed by loader)
-  const { data: journey } = useSuspenseQuery(journeyFullQuery(journeyId!))
+  // Load full journey (primed by loader — cache hit is immediate, no suspension needed)
+  const { data: journey } = useQuery({ ...journeyFullQuery(journeyId!), enabled: !!journeyId })
 
   // Live polling for summary updates
   const { data: liveSummary } = useJourney(journeyId!)

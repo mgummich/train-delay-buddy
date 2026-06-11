@@ -4,7 +4,7 @@
 
 **Goal:** Implement the full AlternativesScreen — ranked alternative cards, removable filter chips, full filter bottom sheet, empty/Leer state, "Neu berechnen" re-route trigger, skeleton loading, and navigate to CompanionScreen on route selection.
 
-**Architecture:** `AlternativesScreen` is primed by a React Router loader that calls `queryClient.ensureQueryData` with `useJourneyFull` (one-shot `GET /v1/journeys/{id}`). The filter sheet is a Radix Sheet primitive. "Nur DB-Züge" toggle is the only V1 wired filter; others render as disabled stubs. "Neu berechnen" fires `POST /v1/journeys/{id}/alternatives` (202) then re-fetches.
+**Architecture:** `AlternativesScreen` uses two hooks: `useJourneyFull` (`GET /journeys/{id}`) for the reference journey ETA in the header, and `useJourneyAlternatives` (`GET /journeys/{id}/alternatives`) for the alternatives list. Both are primed by the React Router loader. `Alternative` schema nests `summary: JourneySummary` — always access time gain as `alt.summary.timeGainVsOriginalMinutes`, ETA as `alt.summary.eta`. "Neu berechnen" fires `POST /journeys/{id}/alternatives` (202) then invalidates the alternatives query key.
 
 **Tech Stack:** TanStack Query 5, React Router 6.4 loaders, Radix Sheet/Switch, react-i18next, Tailwind tokens
 
@@ -22,6 +22,7 @@
 | Modify | `frontend/src/screens/AlternativesScreen.tsx` (replace shell) |
 | Modify | `frontend/src/router.tsx` (add loader) |
 | Create | `frontend/src/hooks/useJourneyFull.ts` |
+| Create | `frontend/src/hooks/useJourneyAlternatives.ts` |
 | Create | `frontend/src/components/AlternativeCard/index.tsx` |
 | Create | `frontend/src/components/RiskBadge/index.tsx` |
 | Create | `frontend/src/components/FilterSheet/index.tsx` |
@@ -167,6 +168,161 @@ Note: `qc` (queryClient) must be passed into `createRouter(qc)` and closed over 
 ```bash
 git add frontend/src/hooks/useJourneyFull.ts frontend/src/hooks/useJourneyFull.test.ts frontend/src/router.tsx
 git commit -m "feat(frontend): add useJourneyFull hook + wire AlternativesScreen loader"
+```
+
+---
+
+### Task 1.5: useJourneyAlternatives hook
+
+`Journey` (from `GET /journeys/{id}`) has **no** `alternatives` field per openapi schema. Alternatives come from a dedicated endpoint: `GET /journeys/{id}/alternatives` → `AlternativesList { data: Alternative[], totalCount }`. Each `Alternative` has `{ journeyId, summary: JourneySummary, legs }`.
+
+**Files:**
+- Create: `frontend/src/hooks/useJourneyAlternatives.ts`
+- Test: `frontend/src/hooks/useJourneyAlternatives.test.ts`
+
+- [ ] **Step 1: Write failing test**
+
+Create `frontend/src/hooks/useJourneyAlternatives.test.ts`:
+
+```typescript
+import { describe, it, expect } from 'vitest'
+import { renderHook, waitFor } from '@testing-library/react'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { http, HttpResponse } from 'msw'
+import { server, DEFAULT_JOURNEY_ID, DEFAULT_SUMMARY } from '@/test/msw-handlers'
+import { useJourneyAlternatives } from './useJourneyAlternatives'
+import React from 'react'
+
+function wrapper({ children }: { children: React.ReactNode }) {
+  const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+  return <QueryClientProvider client={qc}>{children}</QueryClientProvider>
+}
+
+// Alternative schema: { journeyId, summary: JourneySummary, legs }
+const ALT_DATA = {
+  data: [
+    {
+      journeyId: 'jrn_alt01234567890a',
+      summary: { ...DEFAULT_SUMMARY, timeGainVsOriginalMinutes: 18, eta: '2026-06-11T17:24:00Z', minTransferBufferMinutes: 3 },
+      legs: [],
+    },
+    {
+      journeyId: 'jrn_alt01234567890b',
+      summary: { ...DEFAULT_SUMMARY, timeGainVsOriginalMinutes: 12, eta: '2026-06-11T17:30:00Z', minTransferBufferMinutes: 11 },
+      legs: [],
+    },
+  ],
+  totalCount: 2,
+}
+
+describe('useJourneyAlternatives', () => {
+  it('fetches and returns alternatives list', async () => {
+    server.use(
+      http.get('/v1/journeys/:id/alternatives', () => HttpResponse.json(ALT_DATA))
+    )
+    const { result } = renderHook(
+      () => useJourneyAlternatives(DEFAULT_JOURNEY_ID),
+      { wrapper }
+    )
+    await waitFor(() => expect(result.current.data).toBeTruthy())
+    expect(result.current.data?.data).toHaveLength(2)
+    expect(result.current.data?.data[0]?.summary.timeGainVsOriginalMinutes).toBe(18)
+  })
+
+  it('returns empty list when no alternatives', async () => {
+    server.use(
+      http.get('/v1/journeys/:id/alternatives', () =>
+        HttpResponse.json({ data: [], totalCount: 0 })
+      )
+    )
+    const { result } = renderHook(
+      () => useJourneyAlternatives(DEFAULT_JOURNEY_ID),
+      { wrapper }
+    )
+    await waitFor(() => expect(result.current.isFetched).toBe(true))
+    expect(result.current.data?.data).toHaveLength(0)
+  })
+})
+```
+
+- [ ] **Step 2: Run test — expect fail**
+
+```bash
+cd frontend && npx vitest run src/hooks/useJourneyAlternatives.test.ts
+```
+
+Expected: FAIL.
+
+- [ ] **Step 3: Create `frontend/src/hooks/useJourneyAlternatives.ts`**
+
+```typescript
+import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { apiClient } from '@/api/client'
+import { queryKeys } from '@/lib/queryClient'
+
+async function fetchAlternatives(journeyId: string, etag: string | null) {
+  const headers: Record<string, string> = {}
+  if (etag) headers['If-None-Match'] = etag
+
+  const { data, response, error } = await apiClient.GET('/journeys/{id}/alternatives', {
+    params:  { path: { id: journeyId } },
+    headers,
+  })
+
+  if (response.status === 304) return null  // unchanged
+  if (!response.ok) throw error
+  return { data: data!, newEtag: response.headers.get('ETag') }
+}
+
+export function journeyAlternativesQuery(journeyId: string) {
+  return {
+    queryKey: queryKeys.journeyAlternatives(journeyId),
+    queryFn:  () => fetchAlternatives(journeyId, null).then(r => r?.data ?? { data: [], totalCount: 0 }),
+    staleTime: 0,
+    gcTime:    2 * 60_000,
+  }
+}
+
+export function useJourneyAlternatives(journeyId: string) {
+  return useQuery(journeyAlternativesQuery(journeyId))
+}
+```
+
+- [ ] **Step 4: Update router loader to also prime alternatives query**
+
+Edit `frontend/src/router.tsx` alternatives loader (already modified in Task 1 Step 5):
+
+```typescript
+import { journeyFullQuery } from '@/hooks/useJourneyFull'
+import { journeyAlternativesQuery } from '@/hooks/useJourneyAlternatives'
+
+// Replace alternatives loader:
+{
+  path: '/journey/:journeyId/alternatives',
+  loader: async ({ params }) => {
+    const id = params.journeyId!
+    await Promise.all([
+      qc.ensureQueryData(journeyFullQuery(id)),
+      qc.ensureQueryData(journeyAlternativesQuery(id)),
+    ])
+    return null
+  },
+},
+```
+
+- [ ] **Step 5: Run test — expect pass**
+
+```bash
+cd frontend && npx vitest run src/hooks/useJourneyAlternatives.test.ts
+```
+
+Expected: PASS — 2 tests.
+
+- [ ] **Step 6: Commit**
+
+```bash
+git add frontend/src/hooks/useJourneyAlternatives.ts frontend/src/hooks/useJourneyAlternatives.test.ts
+git commit -m "feat(frontend): add useJourneyAlternatives hook for GET /journeys/{id}/alternatives"
 ```
 
 ---
@@ -898,36 +1054,37 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { http, HttpResponse } from 'msw'
 import { server, DEFAULT_JOURNEY_ID, DEFAULT_SUMMARY } from '@/test/msw-handlers'
 import { AlternativesScreen } from './AlternativesScreen'
-import '../../src/i18n/index'
+import '../i18n/index'
 
-const JOURNEY_WITH_ALTS = {
-  journeyId:    DEFAULT_JOURNEY_ID,
-  summary:      DEFAULT_SUMMARY,
-  legs:         [],
-  alternatives: [
+// Journey schema (GET /journeys/{id}) has NO alternatives field per openapi spec.
+const JOURNEY_DATA = {
+  journeyId: DEFAULT_JOURNEY_ID,
+  summary:   DEFAULT_SUMMARY,
+  legs:      [],
+  stops:     [],
+}
+
+// Alternatives come from GET /journeys/{id}/alternatives — Alternative has nested summary.
+const ALTS_DATA = {
+  data: [
     {
       journeyId: 'jrn_alt01234567890a',
-      timeGainVsOriginalMinutes: 18,
-      eta: '2026-06-11T17:24:00Z',
-      transfers: 2,
-      minTransferBufferMinutes: 3,
-      badges: ['schnellste', 'riskant'],
+      summary: { ...DEFAULT_SUMMARY, timeGainVsOriginalMinutes: 18, eta: '2026-06-11T17:24:00Z', minTransferBufferMinutes: 3 },
+      legs: [],
     },
     {
       journeyId: 'jrn_alt01234567890b',
-      timeGainVsOriginalMinutes: 12,
-      eta: '2026-06-11T17:30:00Z',
-      transfers: 1,
-      minTransferBufferMinutes: 11,
-      badges: ['stabilste'],
+      summary: { ...DEFAULT_SUMMARY, timeGainVsOriginalMinutes: 12, eta: '2026-06-11T17:30:00Z', minTransferBufferMinutes: 11 },
+      legs: [],
     },
   ],
+  totalCount: 2,
 }
 
 function renderAlternatives(journeyId = DEFAULT_JOURNEY_ID) {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } })
-  // Pre-seed the cache so the screen doesn't need to fetch
-  qc.setQueryData(['journey', 'full', journeyId], JOURNEY_WITH_ALTS)
+  qc.setQueryData(['journey', 'full',         journeyId], JOURNEY_DATA)
+  qc.setQueryData(['journey', 'alternatives', journeyId], ALTS_DATA)
 
   return render(
     <QueryClientProvider client={qc}>
@@ -981,10 +1138,8 @@ describe('AlternativesScreen', () => {
 
   it('shows Leer state when no alternatives', async () => {
     const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } })
-    qc.setQueryData(['journey', 'full', DEFAULT_JOURNEY_ID], {
-      ...JOURNEY_WITH_ALTS,
-      alternatives: [],
-    })
+    qc.setQueryData(['journey', 'full',         DEFAULT_JOURNEY_ID], JOURNEY_DATA)
+    qc.setQueryData(['journey', 'alternatives', DEFAULT_JOURNEY_ID], { data: [], totalCount: 0 })
     render(
       <QueryClientProvider client={qc}>
         <MemoryRouter initialEntries={[`/journey/${DEFAULT_JOURNEY_ID}/alternatives`]}>
@@ -1022,7 +1177,10 @@ Expected: FAIL.
 import { useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
+import { useQueryClient } from '@tanstack/react-query'
 import { useJourneyFull } from '@/hooks/useJourneyFull'
+import { useJourneyAlternatives } from '@/hooks/useJourneyAlternatives'
+import { queryKeys } from '@/lib/queryClient'
 import { SubAppBar } from '@/components/SubAppBar'
 import { AlternativeCard } from '@/components/AlternativeCard'
 import { FilterRow } from '@/components/FilterRow'
@@ -1052,7 +1210,11 @@ export function AlternativesScreen() {
   const [filterOpen, setFilterOpen] = useState(false)
   const [isRecalculating, setIsRecalculating] = useState(false)
 
-  const { data, isLoading, isError, error } = useJourneyFull(journeyId!)
+  // Journey for header ETA reference
+  const { data: journeyData } = useJourneyFull(journeyId!)
+  // Alternatives from dedicated endpoint (Journey schema has no alternatives field)
+  const { data: altsData, isLoading, isError } = useJourneyAlternatives(journeyId!)
+  const qc = useQueryClient()
 
   // Build active filters list for FilterRow
   const activeFilters = filters.dbOnly
@@ -1070,12 +1232,12 @@ export function AlternativesScreen() {
     await apiClient.POST('/journeys/{id}/alternatives', {
       params: { path: { id: journeyId } },
     })
+    // Invalidate alternatives cache to trigger a fresh GET
+    await qc.invalidateQueries({ queryKey: queryKeys.journeyAlternatives(journeyId) })
     setIsRecalculating(false)
-    // TQ will re-fetch on next invalidation; for now just let it refetch naturally
   }
 
-  // Derive alternatives from journey data
-  const alternatives = data?.alternatives ?? []
+  const alternatives = altsData?.data ?? []
   const isEmpty = !isLoading && !isError && alternatives.length === 0
 
   return (
@@ -1083,7 +1245,7 @@ export function AlternativesScreen() {
       <SubAppBar eyebrow={t('alternatives.eyebrow')} />
 
       {/* Reference strip */}
-      {data?.summary && (
+      {journeyData?.summary && (
         <div className="mx-4 mt-2 bg-bg-subtle rounded-card px-[15px] py-[13px]
           flex gap-[11px] items-start">
           <svg className="text-text-muted flex-shrink-0 mt-[1px]" width="17" height="17"
@@ -1092,7 +1254,7 @@ export function AlternativesScreen() {
           </svg>
           <p className="text-text-muted text-[14px] leading-[1.45]">
             {t('alternatives.currentTrain', {
-              time: formatTime(data.summary.eta),
+              time: formatTime(journeyData.summary.eta),
             })}
           </p>
         </div>
@@ -1198,10 +1360,11 @@ export function AlternativesScreen() {
               <AlternativeCard
                 key={alt.journeyId}
                 journeyId={alt.journeyId}
-                timeGainMin={alt.timeGainVsOriginalMinutes ?? 0}
-                eta={alt.eta ?? ''}
-                transfers={alt.transfers ?? 0}
-                minBuffer={alt.minTransferBufferMinutes ?? 0}
+                // Alternative.summary contains the time gain, ETA, and buffer fields
+                timeGainMin={alt.summary.timeGainVsOriginalMinutes ?? 0}
+                eta={alt.summary.eta}
+                transfers={alt.legs.length}
+                minBuffer={alt.summary.minTransferBufferMinutes}
                 badges={[]}
                 recommended={i === 0}
                 onSelect={handleSelectRoute}

@@ -891,7 +891,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { http } from 'msw'
 import { server, MSW_ERRORS, DEFAULT_JOURNEY_ID } from '@/test/msw-handlers'
 import { StartScreen } from './StartScreen'
-import '../../src/i18n/index'
+import '../i18n/index'
 
 function renderStart() {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } })
@@ -1307,7 +1307,8 @@ export function StartScreen() {
             >
               {form.formState.isSubmitting ? '…' : t('start.submitBtn')}
             </button>
-            <button type="button" className="text-accent text-[14px]">
+            {/* V2: Von/Nach mode — button intentionally has no handler in V1 */}
+            <button type="button" disabled className="text-accent text-[14px] opacity-50 cursor-not-allowed">
               {t('start.secondaryLink')}
             </button>
           </div>

@@ -56,8 +56,7 @@
 | Create | `frontend/src/i18n/index.ts` |
 | Create | `frontend/Dockerfile` |
 | Create | `frontend/.dockerignore` |
-| Create | `frontend/public/sw-register.js` |
-| Modify | `frontend/vitest.config.ts` (already exists — add `setupFiles` path alias check) |
+| Modify | `frontend/vitest.config.ts` (already exists — verify `setupFiles` and path alias; no changes needed if already correct) |
 | Create | `frontend/src/test/render.tsx` (RTL wrapper with all providers) |
 | Create | `.husky/pre-commit` |
 
