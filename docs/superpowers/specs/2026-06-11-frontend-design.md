@@ -66,52 +66,113 @@ test:e2e    → playwright test (stub — no tests yet)
 
 **shadcn/ui init:** Run `npx shadcn-ui@latest init` targeting Radix + Tailwind. Add: Dialog, Sheet, Switch, Toast, Popover, Badge, Button, Skeleton.
 
-**Typography:** Geist Variable Font (self-hosted woff2 — one HTTP request for all weights). CSS fallback: `system-ui, -apple-system, sans-serif`. Font sizes:
-- H1 (Start title): 1.5–1.75rem, Bold
-- H2 (screen title): 1.25–1.375rem, Semibold
-- H3 (card title, stop name): 1–1.125rem, Semibold
-- Body: 1rem, Regular
-- Label/Badge: 0.75–0.875rem, Medium
+**Typography:** Two font families loaded from Google Fonts (avoids generic Inter/Roboto look):
+- Display: **Space Grotesk** — headlines, time gains, big numbers
+- Body: **IBM Plex Sans** — UI text, labels, body copy
 
-`html { font-size: 100%; }` — never override with fixed px.
+CSS fallback: `system-ui, -apple-system, sans-serif`. `html { font-size: 100%; }` — never override with fixed px.
+
+| Role | Family | Size | Weight | Notes |
+|------|--------|------|--------|-------|
+| H1 (start title) | Display | 26px | 700 | line-height 1.18, letter-spacing -0.01em, max ~15ch |
+| H2 (screen title) | Display | 20–21px | 600 | |
+| H3 (card/stop name) | Display | 17px | 600 | |
+| Body | Body | 16px | 400 | line-height ~1.5 |
+| Label/field label | Body | 13px | 600 | muted color |
+| Badge/chip | Body | 12–14px | 600 | |
+| Group header | Body | 12.5px | 600 | uppercase, letter-spacing .04em, faint |
+
+All time/number values: `font-variant-numeric: tabular-nums; white-space: nowrap` — apply via `.tnum` utility class.
 
 **Full token set (`src/styles/tokens.css` — separate file, imported in `main.tsx`):**
 ```css
 :root {
+  /* Fonts */
+  --font-display: 'Space Grotesk', system-ui, sans-serif;
+  --font-body: 'IBM Plex Sans', system-ui, sans-serif;
+
   /* Backgrounds */
   --bg-app: #F6F4F2;
   --bg-card: #FFFFFF;
   --bg-subtle: #F0ECE8;
+
   /* Text */
   --text-primary: #1F2329;
   --text-muted: #6B7280;
   --text-faint: #9CA3AF;
+
   /* Accent */
-  --accent-primary: #0F766E;
+  --accent: #0F766E;
   --accent-hover: #0D615B;
   --accent-active: #0B4B47;
+  --accent-soft: #E2EFEC;   /* icon chips, transfer blocks, node bg */
+  --accent-ink: #FFFFFF;    /* text/icon on accent surfaces */
+
   /* Warn */
   --warn: #DC6B33;
+  --warn-soft: #FBEADF;     /* critical transfer block bg */
   --warn-strong: #B91C1C;
+
   /* Borders */
   --border-subtle: #E5E7EB;
   --border-strong: #D1D5DB;
+
+  /* Radius */
+  --radius-input: 10px;
+  --radius-card: 14px;
+  --radius-sheet: 22px;
+  --radius-btn: 12px;
+
+  /* Shadows */
+  --shadow-card: 0 1px 2px rgba(31,35,41,.04), 0 4px 16px rgba(31,35,41,.06);
+  --shadow-lift: 0 2px 4px rgba(31,35,41,.06), 0 12px 28px rgba(31,35,41,.10);
+  --shadow-sheet: 0 -8px 40px rgba(0,0,0,.18);
+
   /* Motion */
   --motion-fast: 150ms;
   --motion-medium: 220ms;
   --motion-slow: 300ms;
   --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
 }
+
 @media (prefers-color-scheme: dark) {
   :root {
     --bg-app: #111827;
     --bg-card: #1F2933;
-    --bg-subtle: #111827;
+    --bg-subtle: #19212E;
     --text-primary: #E5E7EB;
     --text-muted: #9CA3AF;
-    --accent-primary: #34D399;
+    --text-faint: #6B7280;
+    --accent: #34D399;
+    --accent-hover: #2BBE85;
+    --accent-active: #25A874;
+    --accent-soft: #15302B;
+    --accent-ink: #06241C;
     --warn: #F97316;
+    --warn-soft: #3A2415;
+    --warn-strong: #F87171;
+    --border-subtle: #2B3543;
+    --border-strong: #3A4658;
+    --shadow-card: 0 1px 2px rgba(0,0,0,.30), 0 4px 16px rgba(0,0,0,.32);
+    --shadow-lift: 0 2px 4px rgba(0,0,0,.34), 0 12px 28px rgba(0,0,0,.36);
   }
+}
+
+/* Animations */
+@keyframes vb-pulse {
+  0%, 100% { box-shadow: 0 0 0 4px var(--bg-card), 0 0 0 6px var(--accent-soft); }
+  50% { box-shadow: 0 0 0 4px var(--bg-card), 0 0 0 10px transparent; }
+}
+@keyframes vb-blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}
+.vb-pulse { animation: vb-pulse 2.4s ease-in-out infinite; }
+.vb-blink { animation: vb-blink 1.6s ease-in-out infinite; }
+.tnum { font-variant-numeric: tabular-nums; white-space: nowrap; }
+
+@media (prefers-reduced-motion: reduce) {
+  .vb-pulse, .vb-blink { animation: none; }
 }
 ```
 
@@ -119,6 +180,10 @@ test:e2e    → playwright test (stub — no tests yet)
 ```typescript
 theme: {
   extend: {
+    fontFamily: {
+      display: 'var(--font-display)',
+      body: 'var(--font-body)',
+    },
     colors: {
       'bg-app': 'var(--bg-app)',
       'bg-card': 'var(--bg-card)',
@@ -126,13 +191,27 @@ theme: {
       'text-primary': 'var(--text-primary)',
       'text-muted': 'var(--text-muted)',
       'text-faint': 'var(--text-faint)',
-      'accent': 'var(--accent-primary)',
+      'accent': 'var(--accent)',
       'accent-hover': 'var(--accent-hover)',
       'accent-active': 'var(--accent-active)',
+      'accent-soft': 'var(--accent-soft)',
+      'accent-ink': 'var(--accent-ink)',
       'warn': 'var(--warn)',
+      'warn-soft': 'var(--warn-soft)',
       'warn-strong': 'var(--warn-strong)',
       'border-subtle': 'var(--border-subtle)',
       'border-strong': 'var(--border-strong)',
+    },
+    borderRadius: {
+      'input': 'var(--radius-input)',
+      'card': 'var(--radius-card)',
+      'sheet': 'var(--radius-sheet)',
+      'btn': 'var(--radius-btn)',
+    },
+    boxShadow: {
+      'card': 'var(--shadow-card)',
+      'lift': 'var(--shadow-lift)',
+      'sheet': 'var(--shadow-sheet)',
     },
     transitionDuration: {
       'fast': 'var(--motion-fast)',
@@ -149,7 +228,7 @@ theme: {
 **Focus-visible (already in arch spec — implement in `src/styles/tokens.css`):**
 ```css
 :focus-visible {
-  outline: 2px solid var(--accent-primary);
+  outline: 2px solid var(--accent);
   outline-offset: 2px;
   border-radius: inherit;
 }
@@ -183,6 +262,7 @@ Browsers without View Transitions API fall through to normal navigation — no e
 | `/` | StartScreen | `<FullPageError />` |
 | `/journey/:journeyId/alternatives` | AlternativesScreen | `<ScreenError message="Verbindungen konnten nicht geladen werden" />` |
 | `/journey/:journeyId/companion` | CompanionScreen | `<CompanionError />` (reads IndexedDB, shows stale data) |
+| `/settings` | SettingsScreen stub (V2 full impl) | `<FullPageError />` |
 
 **Hydration order (cold start):**
 1. `main.tsx` renders App — `useOfflineState` awaits IndexedDB read via Suspense
@@ -210,6 +290,23 @@ Browsers without View Transitions API fall through to normal navigation — no e
 | `frontend/src/components/ErrorBanner/index.tsx` | Per-error-type banner variants (offline, 503, 500, 429, rate-limit) |
 | `frontend/src/i18n/de.json` | Fill StartScreen string keys |
 
+**StartScreen layout (from design handoff):**
+- AppBar: brand mark (26×26 accent rounded-square radius 8 + wordmark "VerspätungsBegleiter" Display 15/600) + settings icon button 38×38 radius 10 → navigates to `/settings`
+- Eyebrow badge: `accent-soft` pill, bolt icon + "Live-Umleitung", 12.5/600
+- H1: "Schneller ans Ziel — ab deinem jetzigen Zug." (Display 26/700, max 15ch)
+- Subtitle: muted 15/1.5 — "Wir überwachen deine Verbindung..."
+- Info line (faint 12.5): info-circle icon + "Fokus: schnellere Ankunft — kein Ticketverkauf, keine offizielle DB-App."
+- Form card: white, `radius-card` (14px), 1px `border-subtle`, padding 16, gap 16
+- Primary button: full-width, 50px height, `radius-btn` (12px), accent bg + accent-ink text
+- Secondary link: accent-colored text link, no border
+
+**Input component spec:**
+- Height: 48px, width: 100%, `radius-input` (10px), 1.5px `border-strong`
+- Default: bg `bg-card`
+- Focus: border `accent`, box-shadow `0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent)`
+- Error: border `warn`, error text faint 12.5 below field
+- Leading icon 18px (train icon for Zugnummer, pin icon for Zielbahnhof)
+
 **Form behavior:**
 - `react-hook-form` + Zod resolver
 - Train number: validate on `blur` via `GET /v1/trains/{number}` — inline error below field on 404
@@ -218,9 +315,10 @@ Browsers without View Transitions API fall through to normal navigation — no e
 - Submit button disabled while train validation or POST inflight
 - `Idempotency-Key` (UUID v4) generated per submit attempt; injected in `client.ts`
 
-**Toggle "Ich befinde mich in diesem Zug":**
-- Default ON; subtext visible
+**Toggle "Ich sitze in diesem Zug" (design wording):**
+- Default ON; subtext "Wir nehmen deine aktuelle Position als Startpunkt."
 - When OFF: show "Startbahnhof" field (same autocomplete as destination)
+- Radix `Switch` primitive — `role="switch"`, `aria-checked`, Space-key support
 
 **Plausibility dialog (shadcn Dialog):**
 - Trigger: `plausibility.onTrainConfidence !== 'high'` in POST response
@@ -230,6 +328,10 @@ Browsers without View Transitions API fall through to normal navigation — no e
 - Android: capture `beforeinstallprompt` → "App installieren" banner on StartScreen; dismissable; 7-day snooze in localStorage; hide when `display-mode: standalone`
 - iOS: persistent "Zum Home-Bildschirm hinzufügen" hint on first visit; 7-day snooze; hide in standalone mode
 - Both: dismiss when `window.matchMedia('(display-mode: standalone)').matches`
+
+**Settings screen stub (`/settings`):**
+- Add route `/settings` → `<SettingsScreen />` shell (Plan 2 delivers only the shell — AppBar gear must navigate somewhere)
+- Full settings implementation is V2
 
 **Tests (Vitest):**
 - Form validation rules (required fields, min length)
@@ -270,13 +372,49 @@ export const alternativesLoader = (queryClient: QueryClient) =>
 - Each card: tap → detail Sheet (mini Perlschnur, comparison vs original, "Diese Route wählen" button)
 - "Diese Route wählen": store `journeyId` in Zustand + URL; navigate to `/journey/:id/companion`
 
-**Filter sheet (shadcn Sheet):**
-- "Nur DB-Züge" toggle (wired to `installStore.filters.dbOnly`) — V1, fully functional
-- "Maximale Umstiege" + "Sicherheitslevel" — rendered as disabled stubs with "Demnächst verfügbar" label; wired in V2
-- Active filter badge shown in filter row when DB-only is ON
+**AlternativeCard spec (from design):**
+- `radius-card` (14px), padding 16, gap 12, `shadow-card`
+- Recommended card: `border-color: var(--accent)`, `shadow-lift`
+- Time gain: Display 26/700, `accent` color, `tnum`, letter-spacing -0.02em
+- Sub-line: clock icon + "Ankunft **{eta}**" · "{transfers} Umstiege" · "min. Puffer {n} Min" — muted 14.5 `tnum`
+- Badges: pill 24px, 12.5/600, optional leading icon
+  - "Schnellste": accent bg/ink, bolt icon
+  - "Riskant": warn bg, alert icon
+  - "Am stabilsten": accent-soft bg, accent text, shield icon
+  - "Nur DB": neutral bg, muted text
+
+**Filter row:**
+- "Filter" chip: filter icon + count badge (accent pill, 11.5/700, min-width 18px) showing count of active filters
+- Active filter chips: `accent-soft` bg, `accent` border + text, removable with `×` — clicking × removes that filter
+- Chip height: 36px, `radius-badge` (999px), 1.5px border
+
+**Filter sheet (shadcn Sheet — bottom sheet, `shadow-sheet`, top corners `radius-sheet`):**
+- Grab handle: 38×4 bar, `border-strong`, radius 999
+- Header: "Filter" (H2 20px) + "Zurücksetzen" link
+- 4 blocks separated by dividers, gap 22:
+
+  **Block 1 — Nur frühere Ankünfte** (toggle ON by default, always-on product rule — display-only for V1):
+  - Toggle + label + subtext "Zeigt nur Wege, die vor deinem aktuellen Zug ankommen."
+  - Radix Switch, `aria-checked="true"`, non-interactive in V1
+
+  **Block 2 — Verkehrsmittel** (V1: display-only; fully wired in V2):
+  - MultiChips: `Fernverkehr` (active), `Regional` (active), `S-Bahn` (inactive)
+  - "Nur DB-Züge" inline toggle — **V1, fully functional** — wired to `installStore.filters.dbOnly`
+
+  **Block 3 — Maximale Umstiege** (V2 stub):
+  - Full-width segmented: `0 · 1 · 2 · 3 · egal`
+  - Disabled in V1 with `opacity-50 cursor-not-allowed`
+
+  **Block 4 — Puffer beim Umstieg** (V2 stub):
+  - Full-width segmented: `Aggressiv · Normal · Vorsichtig`
+  - Dynamic `bg-subtle` help block updates with selection (shield icon + contextual text)
+  - Disabled in V1
+
+- Apply button: full-width, 50px, accent — label: `{n} Verbindungen anzeigen` or `Keine Treffer — Suche anpassen` (when max-Umstiege `0`)
+- Scrim: `rgba(15,20,28,.42)` behind sheet
 
 **Header:**
-- No active route: "Dein aktueller Zug bringt dich voraussichtlich um {time} ans Ziel."
+- No active route: "Dein aktueller Zug bringt dich voraussichtlich um {time} ans Ziel." — in `bg-subtle` card strip, clock icon, no shadow
 - Active route: "Deine derzeit überwachte Route → Ankunft {time}."
 
 **Neu berechnen:**
@@ -290,10 +428,25 @@ export const alternativesLoader = (queryClient: QueryClient) =>
 
 **ErrorBanner** already built in Plan 2 — wire all variants here.
 
+**Empty state (Leer — no faster alternative found):**
+- Reference strip same as normal header (bg-subtle, clock icon, "19:42")
+- Centered block (padding 24px 12px 8px):
+  - 64×64 `accent-soft` rounded tile (radius 18), `accent` shield icon 30px
+  - H2 "Aktuell keine schnellere Verbindung" (21px, max 18ch)
+  - Muted body 14.5/1.55, max 32ch
+  - Badge (28px, 12px px): blinking dot (`.vb-blink`) + "Live-Überwachung aktiv"
+- Action card (`bg-card`, padding 16, gap 13):
+  - Toggle row: "Benachrichtigen, wenn schneller möglich" (15/600) + muted sub + Radix Switch
+  - Divider
+  - Ghost button: `btn-ghost` — border `border-strong`, muted text, filter icon + "Filter lockern" → opens filter sheet
+
+**`btn-ghost` button variant:** transparent bg, 1.5px `border-strong`, `text-primary`, same height/radius as primary button.
+
 **Tests (Vitest):**
 - Skeleton → card list transition on data load
-- Nullfall state renders correctly
-- Filter badges appear when filters active
+- Nullfall/Leer state renders correctly (shield icon, blinking badge)
+- Filter badges appear when filters active, removable × works
+- Filter count badge on Filter chip increments correctly
 - 422 errors surfaced correctly
 - "Neu berechnen" spinner + list retention
 
@@ -347,11 +500,54 @@ ETag flow: `If-None-Match` on every poll → 304 = no re-render; 200 = update Zu
 | ≥ 3 min | "Möglicherweise veraltet" badge |
 | ≥ 10 min | "Daten veraltet – kein Netz?" warning banner |
 
+**CompanionScreen layout (from design handoff):**
+- SubAppBar: back arrow + centered "Reisebegleiter" eyebrow + settings gear
+- Sticky header block (`position: sticky; top: 0; background: linear-gradient(var(--bg-app) 78%, transparent)`):
+  - KPI card: Display 30/700 `+18 Min` accent `tnum` + "schneller"; muted 13.5 "als dein ursprünglicher Zug · Ankunft **19:24**"; divider; warn clock + "+10 Min Verspätung"
+  - Next-step card: 38×38 `accent-soft` icon tile (radius 10) + 14.5/600 action text + muted sub (train, platform, buffer)
+  - Tab bar: `bg-subtle` track (radius 12, padding 4); Timeline tab (list-glyph icon) + Karte tab (pin icon); active = white card + `shadow-card` + primary text; inactive = muted
+
+**Timeline (Perlschnur) node specs (from companion.jsx):**
+- Rail: 44px left column, continuous vertical line
+- Rail segments: traveled = `accent` 3px solid; upcoming = `border-strong` 2.5px solid
+- Active leg rail: animated dashed `accent` (repeating-linear-gradient 7px on / 6px off, 3px wide)
+- Active leg train marker: 24px circle `accent` bg + `accent-ink` train icon, `boxShadow: 0 0 0 4px var(--bg-app)`, absolutely centered on rail — animate with `.vb-train` scrolling motion
+
+Node variants (exact pixel sizes):
+| State | Size | Style |
+|-------|------|-------|
+| `past` | 13px | filled `accent`, `boxShadow: 0 0 0 4px var(--bg-app)` |
+| `current` | 22px | filled `accent`, inner 7px `accent-ink` dot, `.vb-pulse` animation, `boxShadow: 0 0 0 4px var(--bg-app), 0 0 0 6px var(--accent-soft)` |
+| `future` | 14px | hollow, 2.5px `border-strong`, bg `bg-card`, `boxShadow: 0 0 0 4px var(--bg-app)` |
+| `dest` | 16px | hollow, 2.5px `border-strong`, inner 5px `faint` dot, `boxShadow: 0 0 0 4px var(--bg-app)` |
+
+Per-stop content (right column):
+- H3 stop name (current stop: `accent` color)
+- TimeLine row: real time (15/600 `tnum` bold) + delay (`+N` in `warn` or "pünktl." in `accent`, 13/600) + plan time struck-through `faint tnum 13` + platform badge ("Gl N") right-aligned neutral
+- Leg block: line name 14.5/600 + direction faint 13.5 + duration muted 13 + (if current:) blinking `.vb-blink` dot badge "Jetzt unterwegs · +10 Min"
+- Transfer block: `accent-soft` (ok) or `warn-soft` (critical), radius 12, padding 11/12; check or alert icon + "Umstieg · Puffer {N} Min" + "Weiter mit **{train}** ab Gleis {N}"; if critical: "Umstieg kritisch — Alternative ansehen →" warn-colored link → navigate to AlternativesScreen
+
+**Critical state UX:**
+- `status === 'critical'` OR `criticalTransfer === true`: warn badge on affected stop
+- Transfer block shows "Umstieg kritisch" link in warn color
+
+**Map view (Karte tab):**
+- Same sticky header + Tab bar as Timeline (Karte tab active)
+- Schematic map card (height 340, radius 16, `bg-subtle` bg with faint 36px grid lines via `background-image: linear-gradient`)
+- SVG `viewBox="0 0 100 100"` inside:
+  - Traveled portion: solid `accent` 3px polyline
+  - Remaining: dashed `border-strong` 2px, dash 4/3, `vectorEffect="non-scaling-stroke"`
+- Absolute-positioned station pins (% coordinates) with white label pills (12/700 + 10.5 `tnum` sub)
+- "Du bist hier" pin: `.vb-pulse` accent circle + train icon
+- Destination pin: hollow `accent` ring + pin icon
+- Legend row: "Aktuelle Position" dot + "Restliche Route" dashed line, muted 12.5
+- Info card (`bg-subtle`, no shadow): pin icon + "Schematische Übersicht..." note with **Timeline** bolded
+
 **Timeline stop states:**
-- Past: filled neutral node
-- Current: larger accent node
-- Future: outline node
-- Critical transfer: puffer badge in warn colour
+- Past: 13px filled accent, no keyboard focus needed (tabindex="-1", aria-hidden)
+- Current: 22px pulsing, `aria-current="step"`, tabindex="0"
+- Future: 14px hollow, tabindex="0"
+- Critical transfer block: `warn-soft` bg, warn-colored text and icon
 
 **Critical state UX:**
 - `status === 'critical'` OR `criticalTransfer === true`: warn badge on affected stop
