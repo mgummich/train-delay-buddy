@@ -108,7 +108,11 @@ func connectDB(ctx context.Context, cfg config.Config) (*pgxpool.Pool, error) {
 	}
 	ctx2, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
-	return db, db.Ping(ctx2)
+	if err := db.Ping(ctx2); err != nil {
+		db.Close()
+		return nil, err
+	}
+	return db, nil
 }
 
 func newLogger(level string) *slog.Logger {

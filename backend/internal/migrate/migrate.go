@@ -72,6 +72,7 @@ func Run(ctx context.Context, db *pgxpool.Pool, dir string) error {
 			return fmt.Errorf("record %s: %w", name, err)
 		}
 		if err = tx.Commit(ctx); err != nil {
+			tx.Rollback(ctx)
 			return fmt.Errorf("commit %s: %w", name, err)
 		}
 	}
