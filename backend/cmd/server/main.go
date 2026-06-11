@@ -9,7 +9,7 @@ import (
 	"strings"
 	"syscall"
 	"time"
-	_ "time/tzdata" // embed timezone data for Europe/Berlin in FilterTripsByDate
+	_ "time/tzdata" // embed timezone data for Europe/Berlin
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/redis/go-redis/v9"
@@ -21,12 +21,17 @@ import (
 	"github.com/verspaetungsbegleiter/backend/internal/hafas"
 	"github.com/verspaetungsbegleiter/backend/internal/journey"
 	"github.com/verspaetungsbegleiter/backend/internal/migrate"
+	_ "github.com/verspaetungsbegleiter/backend/internal/metrics" // register Prometheus metrics
 	"github.com/verspaetungsbegleiter/backend/internal/routing"
 )
 
 func main() {
 	cfg := config.Load()
 	logger := newLogger(cfg.LogLevel)
+
+	// Server lifetime context — cancelled on shutdown to stop all goroutines.
+	serverCtx, serverCancel := context.WithCancel(context.Background())
+	defer serverCancel()
 
 	rdb, err := connectRedis(cfg.RedisURL)
 	if err != nil {
@@ -51,33 +56,40 @@ func main() {
 	logger.Info("migrations complete")
 
 	hafasClient := hafas.NewClient(cfg)
-
+	coalescer := &hafas.Coalescer{}
 	store := journey.NewStore(db, rdb, cfg.JourneyTTLHours, cfg.DBWriteTimeout, logger)
 	engine := routing.NewBFSEngine(hafasClient)
+
+	// Functional injection — closures break the journey ← routing ← hafas ← journey cycle.
+	fetchUpdates := buildFetchUpdatesFn(hafasClient, coalescer)
+	recomputeAlts := buildRecomputeAltsFn(engine)
+
+	pool := journey.NewWorkerPool(cfg.HAFASWorkerPoolSize, cfg.HAFASQueueDepth)
+	pollerManager := journey.NewPollerManager(
+		serverCtx, store,
+		fetchUpdates, recomputeAlts, hafasClient.CircuitState,
+		pool,
+		30*time.Second, cfg.JourneyTTLHours, logger,
+	)
+
+	if err := bootRecovery(serverCtx, store, pollerManager, cfg.JourneyTTLHours, logger); err != nil {
+		logger.Warn("boot recovery partial failure", "error", err)
+	}
 
 	installLimiter := mw.NewRateLimiter(cfg.RateLimitPerInstall)
 	ipLimiter := mw.NewRateLimiter(cfg.RateLimitPerIP)
 
-	stopCleanup := make(chan struct{})
-	go func() {
-		ticker := time.NewTicker(time.Minute)
-		defer ticker.Stop()
-		for {
-			select {
-			case <-ticker.C:
-				installLimiter.Cleanup(2 * time.Minute)
-				ipLimiter.Cleanup(2 * time.Minute)
-			case <-stopCleanup:
-				return
-			}
-		}
-	}()
+	go rateLimiterCleanup(serverCtx, installLimiter, ipLimiter)
+	go gcJob(serverCtx, db, logger)
 
 	router := api.NewRouter(api.Deps{
 		Health:             handlers.NewHealthHandler(db, rdb, cfg.HAFASBaseURL),
 		Stations:           handlers.NewStationsHandler(hafasClient, rdb),
 		Trains:             handlers.NewTrainsHandler(hafasClient),
-		Journeys:           handlers.NewJourneysHandler(store, engine, cfg.MaxActiveJourneys),
+		Journeys:           handlers.NewJourneysHandler(store, engine, pollerManager, cfg.MaxActiveJourneys),
+		Summary:            handlers.NewSummaryHandler(store),
+		Legs:               handlers.NewLegsHandler(store),
+		Alternatives:       handlers.NewAlternativesHandler(store, engine),
 		Logger:             logger,
 		CORSOrigins:        cfg.CORSAllowedOrigins,
 		InstallRateLimiter: installLimiter,
@@ -100,11 +112,19 @@ func main() {
 		signal.Notify(quit, syscall.SIGTERM, syscall.SIGINT)
 		sig := <-quit
 		logger.Info("shutdown signal received", "signal", sig)
-		ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
-		defer cancel()
-		if err := srv.Shutdown(ctx); err != nil {
-			logger.Error("shutdown error", "error", err)
-		}
+
+		// 1. Stop accepting new requests; drain in-flight HTTP requests.
+		httpCtx, httpCancel := context.WithTimeout(context.Background(), 15*time.Second)
+		defer httpCancel()
+		srv.Shutdown(httpCtx)
+
+		// 2. Cancel all poller goroutines.
+		serverCancel()
+
+		// 3. Drain worker pool (bounded by HAFAS_REQUEST_TIMEOUT).
+		pool.Shutdown()
+
+		logger.Info("shutdown complete")
 		close(done)
 	}()
 
@@ -114,8 +134,137 @@ func main() {
 		os.Exit(1)
 	}
 	<-done
-	close(stopCleanup)
-	logger.Info("server stopped")
+}
+
+// buildFetchUpdatesFn returns a FetchTripUpdatesFn that calls HAFAS via the coalescer.
+func buildFetchUpdatesFn(h *hafas.Client, c *hafas.Coalescer) journey.FetchTripUpdatesFn {
+	return func(ctx context.Context, legs []journey.Leg) map[string]journey.TripUpdate {
+		updates := make(map[string]journey.TripUpdate)
+		seen := make(map[string]bool)
+		for _, leg := range legs {
+			if leg.TripID == "" || leg.IsWalkingSegment || seen[leg.TripID] {
+				continue
+			}
+			seen[leg.TripID] = true
+			tripID := leg.TripID
+
+			v, err := c.Do(tripID, func() (any, error) {
+				return h.GetTrip(ctx, tripID)
+			})
+			if err != nil || v == nil {
+				continue
+			}
+			hafasTrip := v.(*hafas.HAFASTrip)
+			update := journey.TripUpdate{}
+			for _, s := range hafasTrip.Stopovers {
+				su := journey.StopoverUpdate{StationID: s.Stop.ID}
+				if s.Arrival != nil {
+					su.ActualArrival = s.Arrival
+				}
+				if s.ArrivalDelay != nil {
+					su.ArrivalDelaySecs = s.ArrivalDelay
+				}
+				if s.ArrivalPlatform != nil {
+					su.ArrivalPlatform = s.ArrivalPlatform
+				}
+				if s.Cancelled {
+					b := true
+					su.Cancelled = &b
+				}
+				update.Stopovers = append(update.Stopovers, su)
+			}
+			updates[tripID] = update
+		}
+		return updates
+	}
+}
+
+// buildRecomputeAltsFn returns a RecomputeAlternativesFn that calls the routing engine.
+func buildRecomputeAltsFn(e routing.Engine) journey.RecomputeAlternativesFn {
+	return func(ctx context.Context, j *journey.Journey) []journey.Alternative {
+		result, err := e.Route(ctx, routing.RoutingRequest{
+			TrainNumber:    j.TrainNumber,
+			ToStationID:    j.Destination.ID,
+			ToStationName:  j.Destination.Name,
+			DepartureAfter: time.Now(),
+			Filters:        j.Filters,
+			InstallID:      j.InstallID,
+		})
+		if err != nil {
+			return nil
+		}
+		return result.Alternatives
+	}
+}
+
+// bootRecovery rehydrates Redis and restarts pollers with a staggered start.
+func bootRecovery(ctx context.Context, store *journey.RedisPostgresStore, pm *journey.PollerManager, ttlHours int, logger *slog.Logger) error {
+	active, err := store.GetActive(ctx, ttlHours)
+	if err != nil {
+		return err
+	}
+	if len(active) == 0 {
+		logger.Info("boot recovery: no active journeys")
+		return nil
+	}
+	logger.Info("boot recovery: rehydrating journeys", "count", len(active))
+
+	// Spread poller launches over 10s to avoid a HAFAS burst on restart.
+	delay := time.Duration(10000/len(active)) * time.Millisecond
+
+	for _, j := range active {
+		pm.Start(j.ID)
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-time.After(delay):
+		}
+	}
+	logger.Info("boot recovery complete", "restarted", len(active))
+	return nil
+}
+
+// gcJob deletes terminated or stale journeys every 30 minutes.
+func gcJob(ctx context.Context, db *pgxpool.Pool, logger *slog.Logger) {
+	ticker := time.NewTicker(30 * time.Minute)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			res, err := db.Exec(ctx, `
+				WITH to_delete AS (
+					SELECT id FROM journeys
+					WHERE (terminated_at IS NOT NULL OR created_at < now() - interval '6 hours')
+					FOR UPDATE SKIP LOCKED
+				)
+				DELETE FROM journeys WHERE id IN (SELECT id FROM to_delete)
+			`)
+			if err != nil {
+				logger.Warn("GC job error", "error", err)
+				continue
+			}
+			if n := res.RowsAffected(); n > 0 {
+				logger.Info("GC job complete", "deleted", n)
+			}
+		}
+	}
+}
+
+func rateLimiterCleanup(ctx context.Context, limiters ...*mw.RateLimiter) {
+	ticker := time.NewTicker(time.Minute)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			for _, rl := range limiters {
+				rl.Cleanup(2 * time.Minute)
+			}
+		}
+	}
 }
 
 func connectRedis(rawURL string) (*redis.Client, error) {

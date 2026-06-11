@@ -21,11 +21,12 @@ import (
 type JourneysHandler struct {
 	store     journey.Store
 	engine    routing.Engine
+	poller    *journey.PollerManager // nil = no polling (tests)
 	maxActive int
 }
 
-func NewJourneysHandler(store journey.Store, engine routing.Engine, maxActive int) *JourneysHandler {
-	return &JourneysHandler{store: store, engine: engine, maxActive: maxActive}
+func NewJourneysHandler(store journey.Store, engine routing.Engine, poller *journey.PollerManager, maxActive int) *JourneysHandler {
+	return &JourneysHandler{store: store, engine: engine, poller: poller, maxActive: maxActive}
 }
 
 type createRequest struct {
@@ -171,6 +172,10 @@ func (h *JourneysHandler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if h.poller != nil {
+		h.poller.Start(j.ID)
+	}
+
 	resp := createResponse{
 		JourneyID:    j.ID,
 		Plausibility: result.Plausibility,
@@ -248,6 +253,10 @@ func (h *JourneysHandler) Delete(w http.ResponseWriter, r *http.Request) {
 			Status: http.StatusInternalServerError,
 		})
 		return
+	}
+
+	if h.poller != nil {
+		h.poller.Stop(id)
 	}
 	w.WriteHeader(http.StatusNoContent)
 }

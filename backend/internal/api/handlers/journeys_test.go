@@ -77,7 +77,7 @@ func (e *mockEngine) Route(_ context.Context, _ routing.RoutingRequest) (*routin
 }
 
 func newTestJourneysHandler(store journey.Store, engine routing.Engine, max int) *handlers.JourneysHandler {
-	return handlers.NewJourneysHandler(store, engine, max)
+	return handlers.NewJourneysHandler(store, engine, nil, max)
 }
 
 func TestCreateJourney_Returns201(t *testing.T) {
