@@ -16,6 +16,7 @@ type Deps struct {
 	Health             *handlers.HealthHandler
 	Stations           *handlers.StationsHandler
 	Trains             *handlers.TrainsHandler
+	Journeys           *handlers.JourneysHandler
 	Logger             *slog.Logger
 	CORSOrigins        []string
 	InstallRateLimiter *mw.RateLimiter
@@ -46,7 +47,10 @@ func NewRouter(deps Deps) http.Handler {
 		r.Get("/stations", deps.Stations.Search)
 		r.Get("/trains/{number}", deps.Trains.Get)
 
-		// Journey routes added in Plan 3
+		r.Post("/journeys", deps.Journeys.Create)
+		r.Get("/journeys/{id}", deps.Journeys.Get)
+		r.Delete("/journeys/{id}", deps.Journeys.Delete)
+		// summary, legs, alternatives added in Plan 4
 	})
 
 	return r

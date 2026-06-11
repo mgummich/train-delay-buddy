@@ -19,7 +19,9 @@ import (
 	mw "github.com/verspaetungsbegleiter/backend/internal/api/middleware"
 	"github.com/verspaetungsbegleiter/backend/internal/config"
 	"github.com/verspaetungsbegleiter/backend/internal/hafas"
+	"github.com/verspaetungsbegleiter/backend/internal/journey"
 	"github.com/verspaetungsbegleiter/backend/internal/migrate"
+	"github.com/verspaetungsbegleiter/backend/internal/routing"
 )
 
 func main() {
@@ -50,6 +52,9 @@ func main() {
 
 	hafasClient := hafas.NewClient(cfg)
 
+	store := journey.NewStore(db, rdb, cfg.JourneyTTLHours, cfg.DBWriteTimeout)
+	engine := routing.NewBFSEngine(hafasClient, &hafas.Coalescer{})
+
 	installLimiter := mw.NewRateLimiter(cfg.RateLimitPerInstall)
 	ipLimiter := mw.NewRateLimiter(cfg.RateLimitPerIP)
 
@@ -72,6 +77,7 @@ func main() {
 		Health:             handlers.NewHealthHandler(db, rdb, cfg.HAFASBaseURL),
 		Stations:           handlers.NewStationsHandler(hafasClient, rdb),
 		Trains:             handlers.NewTrainsHandler(hafasClient),
+		Journeys:           handlers.NewJourneysHandler(store, engine, cfg.MaxActiveJourneys),
 		Logger:             logger,
 		CORSOrigins:        cfg.CORSAllowedOrigins,
 		InstallRateLimiter: installLimiter,
