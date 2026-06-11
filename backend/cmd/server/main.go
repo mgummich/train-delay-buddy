@@ -9,13 +9,16 @@ import (
 	"strings"
 	"syscall"
 	"time"
+	_ "time/tzdata" // embed timezone data for Europe/Berlin in FilterTripsByDate
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/redis/go-redis/v9"
 
 	"github.com/verspaetungsbegleiter/backend/internal/api"
 	"github.com/verspaetungsbegleiter/backend/internal/api/handlers"
+	mw "github.com/verspaetungsbegleiter/backend/internal/api/middleware"
 	"github.com/verspaetungsbegleiter/backend/internal/config"
+	"github.com/verspaetungsbegleiter/backend/internal/hafas"
 	"github.com/verspaetungsbegleiter/backend/internal/migrate"
 )
 
@@ -45,10 +48,30 @@ func main() {
 	}
 	logger.Info("migrations complete")
 
+	hafasClient := hafas.NewClient(cfg)
+
+	installLimiter := mw.NewRateLimiter(cfg.RateLimitPerInstall)
+	ipLimiter := mw.NewRateLimiter(cfg.RateLimitPerIP)
+
+	go func() {
+		ticker := time.NewTicker(time.Minute)
+		defer ticker.Stop()
+		for range ticker.C {
+			installLimiter.Cleanup(2 * time.Minute)
+			ipLimiter.Cleanup(2 * time.Minute)
+		}
+	}()
+
 	router := api.NewRouter(api.Deps{
-		Health:      handlers.NewHealthHandler(db, rdb, cfg.HAFASBaseURL),
-		Logger:      logger,
-		CORSOrigins: cfg.CORSAllowedOrigins,
+		Health:             handlers.NewHealthHandler(db, rdb, cfg.HAFASBaseURL),
+		Stations:           handlers.NewStationsHandler(hafasClient, rdb),
+		Trains:             handlers.NewTrainsHandler(hafasClient),
+		Logger:             logger,
+		CORSOrigins:        cfg.CORSAllowedOrigins,
+		InstallRateLimiter: installLimiter,
+		IPRateLimiter:      ipLimiter,
+		PerInstallLimit:    cfg.RateLimitPerInstall,
+		PerIPLimit:         cfg.RateLimitPerIP,
 	})
 
 	srv := &http.Server{
@@ -65,7 +88,6 @@ func main() {
 		signal.Notify(quit, syscall.SIGTERM, syscall.SIGINT)
 		sig := <-quit
 		logger.Info("shutdown signal received", "signal", sig)
-
 		ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 		defer cancel()
 		if err := srv.Shutdown(ctx); err != nil {
@@ -83,8 +105,8 @@ func main() {
 	logger.Info("server stopped")
 }
 
-func connectRedis(url string) (*redis.Client, error) {
-	opt, err := redis.ParseURL(url)
+func connectRedis(rawURL string) (*redis.Client, error) {
+	opt, err := redis.ParseURL(rawURL)
 	if err != nil {
 		return nil, err
 	}
@@ -101,7 +123,6 @@ func connectDB(ctx context.Context, cfg config.Config) (*pgxpool.Pool, error) {
 	}
 	pcfg.MaxConns = int32(cfg.DBMaxOpenConns)
 	pcfg.MinConns = int32(cfg.DBMinConns)
-
 	db, err := pgxpool.NewWithConfig(ctx, pcfg)
 	if err != nil {
 		return nil, err

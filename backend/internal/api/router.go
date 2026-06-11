@@ -11,26 +11,43 @@ import (
 	mw "github.com/verspaetungsbegleiter/backend/internal/api/middleware"
 )
 
-// Deps holds all handler dependencies. Fields added in Plans 2-4.
+// Deps holds all handler dependencies injected at startup.
 type Deps struct {
-	Health      *handlers.HealthHandler
-	Logger      *slog.Logger
-	CORSOrigins []string
+	Health             *handlers.HealthHandler
+	Stations           *handlers.StationsHandler
+	Trains             *handlers.TrainsHandler
+	Logger             *slog.Logger
+	CORSOrigins        []string
+	InstallRateLimiter *mw.RateLimiter
+	IPRateLimiter      *mw.RateLimiter
+	PerInstallLimit    int
+	PerIPLimit         int
 }
 
 func NewRouter(deps Deps) http.Handler {
 	r := chi.NewRouter()
 
-	r.Use(chimw.Recoverer)
 	r.Use(mw.RequestID)
 	r.Use(mw.Logging(deps.Logger))
 	r.Use(mw.CORS(deps.CORSOrigins))
+	r.Use(chimw.Recoverer)
 
 	r.Get("/health", deps.Health.Liveness)
 	r.Get("/readyz", deps.Health.Readiness)
 
-	// /v1/ routes added in Plans 2-4
-	r.Route("/v1", func(r chi.Router) {})
+	r.Route("/v1", func(r chi.Router) {
+		r.Use(mw.RateLimit(
+			deps.InstallRateLimiter,
+			deps.IPRateLimiter,
+			deps.PerInstallLimit,
+			deps.PerIPLimit,
+		))
+
+		r.Get("/stations", deps.Stations.Search)
+		r.Get("/trains/{number}", deps.Trains.Get)
+
+		// Journey routes added in Plan 3
+	})
 
 	return r
 }
