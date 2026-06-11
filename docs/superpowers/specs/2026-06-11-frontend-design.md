@@ -66,6 +66,116 @@ test:e2e    → playwright test (stub — no tests yet)
 
 **shadcn/ui init:** Run `npx shadcn-ui@latest init` targeting Radix + Tailwind. Add: Dialog, Sheet, Switch, Toast, Popover, Badge, Button, Skeleton.
 
+**Typography:** Geist Variable Font (self-hosted woff2 — one HTTP request for all weights). CSS fallback: `system-ui, -apple-system, sans-serif`. Font sizes:
+- H1 (Start title): 1.5–1.75rem, Bold
+- H2 (screen title): 1.25–1.375rem, Semibold
+- H3 (card title, stop name): 1–1.125rem, Semibold
+- Body: 1rem, Regular
+- Label/Badge: 0.75–0.875rem, Medium
+
+`html { font-size: 100%; }` — never override with fixed px.
+
+**Full token set (`src/styles/tokens.css` — separate file, imported in `main.tsx`):**
+```css
+:root {
+  /* Backgrounds */
+  --bg-app: #F6F4F2;
+  --bg-card: #FFFFFF;
+  --bg-subtle: #F0ECE8;
+  /* Text */
+  --text-primary: #1F2329;
+  --text-muted: #6B7280;
+  --text-faint: #9CA3AF;
+  /* Accent */
+  --accent-primary: #0F766E;
+  --accent-hover: #0D615B;
+  --accent-active: #0B4B47;
+  /* Warn */
+  --warn: #DC6B33;
+  --warn-strong: #B91C1C;
+  /* Borders */
+  --border-subtle: #E5E7EB;
+  --border-strong: #D1D5DB;
+  /* Motion */
+  --motion-fast: 150ms;
+  --motion-medium: 220ms;
+  --motion-slow: 300ms;
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg-app: #111827;
+    --bg-card: #1F2933;
+    --bg-subtle: #111827;
+    --text-primary: #E5E7EB;
+    --text-muted: #9CA3AF;
+    --accent-primary: #34D399;
+    --warn: #F97316;
+  }
+}
+```
+
+**`tailwind.config.ts` full token mapping:**
+```typescript
+theme: {
+  extend: {
+    colors: {
+      'bg-app': 'var(--bg-app)',
+      'bg-card': 'var(--bg-card)',
+      'bg-subtle': 'var(--bg-subtle)',
+      'text-primary': 'var(--text-primary)',
+      'text-muted': 'var(--text-muted)',
+      'text-faint': 'var(--text-faint)',
+      'accent': 'var(--accent-primary)',
+      'accent-hover': 'var(--accent-hover)',
+      'accent-active': 'var(--accent-active)',
+      'warn': 'var(--warn)',
+      'warn-strong': 'var(--warn-strong)',
+      'border-subtle': 'var(--border-subtle)',
+      'border-strong': 'var(--border-strong)',
+    },
+    transitionDuration: {
+      'fast': 'var(--motion-fast)',
+      'medium': 'var(--motion-medium)',
+      'slow': 'var(--motion-slow)',
+    },
+    transitionTimingFunction: {
+      'expo-out': 'var(--ease-out-expo)',
+    },
+  }
+}
+```
+
+**Focus-visible (already in arch spec — implement in `src/styles/tokens.css`):**
+```css
+:focus-visible {
+  outline: 2px solid var(--accent-primary);
+  outline-offset: 2px;
+  border-radius: inherit;
+}
+```
+
+**Micro-interactions:** Button/card tap: `active:scale-[0.97] transition-transform duration-fast ease-expo-out`. Applied via Tailwind utility on all interactive elements.
+
+**View Transitions (in `router.tsx`):**
+```typescript
+// Wrap all programmatic navigations
+document.startViewTransition?.(() => flushSync(() => navigate(path)))
+```
+```css
+/* src/styles/tokens.css */
+::view-transition-old(root) { animation: slide-out var(--motion-medium) var(--ease-out-expo); }
+::view-transition-new(root) { animation: slide-in var(--motion-medium) var(--ease-out-expo); }
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-old(root), ::view-transition-new(root) { animation: none; }
+}
+```
+Browsers without View Transitions API fall through to normal navigation — no error.
+
+**`api/client.ts` — DELETE 404 handling:** `DELETE /v1/journeys/{id}` intentionally returns 404 on second call (non-idempotent by design). Client error handler must treat 404 on DELETE as a no-op (journey already gone), not a user-visible error.
+
+**`api/validation.ts` — journeyId Zod schema:** `z.string().regex(/^jrn_[0-9a-z]{12,26}$/)` — use wherever journeyId is received from API.
+
 **URL routes:**
 
 | Route | Screen | Error boundary |
@@ -259,6 +369,19 @@ ETag flow: `If-None-Match` on every poll → 304 = no re-render; 200 = update Zu
 
 **Journey expiry:**
 - Poll returns 404 `journey-not-found` → "Deine Reise ist abgelaufen" → CTA "Neue Verbindung suchen" → StartScreen
+
+**ARIA requirements (from design-system.md):**
+- SummaryHeader ETA/status updates: `aria-live="polite" aria-atomic="true"`
+- `status === 'critical'` warn card: `role="alert" aria-live="assertive"` — announces immediately
+- Timeline: `<ol role="list" aria-label="Reisestationen">`
+  - Current stop: `aria-current="step"`, `tabindex="0"`
+  - Future stops: `tabindex="0"`
+  - Past stops: `tabindex="-1" aria-hidden="true"` (keyboard skip)
+- "Zu 'Jetzt' springen" button: `aria-label="Zum aktuellen Halt springen"`; focus-manage to current stop after click
+- RiskBadge "Riskant": `aria-label="Umstieg riskant — Puffer unter 5 Minuten"`
+- Zeitgewinn "+18 Min": `aria-label="18 Minuten früher als ursprünglicher Zug"` (dynamic via `t()`)
+- ETA display: `aria-label="Voraussichtliche Ankunft {time} Uhr"`
+- Loading indicators: `role="status" aria-label="Verbindungen werden geladen"`
 
 **`<CompanionError />` error boundary:**
 - Reads IndexedDB for last-known summary before any error UI
