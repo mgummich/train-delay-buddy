@@ -3,6 +3,7 @@ package routing
 
 import (
 	"context"
+	"time"
 
 	"github.com/verspaetungsbegleiter/backend/internal/hafas"
 	"github.com/verspaetungsbegleiter/backend/internal/journey"
@@ -69,11 +70,15 @@ func (e *BFSEngine) Route(ctx context.Context, req RoutingRequest) (*RoutingResu
 				continue
 			}
 		}
+		var origETA *time.Time
+		if origIdx >= 0 {
+			origETA = &originalJourney.Summary.ETA
+		}
 		j := hafas.MapHAFASJourney(
 			hj,
 			journey.NewID(), req.InstallID, req.TrainNumber,
 			journey.StationRef{ID: req.ToStationID, Name: req.ToStationName},
-			req.Filters, &originalJourney.Summary.ETA, now,
+			req.Filters, origETA, now,
 		)
 		candidates = append(candidates, j)
 	}
