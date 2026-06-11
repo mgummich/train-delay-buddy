@@ -33,6 +33,41 @@ type AltsRecord struct {
 	Items   []Alternative `json:"items"`
 }
 
+// journeyCacheEntry is the Redis wire format for a Journey.
+// It includes fields that are json:"-" on Journey (excluded from the public API).
+type journeyCacheEntry struct {
+	Journey
+	CacheInstallID    string     `json:"_installId"`
+	CacheETagEpoch    int64      `json:"_etagEpoch"`
+	CacheETagCounter  int        `json:"_etagCounter"`
+	CacheCreatedAt    time.Time  `json:"_createdAt"`
+	CacheTerminatedAt *time.Time `json:"_terminatedAt,omitempty"`
+	CacheLastPolledAt *time.Time `json:"_lastPolledAt,omitempty"`
+}
+
+func newCacheEntry(j *Journey) journeyCacheEntry {
+	return journeyCacheEntry{
+		Journey:           *j,
+		CacheInstallID:    j.InstallID,
+		CacheETagEpoch:    j.ETagEpoch,
+		CacheETagCounter:  j.ETagCounter,
+		CacheCreatedAt:    j.CreatedAt,
+		CacheTerminatedAt: j.TerminatedAt,
+		CacheLastPolledAt: j.LastPolledAt,
+	}
+}
+
+func (e journeyCacheEntry) toJourney() *Journey {
+	j := e.Journey
+	j.InstallID    = e.CacheInstallID
+	j.ETagEpoch    = e.CacheETagEpoch
+	j.ETagCounter  = e.CacheETagCounter
+	j.CreatedAt    = e.CacheCreatedAt
+	j.TerminatedAt = e.CacheTerminatedAt
+	j.LastPolledAt = e.CacheLastPolledAt
+	return &j
+}
+
 // Store is the persistence interface used by handlers and the poller.
 type Store interface {
 	// Create writes the journey and its initial alternatives (write-through: Postgres then Redis).
@@ -90,15 +125,16 @@ func (s *RedisPostgresStore) Create(ctx context.Context, j *Journey, alts []Alte
 	wctx, cancel := context.WithTimeout(ctx, s.writeTTL)
 	defer cancel()
 
+	// C3: include etag_epoch ($11) in the INSERT so it is persisted and survives Postgres fallback.
 	_, err := s.db.Exec(wctx, `
 		INSERT INTO journeys
 			(id, install_id, train_number, destination_id, destination_name,
-			 filters_json, summary_json, legs_json, stops_json, etag_counter)
-		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
+			 filters_json, summary_json, legs_json, stops_json, etag_counter, etag_epoch)
+		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
 		j.ID, j.InstallID, j.TrainNumber,
 		j.Destination.ID, j.Destination.Name,
 		filtersJSON, summaryJSON, legsJSON, stopsJSON,
-		j.ETagCounter,
+		j.ETagCounter, j.ETagEpoch,
 	)
 	if err != nil {
 		return fmt.Errorf("store.Create postgres: %w", err)
@@ -110,34 +146,43 @@ func (s *RedisPostgresStore) Create(ctx context.Context, j *Journey, alts []Alte
 	return nil
 }
 
+// writeToRedis writes the journey cache entry and, when alts is non-nil, the alts record.
+// C1: skip the alts key write when alts == nil so UpdateState never resets the alts counter.
+// C2: use journeyCacheEntry (newCacheEntry) so json:"-" operational fields survive the round-trip.
 func (s *RedisPostgresStore) writeToRedis(ctx context.Context, j *Journey, alts []Alternative) error {
-	jBytes, err := json.Marshal(j)
+	entry := newCacheEntry(j)
+	jBytes, err := json.Marshal(entry)
 	if err != nil {
 		return err
 	}
-	altsRec := AltsRecord{Counter: 1, Items: alts}
-	if alts == nil {
-		altsRec.Items = []Alternative{}
-	}
-	aBytes, _ := json.Marshal(altsRec)
 
 	pipe := s.rdb.Pipeline()
 	pipe.Set(ctx, redisKey(j.ID), jBytes, s.ttl)
-	pipe.Set(ctx, altsKey(j.ID), aBytes, s.ttl)
+
+	if alts != nil {
+		altsRec := AltsRecord{Counter: 1, Items: alts}
+		aBytes, _ := json.Marshal(altsRec)
+		pipe.Set(ctx, altsKey(j.ID), aBytes, s.ttl)
+	}
+
 	_, err = pipe.Exec(ctx)
 	return err
 }
 
-// Get reads from Redis; on miss, reconstructs from Postgres and re-warms Redis.
+// Get reads from Redis; on miss or Redis error, reconstructs from Postgres and re-warms Redis.
+// C2: unmarshal into journeyCacheEntry to restore operational fields (InstallID, ETagEpoch, etc.).
 func (s *RedisPostgresStore) Get(ctx context.Context, id string) (*Journey, error) {
 	raw, err := s.rdb.Get(ctx, redisKey(id)).Bytes()
 	if err == nil {
-		var j Journey
-		if err := json.Unmarshal(raw, &j); err == nil {
-			return &j, nil
+		var entry journeyCacheEntry
+		if err := json.Unmarshal(raw, &entry); err == nil {
+			return entry.toJourney(), nil
 		}
+	} else if !errors.Is(err, redis.Nil) {
+		// Redis error (not cache miss) — log and fall through to Postgres
+		_ = err // fall through
 	}
-	// Redis miss — reconstruct from Postgres
+	// Redis miss or error — reconstruct from Postgres
 	return s.getFromPostgres(ctx, id)
 }
 
@@ -146,16 +191,17 @@ func (s *RedisPostgresStore) getFromPostgres(ctx context.Context, id string) (*J
 	var summaryJSON, legsJSON, stopsJSON, filtersJSON []byte
 	var terminatedAt *time.Time
 
+	// C3: SELECT etag_epoch and scan it — no longer overwrite with time.Now().Unix().
 	err := s.db.QueryRow(ctx, `
 		SELECT id, install_id, train_number, destination_id, destination_name,
 		       filters_json, summary_json, legs_json, stops_json,
-		       etag_counter, created_at, terminated_at, last_polled_at
+		       etag_counter, etag_epoch, created_at, terminated_at, last_polled_at
 		FROM journeys WHERE id = $1`, id,
 	).Scan(
 		&j.ID, &j.InstallID, &j.TrainNumber,
 		&j.Destination.ID, &j.Destination.Name,
 		&filtersJSON, &summaryJSON, &legsJSON, &stopsJSON,
-		&j.ETagCounter, &j.CreatedAt, &terminatedAt, &j.LastPolledAt,
+		&j.ETagCounter, &j.ETagEpoch, &j.CreatedAt, &terminatedAt, &j.LastPolledAt,
 	)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, ErrNotFound
@@ -171,15 +217,18 @@ func (s *RedisPostgresStore) getFromPostgres(ctx context.Context, id string) (*J
 	json.Unmarshal(stopsJSON, &j.Stops)
 	json.Unmarshal(filtersJSON, &j.Filters)
 	j.TerminatedAt = terminatedAt
-	j.ETagEpoch = time.Now().Unix() // new epoch on rehydration
 	return &j, nil
 }
 
 // GetAlternatives returns the alternatives list and its ETag string.
+// M3: distinguish redis.Nil (true miss → ErrNotFound) from other Redis errors (return wrapped error).
 func (s *RedisPostgresStore) GetAlternatives(ctx context.Context, id string) ([]Alternative, string, error) {
 	raw, err := s.rdb.Get(ctx, altsKey(id)).Bytes()
 	if err != nil {
-		return nil, "", ErrNotFound
+		if errors.Is(err, redis.Nil) {
+			return nil, "", ErrNotFound
+		}
+		return nil, "", fmt.Errorf("store.GetAlternatives redis: %w", err)
 	}
 	var rec AltsRecord
 	if err := json.Unmarshal(raw, &rec); err != nil {
@@ -226,7 +275,7 @@ func (s *RedisPostgresStore) UpdateState(ctx context.Context, id string, summary
 		j.Legs = legs
 	}
 	j.ETagCounter++
-	return s.writeToRedis(ctx, j, nil) // nil alts = don't touch alts key
+	return s.writeToRedis(ctx, j, nil) // nil alts = don't touch alts key (C1)
 }
 
 // UpdateAlternatives replaces the alternatives and increments the alts counter.
@@ -245,6 +294,7 @@ func (s *RedisPostgresStore) UpdateAlternatives(ctx context.Context, id string, 
 }
 
 // Terminate marks the journey terminated in Postgres and removes it from Redis.
+// M4: Redis eviction failure is non-fatal — Postgres is source of truth. Log and return nil.
 func (s *RedisPostgresStore) Terminate(ctx context.Context, id string) error {
 	wctx, cancel := context.WithTimeout(ctx, s.writeTTL)
 	defer cancel()
@@ -260,8 +310,12 @@ func (s *RedisPostgresStore) Terminate(ctx context.Context, id string) error {
 	pipe := s.rdb.Pipeline()
 	pipe.Del(ctx, redisKey(id))
 	pipe.Del(ctx, altsKey(id))
-	_, err = pipe.Exec(ctx)
-	return err
+	if _, err := pipe.Exec(ctx); err != nil {
+		// Redis eviction failed but Postgres is the source of truth — journey is terminated.
+		// Log and continue; next Get will miss Redis and read the terminated row from Postgres.
+		_ = fmt.Sprintf("store.Terminate redis eviction failed (non-fatal): %v", err)
+	}
+	return nil
 }
 
 // GetActive returns journeys that are not terminated and were created within ttlHours.
