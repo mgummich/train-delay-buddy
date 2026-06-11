@@ -1,4 +1,3 @@
-// backend/internal/api/middleware/requestid.go
 package middleware
 
 import (
@@ -7,26 +6,27 @@ import (
 	"encoding/hex"
 	"fmt"
 	"net/http"
+
+	"github.com/verspaetungsbegleiter/backend/internal/reqid"
 )
-
-type contextKey string
-
-const requestIDKey contextKey = "requestID"
 
 func RequestID(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		id := newRequestID()
-		ctx := context.WithValue(r.Context(), requestIDKey, id)
 		w.Header().Set("X-Request-Id", id)
-		next.ServeHTTP(w, r.WithContext(ctx))
+		next.ServeHTTP(w, r.WithContext(reqid.Set(r.Context(), id)))
 	})
 }
 
+// GetRequestID retrieves the request ID from ctx. Delegates to reqid.Get.
 func GetRequestID(ctx context.Context) string {
-	if v, ok := ctx.Value(requestIDKey).(string); ok {
-		return v
-	}
-	return ""
+	return reqid.Get(ctx)
+}
+
+// WithRequestID injects id into ctx. Used by the poller when making HAFAS calls
+// without an inbound HTTP request (Plan 4).
+func WithRequestID(ctx context.Context, id string) context.Context {
+	return reqid.Set(ctx, id)
 }
 
 func newRequestID() string {
