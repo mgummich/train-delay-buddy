@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>VerspätungsBegleiter — Screens</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,500;12..96,600;12..96,700&family=Hanken+Grotesk:wght@400;500;600;700&family=Schibsted+Grotesk:wght@400;500;600;700&family=Public+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<style>
+  html, body { margin: 0; padding: 0; height: 100%; }
+  body { background: #f0eee9; }
+
+  /* ============ DESIGN TOKENS (per-screen, theme-switchable) ============ */
+  .vb {
+    /* fonts + radius are injected inline via tweaks; fallbacks here */
+    --font-display: 'Space Grotesk', system-ui, sans-serif;
+    --font-body: 'IBM Plex Sans', system-ui, sans-serif;
+    --btn-radius: 12px;
+
+    /* spacing scale */
+    --xs: 4px; --s: 8px; --m: 12px; --l: 16px; --xl: 24px; --xxl: 32px;
+
+    font-family: var(--font-body);
+    color: var(--c-text);
+    background: var(--c-bg);
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  .vb[data-theme="light"] {
+    --c-bg: #F6F4F2;
+    --c-card: #FFFFFF;
+    --c-subtle: #F0ECE8;
+    --c-text: #1F2329;
+    --c-muted: #6B7280;
+    --c-faint: #9CA3AF;
+    --c-accent: #0F766E;
+    --c-accent-hover: #0D615B;
+    --c-accent-active: #0B4B47;
+    --c-accent-soft: #E2EFEC;
+    --c-warn: #DC6B33;
+    --c-warn-soft: #FBEADF;
+    --c-warn-strong: #B91C1C;
+    --c-border: #E5E7EB;
+    --c-border-strong: #D1D5DB;
+    --c-shadow: 0 1px 2px rgba(31,35,41,.04), 0 4px 16px rgba(31,35,41,.06);
+    --c-shadow-lift: 0 2px 4px rgba(31,35,41,.06), 0 12px 28px rgba(31,35,41,.10);
+  }
+
+  .vb[data-theme="dark"] {
+    --c-bg: #111827;
+    --c-card: #1F2933;
+    --c-subtle: #19212E;
+    --c-text: #E5E7EB;
+    --c-muted: #9CA3AF;
+    --c-faint: #6B7280;
+    --c-accent: #34D399;
+    --c-accent-hover: #2BBE85;
+    --c-accent-active: #25A874;
+    --c-accent-soft: #15302B;
+    --c-warn: #F97316;
+    --c-warn-soft: #3A2415;
+    --c-warn-strong: #F87171;
+    --c-border: #2B3543;
+    --c-border-strong: #3A4658;
+    --c-shadow: 0 1px 2px rgba(0,0,0,.30), 0 4px 16px rgba(0,0,0,.32);
+    --c-shadow-lift: 0 2px 4px rgba(0,0,0,.35), 0 12px 28px rgba(0,0,0,.45);
+  }
+
+  /* dark accent buttons need dark text for contrast on the bright green */
+  .vb[data-theme="dark"] { --c-accent-ink: #06241C; }
+  .vb[data-theme="light"] { --c-accent-ink: #FFFFFF; }
+
+  /* ============ shared element styles (scoped under .vb) ============ */
+  .vb * { box-sizing: border-box; }
+  .vb .screen-body { padding: 20px var(--l) 28px; }
+
+  .vb h1, .vb h2, .vb h3 { font-family: var(--font-display); margin: 0; letter-spacing: -0.01em; }
+  .vb h1 { font-size: 26px; line-height: 1.18; font-weight: 700; }
+  .vb h2 { font-size: 21px; line-height: 1.2; font-weight: 600; }
+  .vb h3 { font-size: 17px; line-height: 1.25; font-weight: 600; }
+  .vb p  { margin: 0; }
+
+  .vb .tnum { font-variant-numeric: tabular-nums; font-feature-settings: "tnum" 1; }
+
+  /* status bar */
+  .vb .statusbar {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 10px var(--l) 2px; font-family: var(--font-body);
+    font-size: 13px; font-weight: 600; color: var(--c-text);
+    letter-spacing: 0.01em;
+  }
+  .vb .statusbar .dots { display: flex; gap: 5px; align-items: center; opacity: .85; }
+  .vb .statusbar .dots span { width: 4px; height: 4px; border-radius: 50%; background: var(--c-text); }
+
+  /* app header */
+  .vb .appbar {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 8px var(--l) 0;
+  }
+  .vb .brand { display: flex; align-items: center; gap: 9px; }
+  .vb .brand .mark {
+    width: 26px; height: 26px; border-radius: 8px; flex: 0 0 auto;
+    background: var(--c-accent); position: relative;
+  }
+  .vb .brand .mark::before, .vb .brand .mark::after {
+    content: ""; position: absolute; background: var(--c-accent-ink); border-radius: 50%;
+  }
+  .vb .brand .mark::before { width: 6px; height: 6px; left: 5px; top: 10px; }
+  .vb .brand .mark::after  { width: 6px; height: 6px; right: 5px; top: 10px;
+    box-shadow: 0 0 0 0 transparent; }
+  .vb .brand .mark i {
+    position: absolute; left: 8px; right: 8px; top: 12px; height: 2px;
+    background: var(--c-accent-ink); border-radius: 2px;
+  }
+  .vb .brand .name { font-family: var(--font-display); font-weight: 600; font-size: 15px; letter-spacing: -0.01em; }
+  .vb .iconbtn {
+    width: 38px; height: 38px; border-radius: 10px; border: none; cursor: pointer;
+    background: transparent; color: var(--c-muted); display: flex; align-items: center; justify-content: center;
+    transition: background .15s, color .15s;
+  }
+  .vb .iconbtn:hover { background: var(--c-subtle); color: var(--c-text); }
+
+  /* cards */
+  .vb .card {
+    background: var(--c-card); border: 1px solid var(--c-border);
+    border-radius: 14px; box-shadow: var(--c-shadow);
+  }
+
+  /* inputs */
+  .vb .field { display: flex; flex-direction: column; gap: 6px; }
+  .vb .field label { font-size: 13px; font-weight: 600; color: var(--c-muted); }
+  .vb .input {
+    height: 48px; width: 100%; border-radius: 10px; border: 1.5px solid var(--c-border-strong);
+    background: var(--c-card); color: var(--c-text); font-family: var(--font-body);
+    font-size: 16px; padding: 0 14px; display: flex; align-items: center; gap: 10px;
+    transition: border-color .15s, box-shadow .15s;
+  }
+  .vb .input.focus {
+    border-color: var(--c-accent);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--c-accent) 18%, transparent);
+  }
+  .vb .input .val { color: var(--c-text); font-weight: 500; white-space: nowrap; }
+  .vb .input .ph  { color: var(--c-faint); }
+  .vb .input .lead { color: var(--c-faint); display: flex; }
+
+  /* buttons */
+  .vb .btn {
+    height: 50px; width: 100%; border-radius: var(--btn-radius); border: none; cursor: pointer;
+    font-family: var(--font-display); font-weight: 600; font-size: 16px; letter-spacing: -0.01em;
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+    transition: transform .12s cubic-bezier(.16,1,.3,1), background .15s, box-shadow .15s;
+  }
+  .vb .btn:active { transform: scale(.97); }
+  .vb .btn-primary { background: var(--c-accent); color: var(--c-accent-ink); }
+  .vb .btn-primary:hover { background: var(--c-accent-hover); }
+  .vb .btn-ghost {
+    background: transparent; color: var(--c-text); border: 1.5px solid var(--c-border-strong);
+    height: 46px;
+  }
+  .vb .btn-ghost:hover { background: var(--c-subtle); }
+  .vb .linkbtn {
+    background: none; border: none; cursor: pointer; color: var(--c-accent);
+    font-family: var(--font-body); font-weight: 600; font-size: 15px; padding: 4px;
+  }
+  .vb .linkbtn:hover { color: var(--c-accent-hover); text-decoration: underline; }
+
+  /* toggle */
+  .vb .switch { width: 46px; height: 28px; border-radius: 999px; border: none; cursor: pointer;
+    background: var(--c-border-strong); position: relative; transition: background .18s; flex: 0 0 auto; }
+  .vb .switch.on { background: var(--c-accent); }
+  .vb .switch .knob { position: absolute; top: 3px; left: 3px; width: 22px; height: 22px; border-radius: 50%;
+    background: #fff; transition: left .18s cubic-bezier(.16,1,.3,1); box-shadow: 0 1px 3px rgba(0,0,0,.25); }
+  .vb .switch.on .knob { left: 21px; }
+
+  /* badges */
+  .vb .badge {
+    display: inline-flex; align-items: center; gap: 5px; height: 24px; padding: 0 9px;
+    border-radius: 999px; font-size: 12.5px; font-weight: 600; font-family: var(--font-body);
+    white-space: nowrap;
+  }
+  .vb .badge .dot { width: 6px; height: 6px; border-radius: 50%; }
+  .vb .badge-neutral { background: var(--c-subtle); color: var(--c-muted); }
+  .vb .badge-accent  { background: var(--c-accent-soft); color: var(--c-accent); }
+  .vb .badge-warn    { background: var(--c-warn-soft); color: var(--c-warn); }
+
+  /* chips / filter */
+  .vb .chip {
+    display: inline-flex; align-items: center; gap: 6px; height: 36px; padding: 0 13px;
+    border-radius: 999px; border: 1.5px solid var(--c-border-strong); background: var(--c-card);
+    color: var(--c-text); font-size: 14px; font-weight: 500; font-family: var(--font-body);
+    cursor: pointer; transition: background .15s, border-color .15s; white-space: nowrap;
+  }
+  .vb .chip:hover { background: var(--c-subtle); }
+  .vb .chip.active { background: var(--c-accent-soft); border-color: var(--c-accent); color: var(--c-accent); }
+  .vb .chip.filter { font-weight: 600; }
+
+  .vb hr.sep { border: none; border-top: 1px solid var(--c-border); margin: 0; }
+
+  .vb .muted { color: var(--c-muted); }
+  .vb .faint { color: var(--c-faint); }
+  .vb .accent { color: var(--c-accent); }
+
+  /* screen frame: clean rounded panel, no device bezel */
+  .vb { height: 100%; }
+  .vb-screen-shell { height: 100%; border-radius: 22px; overflow: hidden; background: var(--c-bg);
+    border: 1px solid var(--c-border); position: relative; }
+  .vb-screen { min-height: 100%; }
+
+  /* floating action button */
+  .vb .vb-fab {
+    position: absolute; right: 14px; bottom: 16px; z-index: 8;
+    height: 42px; padding: 0 16px; border-radius: 999px; border: none; cursor: pointer;
+    background: var(--c-accent); color: var(--c-accent-ink);
+    font-family: var(--font-display); font-weight: 600; font-size: 14.5px;
+    display: flex; align-items: center; gap: 7px;
+    box-shadow: 0 4px 14px color-mix(in srgb, var(--c-accent) 40%, transparent);
+    transition: transform .12s cubic-bezier(.16,1,.3,1), background .15s;
+  }
+  .vb .vb-fab:hover { background: var(--c-accent-hover); }
+  .vb .vb-fab:active { transform: scale(.96); }
+
+  /* motion */
+  @keyframes vb-pulse-kf { 0% { box-shadow: 0 0 0 4px var(--c-bg), 0 0 0 6px var(--c-accent-soft); }
+    100% { box-shadow: 0 0 0 4px var(--c-bg), 0 0 0 13px transparent; } }
+  .vb .vb-pulse { animation: vb-pulse-kf 2.4s cubic-bezier(.16,1,.3,1) infinite; }
+  @keyframes vb-blink-kf { 0%,100% { opacity: 1; } 50% { opacity: .25; } }
+  .vb .vb-blink { animation: vb-blink-kf 1.6s ease-in-out infinite; }
+  @keyframes vb-train-kf { 0%,100% { transform: translate(-50%,-58%); } 50% { transform: translate(-50%,-42%); } }
+  .vb .vb-train { animation: vb-train-kf 2.8s ease-in-out infinite; }
+
+  @keyframes vb-route-fwd { from { opacity: 0; transform: translateX(16px); } to { opacity: 1; transform: none; } }
+  @keyframes vb-route-back { from { opacity: 0; transform: translateX(-16px); } to { opacity: 1; transform: none; } }
+  .vb-route { animation-duration: 220ms; animation-timing-function: cubic-bezier(.16,1,.3,1); animation-fill-mode: both; }
+  @keyframes vb-scrim-in { from { opacity: 0; } to { opacity: 1; } }
+  @keyframes vb-sheet-up { from { transform: translateY(100%); } to { transform: none; } }
+  .vb-scrim { animation: vb-scrim-in 200ms ease; }
+  .vb-sheet { animation: vb-sheet-up 260ms cubic-bezier(.16,1,.3,1); }
+  .vb-scroll::-webkit-scrollbar, .vb-sheet::-webkit-scrollbar { display: none; }
+  .vb-scroll, .vb-sheet { scrollbar-width: none; }
+
+  @media (prefers-reduced-motion: reduce) {
+    .vb * { transition: none !important; animation: none !important; }
+    .vb-route, .vb-scrim, .vb-sheet { animation: none !important; }
+  }
+
+  #root { min-height: 100%; }
+</style>
+</head>
+<body>
+<template id="__bundler_thumbnail">
+  <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+    <rect width="100" height="100" fill="#0F766E"/>
+    <circle cx="50" cy="28" r="6" fill="#fff"/>
+    <circle cx="50" cy="50" r="9" fill="#fff"/>
+    <circle cx="50" cy="74" r="6" fill="#fff" opacity="0.55"/>
+    <rect x="48.5" y="34" width="3" height="10" fill="#fff"/>
+    <rect x="48.5" y="59" width="3" height="9" fill="#fff" opacity="0.7"/>
+  </svg>
+</template>
+
+<div id="root"></div>
+
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+
+<script type="text/babel" src="design-canvas.jsx"></script>
+<script type="text/babel" src="tweaks-panel.jsx"></script>
+<script type="text/babel" src="icons.jsx"></script>
+<script type="text/babel" src="nav.jsx"></script>
+<script type="text/babel" src="screens.jsx"></script>
+<script type="text/babel" src="companion.jsx"></script>
+<script type="text/babel" src="extras.jsx"></script>
+<script type="text/babel" src="proto.jsx"></script>
+<script type="text/babel" data-presets="react">
+const FONT_PAIRS = {
+  'Space Grotesk · IBM Plex': { d: "'Space Grotesk', system-ui, sans-serif", b: "'IBM Plex Sans', system-ui, sans-serif" },
+  'Bricolage · Hanken':       { d: "'Bricolage Grotesque', system-ui, sans-serif", b: "'Hanken Grotesk', system-ui, sans-serif" },
+  'Schibsted · Public Sans':  { d: "'Schibsted Grotesk', system-ui, sans-serif", b: "'Public Sans', system-ui, sans-serif" },
+};
+
+const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
+  "dark": false,
+  "fontPair": "Space Grotesk · IBM Plex",
+  "radius": "12 px"
+}/*EDITMODE-END*/;
+
+function App() {
+  const [t, setTweak] = useTweaks(TWEAK_DEFAULTS);
+  const pair = FONT_PAIRS[t.fontPair] || FONT_PAIRS['Space Grotesk · IBM Plex'];
+  const radius = t.radius === 'Pill' ? '999px' : '12px';
+
+  const vbStyle = {
+    '--font-display': pair.d,
+    '--font-body': pair.b,
+    '--btn-radius': radius,
+  };
+  const theme = t.dark ? 'dark' : 'light';
+
+  const wrap = (el) => (
+    <div className="vb" data-theme={theme} style={vbStyle}>
+      <div className="vb-screen-shell">{el}</div>
+    </div>
+  );
+
+  return (
+    <React.Fragment>
+      <DesignCanvas>
+        <DCSection id="proto" title="Klickbarer Prototyp" subtitle="Tippen zum Navigieren · Start → Alternativen → Reisebegleiter · Filter, Einstellungen, Detailscreens">
+          <DCArtboard id="live" label="▶ Live-Prototyp" width={392} height={812}>
+            {wrap(<PrototypeApp />)}
+          </DCArtboard>
+        </DCSection>
+        <DCSection id="flow" title="VerspätungsBegleiter" subtitle="Realtime-Rerouting · 8 Screens · mobil">
+          <DCArtboard id="start" label="1 · Startscreen" width={392} height={812}>
+            {wrap(<ScreenStart />)}
+          </DCArtboard>
+          <DCArtboard id="alt" label="2 · Alternativen" width={392} height={904}>
+            {wrap(<ScreenAlternativen />)}
+          </DCArtboard>
+          <DCArtboard id="companion" label="3 · Reisebegleiter" width={392} height={1240}>
+            {wrap(<ScreenCompanion />)}
+          </DCArtboard>
+          <DCArtboard id="filter" label="4 · Filter-Sheet" width={392} height={812}>
+            {wrap(<ScreenFilter />)}
+          </DCArtboard>
+          <DCArtboard id="settings" label="5 · Einstellungen" width={392} height={1010}>
+            {wrap(<ScreenSettings />)}
+          </DCArtboard>
+        </DCSection>
+        <DCSection id="details" title="Detailscreens & Zustände" subtitle="Hinter den Chevrons · Leer-Zustand">
+          <DCArtboard id="sicherheit" label="6 · Detail · Sicherheitslevel" width={392} height={620}>
+            {wrap(<ScreenSicherheit />)}
+          </DCArtboard>
+          <DCArtboard id="sprache" label="7 · Detail · Sprache" width={392} height={620}>
+            {wrap(<ScreenSprache />)}
+          </DCArtboard>
+          <DCArtboard id="leer" label="8 · Zustand · Keine Verbindung" width={392} height={700}>
+            {wrap(<ScreenLeer />)}
+          </DCArtboard>
+        </DCSection>
+      </DesignCanvas>
+
+      <TweaksPanel>
+        <TweakSection label="Darstellung" />
+        <TweakToggle label="Dark Mode" value={t.dark} onChange={(v) => setTweak('dark', v)} />
+        <TweakSection label="Typografie" />
+        <TweakSelect label="Schrift-Paar" value={t.fontPair}
+          options={Object.keys(FONT_PAIRS)} onChange={(v) => setTweak('fontPair', v)} />
+        <TweakSection label="Form" />
+        <TweakRadio label="Button-Radius" value={t.radius}
+          options={['12 px', 'Pill']} onChange={(v) => setTweak('radius', v)} />
+      </TweaksPanel>
+    </React.Fragment>
+  );
+}
+
+function CaptureFrame({ route, dark }) {
+  const map = { start: ScreenStart, alternativen: ScreenAlternativen, companion: ScreenCompanion,
+    filter: ScreenFilter, settings: ScreenSettings, sicherheit: ScreenSicherheit, sprache: ScreenSprache, leer: ScreenLeer };
+  const C = map[route] || ScreenStart;
+  const fixed = route === 'filter';
+  return (
+    <div style={{ minHeight: '100vh', display: 'flex', justifyContent: 'center', alignItems: 'flex-start', padding: 24, background: dark ? '#0b1018' : '#e9e7e2' }}>
+      <div className="vb" data-theme={dark ? 'dark' : 'light'} style={{ width: 392,
+        '--font-display': "'Space Grotesk', system-ui, sans-serif", '--font-body': "'IBM Plex Sans', system-ui, sans-serif", '--btn-radius': '12px' }}>
+        <div className="vb-screen-shell" style={{ height: fixed ? 812 : 'auto', borderRadius: 22, overflow: 'hidden' }}>
+          <C />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+const __capRoot = ReactDOM.createRoot(document.getElementById('root'));
+window.__cap = (route, dark) => __capRoot.render(<CaptureFrame route={route} dark={!!dark} />);
+__capRoot.render(<App />);
+</script>
+</body>
+</html>
