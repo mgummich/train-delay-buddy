@@ -23,7 +23,7 @@ type Config struct {
 	HAFASCBThreshold     int
 	HAFASCBProbeInterval time.Duration
 	DBMaxOpenConns       int
-	DBMaxIdleConns       int
+	DBMinConns           int
 	DBWriteTimeout       time.Duration
 	MigrationsDir        string
 	CORSAllowedOrigins   []string
@@ -46,7 +46,7 @@ func Load() Config {
 		HAFASCBThreshold:     envInt("HAFAS_CB_THRESHOLD", 5),
 		HAFASCBProbeInterval: envDuration("HAFAS_CB_PROBE_INTERVAL", 30*time.Second),
 		DBMaxOpenConns:       envInt("DB_MAX_OPEN_CONNS", 20),
-		DBMaxIdleConns:       envInt("DB_MAX_IDLE_CONNS", 5),
+		DBMinConns:           envInt("DB_MIN_CONNS", 5),
 		DBWriteTimeout:       envDuration("DB_WRITE_TIMEOUT", 5*time.Second),
 		MigrationsDir:        env("MIGRATIONS_DIR", "./migrations"),
 		CORSAllowedOrigins:   envList("CORS_ALLOWED_ORIGINS"),

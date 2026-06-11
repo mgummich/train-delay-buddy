@@ -38,19 +38,19 @@ func (h *HealthHandler) Readiness(w http.ResponseWriter, r *http.Request) {
 		"postgres": "ok",
 		"hafas":    "ok",
 	}
-	overall := "ok"
+	coreDegraded := false
 
 	if h.rdb != nil {
 		if err := h.rdb.Ping(ctx).Err(); err != nil {
 			checks["redis"] = "error"
-			overall = "degraded"
+			coreDegraded = true
 		}
 	}
 
 	if h.db != nil {
 		if _, err := h.db.Exec(ctx, "SELECT 1"); err != nil {
 			checks["postgres"] = "error"
-			overall = "degraded"
+			coreDegraded = true
 		}
 	}
 
@@ -60,18 +60,21 @@ func (h *HealthHandler) Readiness(w http.ResponseWriter, r *http.Request) {
 		resp, err := http.DefaultClient.Do(req)
 		if err != nil {
 			checks["hafas"] = "error"
-			overall = "degraded"
 		} else {
 			resp.Body.Close()
 			if resp.StatusCode >= 500 {
 				checks["hafas"] = "error"
-				overall = "degraded"
 			}
 		}
 	}
 
+	overall := "ok"
+	if coreDegraded || checks["hafas"] == "error" {
+		overall = "degraded"
+	}
+
 	code := http.StatusOK
-	if overall != "ok" {
+	if coreDegraded {
 		code = http.StatusServiceUnavailable
 	}
 	writeJSON(w, code, readinessResponse{Status: overall, Checks: checks})

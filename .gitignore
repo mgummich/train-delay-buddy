@@ -1,1 +1,3 @@
 .env
+backend/server
+*.DS_Store

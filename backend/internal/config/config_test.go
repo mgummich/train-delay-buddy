@@ -9,7 +9,16 @@ import (
 )
 
 func TestLoad_Defaults(t *testing.T) {
-	os.Clearenv()
+	for _, k := range []string{
+		"PORT", "REDIS_URL", "DATABASE_URL", "HAFAS_BASE_URL",
+		"HAFAS_WORKER_POOL_SIZE", "MAX_ACTIVE_JOURNEYS", "JOURNEY_TTL_HOURS",
+		"RATE_LIMIT_PER_INSTALL", "RATE_LIMIT_PER_IP", "LOG_LEVEL",
+		"HAFAS_REQUEST_TIMEOUT", "HAFAS_QUEUE_DEPTH", "HAFAS_CB_THRESHOLD",
+		"HAFAS_CB_PROBE_INTERVAL", "DB_MAX_OPEN_CONNS", "DB_MIN_CONNS",
+		"DB_WRITE_TIMEOUT", "MIGRATIONS_DIR", "CORS_ALLOWED_ORIGINS",
+	} {
+		t.Setenv(k, "")
+	}
 	cfg := config.Load()
 
 	if cfg.Port != "8080" {

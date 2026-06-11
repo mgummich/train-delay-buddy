@@ -10,6 +10,7 @@ CREATE TABLE IF NOT EXISTS journeys (
     summary_json     JSONB NOT NULL,
     legs_json        JSONB NOT NULL DEFAULT '[]',
     stops_json       JSONB NOT NULL DEFAULT '[]',
+    etag_epoch       BIGINT  NOT NULL DEFAULT 0,
     etag_counter     INTEGER NOT NULL DEFAULT 1,
     created_at       TIMESTAMPTZ NOT NULL DEFAULT now(),
     terminated_at    TIMESTAMPTZ,

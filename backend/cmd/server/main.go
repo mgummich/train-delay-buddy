@@ -100,7 +100,7 @@ func connectDB(ctx context.Context, cfg config.Config) (*pgxpool.Pool, error) {
 		return nil, err
 	}
 	pcfg.MaxConns = int32(cfg.DBMaxOpenConns)
-	pcfg.MinConns = int32(cfg.DBMaxIdleConns)
+	pcfg.MinConns = int32(cfg.DBMinConns)
 
 	db, err := pgxpool.NewWithConfig(ctx, pcfg)
 	if err != nil {
