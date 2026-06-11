@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"mime"
 	"net/http"
 	"time"
 
@@ -43,7 +44,10 @@ type createResponse struct {
 
 // Create handles POST /v1/journeys.
 func (h *JourneysHandler) Create(w http.ResponseWriter, r *http.Request) {
-	if ct := r.Header.Get("Content-Type"); ct != "application/json" {
+	r.Body = http.MaxBytesReader(w, r.Body, 4096)
+
+	ct, _, _ := mime.ParseMediaType(r.Header.Get("Content-Type"))
+	if ct != "application/json" {
 		problem.Write(w, r, problem.Problem{
 			Type:   "urn:verspbegl:error:malformed-request",
 			Title:  "Malformed Request",
@@ -55,6 +59,16 @@ func (h *JourneysHandler) Create(w http.ResponseWriter, r *http.Request) {
 
 	var req createRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		var maxErr *http.MaxBytesError
+		if errors.As(err, &maxErr) {
+			problem.Write(w, r, problem.Problem{
+				Type:   "urn:verspbegl:error:malformed-request",
+				Title:  "Malformed Request",
+				Status: http.StatusRequestEntityTooLarge,
+				Detail: "Request body too large.",
+			})
+			return
+		}
 		problem.Write(w, r, problem.Problem{
 			Type:   "urn:verspbegl:error:malformed-request",
 			Title:  "Malformed Request",
