@@ -25,7 +25,7 @@ func newBFSEngine(t *testing.T, handler http.HandlerFunc) routing.Engine {
 		HAFASCBThreshold:     5,
 		HAFASCBProbeInterval: 30 * time.Second,
 	})
-	return routing.NewBFSEngine(client, &hafas.Coalescer{})
+	return routing.NewBFSEngine(client)
 }
 
 func TestBFS_ReturnsOriginalAndAlternatives(t *testing.T) {
@@ -78,7 +78,7 @@ func TestBFS_ReturnsOriginalAndAlternatives(t *testing.T) {
 		HAFASBaseURL: srv.URL, HAFASRequestTimeout: 5 * time.Second,
 		HAFASCBThreshold: 5, HAFASCBProbeInterval: 30 * time.Second,
 	})
-	engine := routing.NewBFSEngine(client, &hafas.Coalescer{})
+	engine := routing.NewBFSEngine(client)
 
 	result, err := engine.Route(context.Background(), routing.RoutingRequest{
 		TrainNumber:    "ICE 123",

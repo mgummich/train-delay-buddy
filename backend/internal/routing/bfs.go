@@ -3,7 +3,7 @@ package routing
 
 import (
 	"context"
-	"time"
+	"fmt"
 
 	"github.com/verspaetungsbegleiter/backend/internal/hafas"
 	"github.com/verspaetungsbegleiter/backend/internal/journey"
@@ -12,13 +12,12 @@ import (
 // BFSEngine is the MVP routing engine — delegates graph traversal to HAFAS,
 // applies filter + ranking on top of returned results.
 type BFSEngine struct {
-	hafas     *hafas.Client
-	coalescer *hafas.Coalescer
+	hafas *hafas.Client
 }
 
 // NewBFSEngine creates a BFSEngine.
-func NewBFSEngine(h *hafas.Client, c *hafas.Coalescer) *BFSEngine {
-	return &BFSEngine{hafas: h, coalescer: c}
+func NewBFSEngine(h *hafas.Client) *BFSEngine {
+	return &BFSEngine{hafas: h}
 }
 
 func (e *BFSEngine) Route(ctx context.Context, req RoutingRequest) (*RoutingResult, error) {
@@ -42,20 +41,38 @@ func (e *BFSEngine) Route(ctx context.Context, req RoutingRequest) (*RoutingResu
 
 	// 3. Find the original journey (contains user's train in first leg)
 	origIdx := findOriginalIndex(hafasJourneys, req.TrainNumber)
+	if origIdx < 0 {
+		return nil, fmt.Errorf("train %q not found in HAFAS journey results for route %s→%s",
+			req.TrainNumber, fromID, req.ToStationID)
+	}
+
+	// 3a. Resolve destination name from trip stopovers if not provided
+	toStationName := req.ToStationName
+	if toStationName == "" {
+		for _, trip := range trips {
+			for _, s := range trip.Stopovers {
+				if s.Stop.ID == req.ToStationID && s.Stop.Name != "" {
+					toStationName = s.Stop.Name
+					break
+				}
+			}
+			if toStationName != "" {
+				break
+			}
+		}
+	}
 
 	now := req.DepartureAfter // use departure time as "now" for initial mapping
 
-	var originalJourney journey.Journey
-	if origIdx >= 0 {
-		originalJourney = hafas.MapHAFASJourney(
-			hafasJourneys[origIdx],
-			journey.NewID(), req.InstallID, req.TrainNumber,
-			journey.StationRef{ID: req.ToStationID, Name: req.ToStationName},
-			req.Filters, nil, now,
-		)
-	}
+	originalJourney := hafas.MapHAFASJourney(
+		hafasJourneys[origIdx],
+		journey.NewID(), req.InstallID, req.TrainNumber,
+		journey.StationRef{ID: req.ToStationID, Name: toStationName},
+		req.Filters, nil, now,
+	)
 
 	// 4. Map and filter alternatives
+	origETA := &originalJourney.Summary.ETA
 	var candidates []journey.Journey
 	for i, hj := range hafasJourneys {
 		if i == origIdx {
@@ -70,23 +87,17 @@ func (e *BFSEngine) Route(ctx context.Context, req RoutingRequest) (*RoutingResu
 				continue
 			}
 		}
-		var origETA *time.Time
-		if origIdx >= 0 {
-			origETA = &originalJourney.Summary.ETA
-		}
 		j := hafas.MapHAFASJourney(
 			hj,
 			journey.NewID(), req.InstallID, req.TrainNumber,
-			journey.StationRef{ID: req.ToStationID, Name: req.ToStationName},
+			journey.StationRef{ID: req.ToStationID, Name: toStationName},
 			req.Filters, origETA, now,
 		)
 		candidates = append(candidates, j)
 	}
 
 	// 5. Keep only alternatives that arrive before the original
-	if origIdx >= 0 {
-		candidates = FilterBetterThan(candidates, originalJourney.Summary.ETA)
-	}
+	candidates = FilterBetterThan(candidates, originalJourney.Summary.ETA)
 	Sort(candidates)
 
 	// 6. Convert to Alternative slice (top 5)

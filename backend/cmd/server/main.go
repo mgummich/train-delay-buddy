@@ -53,7 +53,7 @@ func main() {
 	hafasClient := hafas.NewClient(cfg)
 
 	store := journey.NewStore(db, rdb, cfg.JourneyTTLHours, cfg.DBWriteTimeout)
-	engine := routing.NewBFSEngine(hafasClient, &hafas.Coalescer{})
+	engine := routing.NewBFSEngine(hafasClient)
 
 	installLimiter := mw.NewRateLimiter(cfg.RateLimitPerInstall)
 	ipLimiter := mw.NewRateLimiter(cfg.RateLimitPerIP)
