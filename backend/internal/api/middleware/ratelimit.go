@@ -1,7 +1,6 @@
 package middleware
 
 import (
-	"fmt"
 	"net"
 	"net/http"
 	"strconv"
@@ -9,6 +8,8 @@ import (
 	"time"
 
 	"golang.org/x/time/rate"
+
+	"github.com/verspaetungsbegleiter/backend/internal/problem"
 )
 
 // RateLimiter is a per-key token-bucket limiter backed by an in-memory map.
@@ -96,11 +97,11 @@ func RateLimit(installLimiter, ipLimiter *RateLimiter, perInstallLimit, perIPLim
 			if !allowed {
 				w.Header().Set("Retry-After", "30")
 				w.Header().Set("X-RateLimit-Remaining", "0")
-				w.Header().Set("Content-Type", "application/problem+json")
-				w.Header().Set("Link", `<https://verspaetungsbegleiter.app/errors>; rel="describedby"`)
-				w.WriteHeader(http.StatusTooManyRequests)
-				fmt.Fprintf(w, `{"type":"urn:verspbegl:error:rate-limit-exceeded","title":"Rate Limit Exceeded","status":429,"instance":%q}`,
-					r.URL.Path)
+				problem.Write(w, r, problem.Problem{
+					Type:   "urn:verspbegl:error:rate-limit-exceeded",
+					Title:  "Rate Limit Exceeded",
+					Status: http.StatusTooManyRequests,
+				})
 				return
 			}
 

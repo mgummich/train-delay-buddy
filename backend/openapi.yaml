@@ -15,7 +15,7 @@ info:
     All timestamps are UTC ISO 8601. Frontend is responsible for local timezone formatting.
 
     Error responses use RFC 7807 `application/problem+json` with URN-based `type` identifiers.
-    Error catalog: `urn:vbb:error:<slug>` — see error responses below.
+    Error catalog: `urn:verspbegl:error:<slug>` — see error responses below.
 
 servers:
   - url: /v1
@@ -906,8 +906,8 @@ components:
       properties:
         type:
           type: string
-          description: "URN error identifier. Format: urn:vbb:error:<slug>"
-          example: "urn:vbb:error:train-not-found"
+          description: "URN error identifier. Format: urn:verspbegl:error:<slug>"
+          example: "urn:verspbegl:error:train-not-found"
         title:
           type: string
           example: "Train Not Found"
@@ -947,7 +947,7 @@ components:
           schema:
             $ref: '#/components/schemas/Problem'
           example:
-            type: "urn:vbb:error:malformed-request"
+            type: "urn:verspbegl:error:malformed-request"
             title: "Malformed Request"
             status: 400
             detail: "Request body is not valid JSON."
@@ -963,7 +963,7 @@ components:
           schema:
             $ref: '#/components/schemas/Problem'
           example:
-            type: "urn:vbb:error:validation-error"
+            type: "urn:verspbegl:error:validation-error"
             title: "Validation Error"
             status: 422
             detail: "Request body has invalid fields."
@@ -984,7 +984,7 @@ components:
           schema:
             $ref: '#/components/schemas/Problem'
           example:
-            type: "urn:vbb:error:train-not-found"
+            type: "urn:verspbegl:error:train-not-found"
             title: "Train Not Found"
             status: 404
             detail: "Train ICE 123 does not operate on 2026-06-10."
@@ -1000,7 +1000,7 @@ components:
           schema:
             $ref: '#/components/schemas/Problem'
           example:
-            type: "urn:vbb:error:journey-not-found"
+            type: "urn:verspbegl:error:journey-not-found"
             title: "Journey Not Found"
             status: 404
             detail: "Journey jrn_01j2k3m4n5 does not exist or has expired."
@@ -1016,7 +1016,7 @@ components:
           schema:
             $ref: '#/components/schemas/Problem'
           example:
-            type: "urn:vbb:error:idempotency-conflict"
+            type: "urn:verspbegl:error:idempotency-conflict"
             title: "Idempotency Conflict"
             status: 409
             detail: "Idempotency-Key was already used with a different request body."
@@ -1035,7 +1035,7 @@ components:
           schema:
             $ref: '#/components/schemas/Problem'
           example:
-            type: "urn:vbb:error:rate-limit-exceeded"
+            type: "urn:verspbegl:error:rate-limit-exceeded"
             title: "Rate Limit Exceeded"
             status: 429
 
@@ -1049,7 +1049,7 @@ components:
           schema:
             $ref: '#/components/schemas/Problem'
           example:
-            type: "urn:vbb:error:upstream-unavailable"
+            type: "urn:verspbegl:error:upstream-unavailable"
             title: "Service Unavailable"
             status: 503
 
@@ -1063,7 +1063,7 @@ components:
           schema:
             $ref: '#/components/schemas/Problem'
           example:
-            type: "urn:vbb:error:internal-error"
+            type: "urn:verspbegl:error:internal-error"
             title: "Internal Server Error"
             status: 500
             detail: "An unexpected error occurred."

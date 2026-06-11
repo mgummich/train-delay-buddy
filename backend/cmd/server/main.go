@@ -53,12 +53,18 @@ func main() {
 	installLimiter := mw.NewRateLimiter(cfg.RateLimitPerInstall)
 	ipLimiter := mw.NewRateLimiter(cfg.RateLimitPerIP)
 
+	stopCleanup := make(chan struct{})
 	go func() {
 		ticker := time.NewTicker(time.Minute)
 		defer ticker.Stop()
-		for range ticker.C {
-			installLimiter.Cleanup(2 * time.Minute)
-			ipLimiter.Cleanup(2 * time.Minute)
+		for {
+			select {
+			case <-ticker.C:
+				installLimiter.Cleanup(2 * time.Minute)
+				ipLimiter.Cleanup(2 * time.Minute)
+			case <-stopCleanup:
+				return
+			}
 		}
 	}()
 
@@ -102,6 +108,7 @@ func main() {
 		os.Exit(1)
 	}
 	<-done
+	close(stopCleanup)
 	logger.Info("server stopped")
 }
 

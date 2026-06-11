@@ -27,10 +27,10 @@ type Deps struct {
 func NewRouter(deps Deps) http.Handler {
 	r := chi.NewRouter()
 
+	r.Use(chimw.Recoverer) // must be outermost to catch panics in all middleware below
 	r.Use(mw.RequestID)
 	r.Use(mw.Logging(deps.Logger))
 	r.Use(mw.CORS(deps.CORSOrigins))
-	r.Use(chimw.Recoverer)
 
 	r.Get("/health", deps.Health.Liveness)
 	r.Get("/readyz", deps.Health.Readiness)

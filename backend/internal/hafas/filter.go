@@ -20,15 +20,17 @@ func IsDBOperator(operatorName string) bool {
 }
 
 // IsDBOnlyJourney reports whether all non-walking legs are operated by a DB entity.
-// Returns false for nil/empty legs — a journey with no legs is unclassifiable.
+// Returns false for nil/empty legs and for journeys with no transit legs at all.
 func IsDBOnlyJourney(legs []HAFASLeg) bool {
 	if len(legs) == 0 {
 		return false
 	}
+	hasTransit := false
 	for _, leg := range legs {
 		if leg.Walking {
 			continue
 		}
+		hasTransit = true
 		if leg.Line == nil || leg.Line.Operator == nil {
 			return false
 		}
@@ -36,5 +38,5 @@ func IsDBOnlyJourney(legs []HAFASLeg) bool {
 			return false
 		}
 	}
-	return true
+	return hasTransit
 }

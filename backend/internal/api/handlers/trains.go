@@ -27,7 +27,8 @@ func (h *TrainsHandler) Get(w http.ResponseWriter, r *http.Request) {
 
 	date := strings.TrimSpace(r.URL.Query().Get("date"))
 	if date == "" {
-		date = time.Now().UTC().Format("2006-01-02")
+		loc, _ := time.LoadLocation("Europe/Berlin")
+		date = time.Now().In(loc).Format("2006-01-02")
 	}
 	if _, err := time.Parse("2006-01-02", date); err != nil {
 		problem.Write(w, r, problem.Problem{

@@ -75,9 +75,6 @@ func (h *StationsHandler) Search(w http.ResponseWriter, r *http.Request) {
 	}
 
 	stations := hafas.MapStations(results)
-	if stations == nil {
-		stations = []journey.StationRef{}
-	}
 
 	body, _ := json.Marshal(stationsResponse{Stations: stations})
 

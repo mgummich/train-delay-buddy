@@ -81,3 +81,13 @@ func TestIsDBOnlyJourney_EmptyLegsReturnsFalse(t *testing.T) {
 		t.Error("empty legs: expected false (unclassifiable)")
 	}
 }
+
+func TestIsDBOnlyJourney_AllWalkingReturnsFalse(t *testing.T) {
+	legs := []hafas.HAFASLeg{
+		{Walking: true},
+		{Walking: true},
+	}
+	if hafas.IsDBOnlyJourney(legs) {
+		t.Error("all-walking journey: expected false (no transit legs)")
+	}
+}
