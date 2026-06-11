@@ -62,6 +62,26 @@ func (e *BFSEngine) Route(ctx context.Context, req RoutingRequest) (*RoutingResu
 		}
 	}
 
+	// Fallback: resolve destination name from journey legs if trips were empty
+	if toStationName == "" {
+		for _, hj := range hafasJourneys {
+			for _, leg := range hj.Legs {
+				if leg.Destination.ID == req.ToStationID && leg.Destination.Name != "" {
+					toStationName = leg.Destination.Name
+					break
+				}
+				// Also check origin in case destination is an intermediate stop
+				if leg.Origin.ID == req.ToStationID && leg.Origin.Name != "" {
+					toStationName = leg.Origin.Name
+					break
+				}
+			}
+			if toStationName != "" {
+				break
+			}
+		}
+	}
+
 	now := req.DepartureAfter // use departure time as "now" for initial mapping
 
 	originalJourney := hafas.MapHAFASJourney(
