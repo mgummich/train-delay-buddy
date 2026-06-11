@@ -108,7 +108,7 @@ func (h *JourneysHandler) Create(w http.ResponseWriter, r *http.Request) {
 			// Replay cached response
 			w.Header().Set("Content-Type", "application/json")
 			w.Header().Set("Idempotency-Replayed", "true")
-			w.WriteHeader(http.StatusOK)
+			w.WriteHeader(existing.StatusCode)
 			w.Write(existing.ResponseBody)
 			return
 		}
