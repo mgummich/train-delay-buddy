@@ -1,0 +1,17 @@
+# docker-compose.override.yml
+services:
+  backend:
+    build:
+      context: ./backend
+      target: dev
+    volumes:
+      - ./backend:/app:cached
+    ports: ["8080:8080"]
+    environment:
+      - LOG_LEVEL=DEBUG
+      - CORS_ALLOWED_ORIGINS=http://localhost:5173
+    deploy:
+      resources: {}
+
+  postgres:
+    ports: ["5432:5432"]
