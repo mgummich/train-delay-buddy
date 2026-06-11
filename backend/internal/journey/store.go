@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -313,7 +314,7 @@ func (s *RedisPostgresStore) Terminate(ctx context.Context, id string) error {
 	if _, err := pipe.Exec(ctx); err != nil {
 		// Redis eviction failed but Postgres is the source of truth — journey is terminated.
 		// Log and continue; next Get will miss Redis and read the terminated row from Postgres.
-		_ = fmt.Sprintf("store.Terminate redis eviction failed (non-fatal): %v", err)
+		log.Printf("store.Terminate: redis eviction failed (non-fatal): %v", err)
 	}
 	return nil
 }
