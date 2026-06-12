@@ -56,7 +56,7 @@ func TestRateLimit_Middleware_Returns429WhenExceeded(t *testing.T) {
 	install := middleware.NewRateLimiter(1)
 	ip := middleware.NewRateLimiter(60)
 
-	handler := middleware.RateLimit(install, ip, 1, 60)(
+	handler := middleware.RateLimit(middleware.NewMemoryLimiter(install), middleware.NewMemoryLimiter(ip), 1, 60)(
 		http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(http.StatusOK) }),
 	)
 
@@ -80,7 +80,7 @@ func TestRateLimit_Middleware_FallsBackToIPWhenNoInstallId(t *testing.T) {
 	install := middleware.NewRateLimiter(60)
 	ip := middleware.NewRateLimiter(1)
 
-	handler := middleware.RateLimit(install, ip, 60, 1)(
+	handler := middleware.RateLimit(middleware.NewMemoryLimiter(install), middleware.NewMemoryLimiter(ip), 60, 1)(
 		http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(http.StatusOK) }),
 	)
 

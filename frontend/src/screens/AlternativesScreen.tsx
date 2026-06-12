@@ -190,7 +190,7 @@ export function AlternativesScreen() {
                 transfers={alt.legs.length}
                 minBuffer={alt.summary.minTransferBufferMinutes ?? 0}
                 badges={[
-                  ...(alt.summary.minTransferBufferMinutes !== null &&
+                  ...(alt.summary.minTransferBufferMinutes != null &&
                       alt.summary.minTransferBufferMinutes < 5
                         ? ['riskant' as const] : []),
                   ...(i === 0 ? ['schnellste' as const] : []),

@@ -10,6 +10,7 @@ import (
 
 	"github.com/verspaetungsbegleiter/backend/internal/api/handlers"
 	mw "github.com/verspaetungsbegleiter/backend/internal/api/middleware"
+	"github.com/verspaetungsbegleiter/backend/internal/journey"
 )
 
 // Deps holds all handler dependencies injected at startup.
@@ -21,10 +22,11 @@ type Deps struct {
 	Summary            *handlers.SummaryHandler
 	Legs               *handlers.LegsHandler
 	Alternatives       *handlers.AlternativesHandler
+	Store              journey.Store
 	Logger             *slog.Logger
 	CORSOrigins        []string
-	InstallRateLimiter *mw.RateLimiter
-	IPRateLimiter      *mw.RateLimiter
+	InstallRateLimiter mw.Limiter
+	IPRateLimiter      mw.Limiter
 	PerInstallLimit    int
 	PerIPLimit         int
 }
@@ -55,13 +57,19 @@ func NewRouter(deps Deps) http.Handler {
 		r.Get("/trains/{number}", deps.Trains.Get)
 
 		r.Post("/journeys", deps.Journeys.Create)
-		r.Get("/journeys/{id}", deps.Journeys.Get)
-		r.Delete("/journeys/{id}", deps.Journeys.Delete)
 
-		r.Get("/journeys/{id}/summary", deps.Summary.Get)
-		r.Get("/journeys/{id}/legs", deps.Legs.Get)
-		r.Get("/journeys/{id}/alternatives", deps.Alternatives.Get)
-		r.Post("/journeys/{id}/alternatives", deps.Alternatives.Trigger)
+		// All per-journey routes require ownership: X-Install-Id must match
+		// the InstallID recorded at journey creation. On mismatch we return
+		// 404 (not 403) to avoid leaking existence across installs.
+		r.Group(func(r chi.Router) {
+			r.Use(mw.JourneyOwnership(deps.Store))
+			r.Get("/journeys/{id}", deps.Journeys.Get)
+			r.Delete("/journeys/{id}", deps.Journeys.Delete)
+			r.Get("/journeys/{id}/summary", deps.Summary.Get)
+			r.Get("/journeys/{id}/legs", deps.Legs.Get)
+			r.Get("/journeys/{id}/alternatives", deps.Alternatives.Get)
+			r.Post("/journeys/{id}/alternatives", deps.Alternatives.Trigger)
+		})
 	})
 
 	return r

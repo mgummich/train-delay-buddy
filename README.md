@@ -77,7 +77,7 @@ Additional screens in [`design_handoff_verspaetungsbegleiter/screenshots/`](desi
 | **Backend** | Go 1.25 — chi router, pgx/v5, go-redis, Prometheus metrics |
 | **Frontend** | React 19, TypeScript, Vite 6, TanStack Query, Zustand, Tailwind CSS, shadcn/ui |
 | **Database** | PostgreSQL 16 |
-| **Cache** | Redis 7 (volatile-LRU, 256 MB cap) |
+| **Cache** | Valkey 8 (BSD Redis fork, volatile-LRU, 256 MB cap) |
 | **Reverse proxy** | Nginx (production) |
 | **Containerisation** | Docker + Docker Compose |
 | **External data** | `v6.db.transport.rest` — open HAFAS API for DB realtime data |
@@ -334,7 +334,7 @@ Browser (React SPA / PWA)
 │          └── UpdateState ──► Redis (L1) + Postgres (L2) │
 └─────────────────────────────────────────────────────────┘
          │                         │
-    Redis 7                  PostgreSQL 16
+    Valkey 8                 PostgreSQL 16
   (hot cache,              (persistent store,
   ETag counters)            migration on boot)
 ```

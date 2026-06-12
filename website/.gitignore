@@ -1,0 +1,8 @@
+.docusaurus/
+build/
+node_modules/
+.cache-loader/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+static/img/screenshots/

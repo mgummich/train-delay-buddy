@@ -71,7 +71,10 @@ func (rl *RateLimiter) Cleanup(olderThan time.Duration) {
 }
 
 // RateLimit returns an HTTP middleware that enforces per-install-id and per-IP limits.
-func RateLimit(installLimiter, ipLimiter *RateLimiter, perInstallLimit, perIPLimit int) func(http.Handler) http.Handler {
+// installLimiter and ipLimiter satisfy the Limiter interface — pass either the
+// in-memory implementation (single-instance, tests) or the Valkey/Redis-backed
+// one (multi-instance production).
+func RateLimit(installLimiter, ipLimiter Limiter, perInstallLimit, perIPLimit int) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			installID := r.Header.Get("X-Install-Id")
@@ -79,13 +82,11 @@ func RateLimit(installLimiter, ipLimiter *RateLimiter, perInstallLimit, perIPLim
 			var allowed bool
 			var limit, remaining int
 			if installID != "" {
-				allowed = installLimiter.Allow(installID)
-				remaining = installLimiter.Remaining(installID)
+				allowed, remaining = installLimiter.Allow(r.Context(), installID)
 				limit = perInstallLimit
 			} else {
 				ip := realIP(r)
-				allowed = ipLimiter.Allow(ip)
-				remaining = ipLimiter.Remaining(ip)
+				allowed, remaining = ipLimiter.Allow(r.Context(), ip)
 				limit = perIPLimit
 			}
 

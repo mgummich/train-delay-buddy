@@ -2,7 +2,9 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
+	"math"
 	"net/http"
 	"os"
 	"os/signal"
@@ -76,10 +78,7 @@ func main() {
 		logger.Warn("boot recovery partial failure", "error", err)
 	}
 
-	installLimiter := mw.NewRateLimiter(cfg.RateLimitPerInstall)
-	ipLimiter := mw.NewRateLimiter(cfg.RateLimitPerIP)
-
-	go rateLimiterCleanup(serverCtx, installLimiter, ipLimiter)
+	installLimiter, ipLimiter := buildLimiters(serverCtx, rdb, cfg, logger)
 	go gcJob(serverCtx, db, logger)
 
 	router := api.NewRouter(api.Deps{
@@ -90,6 +89,7 @@ func main() {
 		Summary:            handlers.NewSummaryHandler(store),
 		Legs:               handlers.NewLegsHandler(store),
 		Alternatives:       handlers.NewAlternativesHandler(store, engine, 4*cfg.HAFASRequestTimeout, serverCtx),
+		Store:              store,
 		Logger:             logger,
 		CORSOrigins:        cfg.CORSAllowedOrigins,
 		InstallRateLimiter: installLimiter,
@@ -252,6 +252,25 @@ func gcJob(ctx context.Context, db *pgxpool.Pool, logger *slog.Logger) {
 	}
 }
 
+// buildLimiters picks the rate-limit backend: Valkey/Redis when available
+// (correct across multiple backend instances) or in-memory otherwise
+// (single-instance dev/test). In-memory limiters are paired with a background
+// cleanup goroutine that evicts entries idle for 2 minutes.
+func buildLimiters(ctx context.Context, rdb *redis.Client, cfg config.Config, logger *slog.Logger) (mw.Limiter, mw.Limiter) {
+	if rdb != nil {
+		logger.Info("rate-limit backend: valkey/redis",
+			"perInstall", cfg.RateLimitPerInstall, "perIP", cfg.RateLimitPerIP)
+		return mw.NewRedisLimiter(rdb, cfg.RateLimitPerInstall, "rl:install"),
+			mw.NewRedisLimiter(rdb, cfg.RateLimitPerIP, "rl:ip")
+	}
+
+	logger.Info("rate-limit backend: in-memory (single-instance only)")
+	installRL := mw.NewRateLimiter(cfg.RateLimitPerInstall)
+	ipRL := mw.NewRateLimiter(cfg.RateLimitPerIP)
+	go rateLimiterCleanup(ctx, installRL, ipRL)
+	return mw.NewMemoryLimiter(installRL), mw.NewMemoryLimiter(ipRL)
+}
+
 func rateLimiterCleanup(ctx context.Context, limiters ...*mw.RateLimiter) {
 	ticker := time.NewTicker(time.Minute)
 	defer ticker.Stop()
@@ -282,6 +301,12 @@ func connectDB(ctx context.Context, cfg config.Config) (*pgxpool.Pool, error) {
 	pcfg, err := pgxpool.ParseConfig(cfg.DatabaseURL)
 	if err != nil {
 		return nil, err
+	}
+	if cfg.DBMaxOpenConns < 0 || cfg.DBMaxOpenConns > math.MaxInt32 {
+		return nil, fmt.Errorf("DB_MAX_OPEN_CONNS out of range: %d", cfg.DBMaxOpenConns)
+	}
+	if cfg.DBMinConns < 0 || cfg.DBMinConns > math.MaxInt32 {
+		return nil, fmt.Errorf("DB_MIN_CONNS out of range: %d", cfg.DBMinConns)
 	}
 	pcfg.MaxConns = int32(cfg.DBMaxOpenConns)
 	pcfg.MinConns = int32(cfg.DBMinConns)

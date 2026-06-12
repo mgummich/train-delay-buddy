@@ -165,6 +165,19 @@ func (pm *PollerManager) ActiveCount() int {
 func (pm *PollerManager) loop(ctx context.Context, journeyID string) {
 	ticker := time.NewTicker(pm.interval)
 	defer ticker.Stop()
+	// Ensure the cancel func and metric gauge are released whenever this
+	// goroutine exits — including parent-context cancellation paths that
+	// bypass PollerManager.Stop. Without this, the cancels map would leak
+	// entries and ActiveJourneys would drift on shutdown.
+	defer func() {
+		pm.mu.Lock()
+		if cancel, ok := pm.cancels[journeyID]; ok {
+			cancel()
+			delete(pm.cancels, journeyID)
+			metrics.ActiveJourneys.Dec()
+		}
+		pm.mu.Unlock()
+	}()
 	for {
 		select {
 		case <-ctx.Done():

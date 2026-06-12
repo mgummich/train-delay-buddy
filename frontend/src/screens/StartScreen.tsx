@@ -77,6 +77,7 @@ export function StartScreen() {
       document.addEventListener('mousedown', handleClickOutside)
       return () => document.removeEventListener('mousedown', handleClickOutside)
     }
+    return undefined
   }, [showStationDropdown])
 
   const form = useForm<FormValues>({

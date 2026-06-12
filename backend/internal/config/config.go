@@ -32,7 +32,9 @@ type Config struct {
 func Load() Config {
 	return Config{
 		Port:                 env("PORT", "8080"),
-		RedisURL:             env("REDIS_URL", "redis://redis:6379"),
+		// Valkey is a BSD-licensed Redis fork and is wire-compatible.
+		// Prefer VALKEY_URL; fall back to REDIS_URL for backwards compatibility.
+		RedisURL:             env("VALKEY_URL", env("REDIS_URL", "redis://valkey:6379")),
 		DatabaseURL:          env("DATABASE_URL", "postgres://vbb:vbb@postgres:5432/vbb"),
 		HAFASBaseURL:         env("HAFAS_BASE_URL", "https://v6.db.transport.rest"),
 		HAFASWorkerPoolSize:  envInt("HAFAS_WORKER_POOL_SIZE", 50),

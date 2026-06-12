@@ -1,0 +1,50 @@
+:root {
+  --ifm-color-primary: #1e6feb;
+  --ifm-color-primary-dark: #1862d4;
+  --ifm-color-primary-darker: #175dc8;
+  --ifm-color-primary-darkest: #134da4;
+  --ifm-color-primary-light: #3781ee;
+  --ifm-color-primary-lighter: #4488ef;
+  --ifm-color-primary-lightest: #6a9ff2;
+  --ifm-code-font-size: 95%;
+  --docusaurus-highlighted-code-line-bg: rgba(0, 0, 0, 0.1);
+}
+
+[data-theme="dark"] {
+  --ifm-color-primary: #5e9bff;
+  --ifm-color-primary-dark: #3d86ff;
+  --ifm-color-primary-darker: #2c7bff;
+  --ifm-color-primary-darkest: #005ce0;
+  --ifm-color-primary-light: #7fb0ff;
+  --ifm-color-primary-lighter: #90bbff;
+  --ifm-color-primary-lightest: #c4dbff;
+  --docusaurus-highlighted-code-line-bg: rgba(0, 0, 0, 0.3);
+}
+
+.screenshot-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 1rem;
+  margin: 1.5rem 0;
+}
+
+.screenshot-grid figure {
+  margin: 0;
+  border: 1px solid var(--ifm-color-emphasis-200);
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--ifm-background-surface-color);
+}
+
+.screenshot-grid img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.screenshot-grid figcaption {
+  padding: 0.5rem 0.75rem;
+  font-size: 0.85rem;
+  color: var(--ifm-color-emphasis-700);
+  text-align: center;
+}

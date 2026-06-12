@@ -76,11 +76,9 @@ export function AlternativeCard({
             <RiskBadge
               key={b}
               variant={b}
-              aria-label={
-                b === 'riskant'
-                  ? 'Umstieg riskant — Puffer unter 5 Minuten'
-                  : undefined
-              }
+              {...(b === 'riskant'
+                ? { 'aria-label': 'Umstieg riskant — Puffer unter 5 Minuten' }
+                : {})}
             />
           ))}
         </div>

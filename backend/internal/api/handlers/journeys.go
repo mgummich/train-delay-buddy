@@ -107,8 +107,16 @@ func (h *JourneysHandler) Create(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// Idempotency-Key handling
-	idempKey := r.Header.Get("Idempotency-Key")
+	// Idempotency-Key handling.
+	// Cache key is namespaced by X-Install-Id so that two installs using the same
+	// client-chosen Idempotency-Key never replay each other's responses
+	// (which would also disclose the journeyId of the original creator).
+	installID := r.Header.Get("X-Install-Id")
+	rawIdempKey := r.Header.Get("Idempotency-Key")
+	idempKey := ""
+	if rawIdempKey != "" {
+		idempKey = installID + ":" + rawIdempKey
+	}
 	bodyHash := ""
 	if idempKey != "" {
 		bodyHash = hashBody(req)
@@ -159,7 +167,7 @@ func (h *JourneysHandler) Create(w http.ResponseWriter, r *http.Request) {
 		ToStationID:    req.Destination,
 		DepartureAfter: time.Now(),
 		Filters:        filters,
-		InstallID:      r.Header.Get("X-Install-Id"),
+		InstallID:      installID,
 	})
 	if err != nil {
 		problem.Write(w, r, problem.Problem{
@@ -172,7 +180,7 @@ func (h *JourneysHandler) Create(w http.ResponseWriter, r *http.Request) {
 	}
 
 	j := result.Original
-	j.InstallID = r.Header.Get("X-Install-Id")
+	j.InstallID = installID
 
 	if err := h.store.Create(r.Context(), &j, result.Alternatives); err != nil {
 		problem.Write(w, r, problem.Problem{
