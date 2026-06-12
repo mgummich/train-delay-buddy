@@ -54,3 +54,10 @@ Object.defineProperty(document, 'visibilityState', {
   writable: true,
   value:    'visible',
 })
+
+// ── ResizeObserver stub (jsdom doesn't implement it) ─────────────────────────
+globalThis.ResizeObserver = class ResizeObserver {
+  observe()   {}
+  unobserve() {}
+  disconnect() {}
+}
