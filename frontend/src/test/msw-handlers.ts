@@ -53,17 +53,21 @@ export const DEFAULT_JOURNEY_RESPONSE = {
   alternatives: [],
 }
 
+// MSW v2 in Node.js requires absolute URLs — relative paths are not resolved.
+// These must match VITE_API_BASE_URL (http://localhost/v1) set in vitest.config.ts.
+const BASE = 'http://localhost/v1'
+
 // ── Default handlers ─────────────────────────────────────────────────────────
 
 export const defaultHandlers = [
   // Train validation
-  http.get('/v1/trains/:number', () => HttpResponse.json(DEFAULT_TRAIN)),
+  http.get(`${BASE}/trains/:number`, () => HttpResponse.json(DEFAULT_TRAIN)),
 
   // Station autocomplete
-  http.get('/v1/stations', () => HttpResponse.json(DEFAULT_STATIONS)),
+  http.get(`${BASE}/stations`, () => HttpResponse.json(DEFAULT_STATIONS)),
 
   // Journey creation
-  http.post('/v1/journeys', () =>
+  http.post(`${BASE}/journeys`, () =>
     HttpResponse.json(DEFAULT_JOURNEY_RESPONSE, {
       status:  201,
       headers: { Location: `/v1/journeys/${DEFAULT_JOURNEY_ID}` },
@@ -71,29 +75,29 @@ export const defaultHandlers = [
   ),
 
   // Full journey
-  http.get('/v1/journeys/:id', () =>
+  http.get(`${BASE}/journeys/:id`, () =>
     HttpResponse.json({ journeyId: DEFAULT_JOURNEY_ID, summary: DEFAULT_SUMMARY, legs: [], stops: [] }),
   ),
 
   // Summary polling
-  http.get('/v1/journeys/:id/summary', () =>
+  http.get(`${BASE}/journeys/:id/summary`, () =>
     HttpResponse.json(DEFAULT_SUMMARY, {
       headers: { ETag: `"${DEFAULT_JOURNEY_ID}:epoch:1"` },
     }),
   ),
 
   // Legs
-  http.get('/v1/journeys/:id/legs', () =>
+  http.get(`${BASE}/journeys/:id/legs`, () =>
     HttpResponse.json({ legs: [], stops: [] }),
   ),
 
   // Alternatives
-  http.get('/v1/journeys/:id/alternatives', () =>
+  http.get(`${BASE}/journeys/:id/alternatives`, () =>
     HttpResponse.json({ data: [], totalCount: 0 }),
   ),
 
   // Trigger recompute
-  http.post('/v1/journeys/:id/alternatives', ({ params }) =>
+  http.post(`${BASE}/journeys/:id/alternatives`, ({ params }) =>
     HttpResponse.json({
       status:   'computing',
       pollPath: `/v1/journeys/${params.id}/alternatives`,
@@ -101,11 +105,11 @@ export const defaultHandlers = [
   ),
 
   // Delete journey
-  http.delete('/v1/journeys/:id', () => new HttpResponse(null, { status: 204 })),
+  http.delete(`${BASE}/journeys/:id`, () => new HttpResponse(null, { status: 204 })),
 
-  // Health
-  http.get('/health',  () => HttpResponse.json({ status: 'ok' })),
-  http.get('/readyz',  () => HttpResponse.json({ status: 'ok', checks: { redis: 'ok', postgres: 'ok', hafas: 'ok' } })),
+  // Health (no /v1 prefix)
+  http.get('http://localhost/health',  () => HttpResponse.json({ status: 'ok' })),
+  http.get('http://localhost/readyz',  () => HttpResponse.json({ status: 'ok', checks: { redis: 'ok', postgres: 'ok', hafas: 'ok' } })),
 ]
 
 // ── MSW server instance ──────────────────────────────────────────────────────
