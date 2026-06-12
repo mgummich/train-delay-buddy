@@ -1,4 +1,4 @@
-import { useState, useId } from 'react'
+import { useState, useId, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useForm, Controller } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -19,8 +19,7 @@ const schema = z.object({
     id:   z.string(),
     name: z.string(),
   }, { required_error: 'Zielbahnhof wählen' }),
-  onTrain:      z.boolean(),
-  startStation: z.object({ id: z.string(), name: z.string() }).optional(),
+  onTrain: z.boolean(),
 })
 
 type FormValues = z.infer<typeof schema>
@@ -64,8 +63,21 @@ export function StartScreen() {
   const trainValidation = useTrainValidation()
   const stationSearch   = useStationSearch()
   const [showStationDropdown, setShowStationDropdown] = useState(false)
+  const dropdownRef  = useRef<HTMLDivElement>(null)
   const trainInputId = useId()
   const destInputId  = useId()
+
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setShowStationDropdown(false)
+      }
+    }
+    if (showStationDropdown) {
+      document.addEventListener('mousedown', handleClickOutside)
+      return () => document.removeEventListener('mousedown', handleClickOutside)
+    }
+  }, [showStationDropdown])
 
   const form = useForm<FormValues>({
     resolver:      zodResolver(schema),
@@ -95,8 +107,11 @@ export function StartScreen() {
 
     if (error) {
       const prob = error as { errors?: Array<{ field: string; message: string }> }
+      const validFields = new Set<keyof FormValues>(['trainNumber', 'destination', 'onTrain'])
       prob.errors?.forEach(({ field, message }) => {
-        form.setError(field as keyof FormValues, { message })
+        if (validFields.has(field as keyof FormValues)) {
+          form.setError(field as keyof FormValues, { message })
+        }
       })
       return
     }
@@ -125,6 +140,7 @@ export function StartScreen() {
 
   const canSubmit =
     form.formState.isValid &&
+    trainValidation.trainData !== null &&
     !trainValidation.isValidating &&
     !form.formState.isSubmitting &&
     !trainValidation.error
@@ -227,7 +243,7 @@ export function StartScreen() {
               </div>
 
               {showStationDropdown && stationSearch.stations.length > 0 && (
-                <div className="absolute top-full left-0 right-0 mt-1 bg-bg-card
+                <div ref={dropdownRef} className="absolute top-full left-0 right-0 mt-1 bg-bg-card
                   rounded-card shadow-lift border border-border-subtle z-10 overflow-hidden">
                   {stationSearch.stations.map((s) => (
                     <button

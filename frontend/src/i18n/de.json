@@ -1,0 +1,94 @@
+{
+  "app": {
+    "name": "VerspätungsBegleiter"
+  },
+  "start": {
+    "title": "Schneller ans Ziel — ab deinem jetzigen Zug.",
+    "subtitle": "Wir überwachen deine Verbindung und finden Wege, die früher ankommen — auch mit mehr Umstiegen.",
+    "infoLine": "Fokus: schnellere Ankunft — kein Ticketverkauf, keine offizielle DB-App.",
+    "eyebrow": "Live-Umleitung",
+    "trainField": "Zugnummer",
+    "destinationField": "Zielbahnhof",
+    "onTrainToggle": "Ich sitze in diesem Zug",
+    "onTrainSub": "Wir nehmen deine aktuelle Position als Startpunkt.",
+    "submitBtn": "Beste Verbindung jetzt finden",
+    "secondaryLink": "Stattdessen Start- und Zielbahnhof eingeben",
+    "trainNotFound": "Zug nicht gefunden für heute",
+    "noStation": "Kein Bahnhof gefunden",
+    "plausibilityTitle": "Bist du in diesem Zug?",
+    "plausibilityBody": "Wir konnten nicht sicher feststellen, dass du gerade in diesem Zug bist.",
+    "plausibilityConfirm": "Ja, Route planen",
+    "plausibilityDeny": "Nein, ich sitze nicht in diesem Zug"
+  },
+  "alternatives": {
+    "eyebrow": "Alternativen",
+    "heading": "Bessere Verbindungen gefunden",
+    "currentTrain": "Dein aktueller Zug bringt dich voraussichtlich um {{time}} ans Ziel.",
+    "activeRoute": "Deine derzeit überwachte Route → Ankunft {{time}}.",
+    "footer": "Verbindungen werden alle 30 Sekunden neu berechnet.",
+    "filterBtn": "Filter",
+    "filterReset": "Zurücksetzen",
+    "recalcBtn": "Neu berechnen",
+    "selectRoute": "Diese Route wählen",
+    "empty": {
+      "heading": "Aktuell keine schnellere Verbindung",
+      "body": "Dein jetziger Zug ist gerade die beste Option. Wir suchen weiter und melden uns, sobald etwas Schnelleres auftaucht.",
+      "liveBadge": "Live-Überwachung aktiv",
+      "notifyToggle": "Benachrichtigen, wenn schneller möglich",
+      "notifySub": "Push, sobald eine frühere Ankunft auftaucht.",
+      "loosFilters": "Filter lockern"
+    }
+  },
+  "companion": {
+    "eyebrow": "Reisebegleiter",
+    "timeGain": "{{minutes}} Min schneller",
+    "vsOriginal": "als dein ursprünglicher Zug · Ankunft {{time}}",
+    "vsSchedule": "Gegenüber Fahrplan: +{{minutes}} Min Verspätung",
+    "jumpToNow": "Jetzt",
+    "jumpToNowLabel": "Zum aktuellen Halt springen",
+    "timeline": "Timeline",
+    "map": "Karte",
+    "mapNote": "Schematische Übersicht zur Orientierung. Die **Timeline** bleibt der genaue Fahrplan mit Zeiten und Puffern.",
+    "transfer": "Umstieg · Puffer {{buffer}} Min",
+    "transferNext": "Weiter mit {{train}} ab Gleis {{platform}}.",
+    "transferCritical": "Umstieg kritisch — Alternative ansehen →",
+    "currentLeg": "Jetzt unterwegs · +{{delay}} Min",
+    "destination": "Ziel",
+    "boarding": "Eingestiegen",
+    "punctual": "pünktl.",
+    "platform": "Gl {{n}}",
+    "finishBtn": "Reise abschließen",
+    "finishConfirm": "Möchtest du die Route-Überwachung beenden?",
+    "expired": "Deine Reise ist abgelaufen.",
+    "expiredCta": "Neue Verbindung suchen",
+    "notMonitored": "Diese Route wird nicht überwacht. Tippe hier, um sie als aktive Reise zu überwachen.",
+    "stale3": "Möglicherweise veraltet",
+    "stale10": "Daten veraltet – kein Netz?",
+    "nextStep": {
+      "transfer": "In {{minutes}} Min in {{station}} aussteigen. Anschluss: {{train}} ab Gleis {{platform}} · Puffer {{buffer}} Min",
+      "disembark": "Ziel erreicht: {{station}}.",
+      "ride": "Im Zug bleiben bis {{station}}."
+    },
+    "status": {
+      "critical": "Umstieg kritisch — Alternative ansehen",
+      "failed": "Route nicht mehr nutzbar — Neue Verbindung suchen"
+    }
+  },
+  "errors": {
+    "offline": "Offline — Daten von {{time}}",
+    "upstream": "Live-Daten gerade nicht verfügbar — letzte bekannte Route wird angezeigt",
+    "overloaded": "Server überlastet — bitte in Kürze erneut versuchen",
+    "rateLimit": "Zu viele Anfragen — kurz warten",
+    "unknown": "Etwas ist schiefgelaufen",
+    "broken": "Verbindung unterbrochen",
+    "reload": "Neu laden",
+    "retry": "Erneut versuchen"
+  },
+  "settings": {
+    "eyebrow": "Einstellungen"
+  },
+  "install": {
+    "ios":     "Zum Home-Bildschirm hinzufügen für zuverlässigere Updates.",
+    "android": "App installieren für zuverlässigere Updates."
+  }
+}

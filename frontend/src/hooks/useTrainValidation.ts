@@ -39,9 +39,16 @@ export function useTrainValidation(): UseTrainValidationResult {
           setError('Zug nicht gefunden für heute')
           setTrainData(null)
         } else if (data) {
-          setTrainData({ trainNumber: data.trainNumber, stops: [] })
+          setTrainData({
+            trainNumber: data.trainNumber,
+            stops: (data.stops ?? []).map(s => ({ id: s.id, name: s.name })),
+          })
           setError(null)
         }
+      })
+      .catch(() => {
+        setError('Zug nicht gefunden für heute')
+        setTrainData(null)
       })
       .finally(() => setIsValidating(false))
   }, [])

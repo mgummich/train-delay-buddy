@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 
 const SNOOZE_KEY  = 'vb-install-dismissed'
 const SNOOZE_DAYS = 7
@@ -10,7 +11,9 @@ function isStandalone(): boolean {
 function isSnoozed(): boolean {
   const ts = localStorage.getItem(SNOOZE_KEY)
   if (!ts) return false
-  return Date.now() - parseInt(ts, 10) < SNOOZE_DAYS * 24 * 3600 * 1000
+  const parsed = parseInt(ts, 10)
+  if (isNaN(parsed)) return false
+  return Date.now() - parsed < SNOOZE_DAYS * 24 * 3600 * 1000
 }
 
 interface InstallBannerProps {
@@ -18,6 +21,7 @@ interface InstallBannerProps {
 }
 
 export function InstallBanner({ forceShow = false }: InstallBannerProps) {
+  const { t } = useTranslation()
   const [show, setShow]   = useState(false)
   const [isIOS, setIsIOS] = useState(false)
 
@@ -38,9 +42,7 @@ export function InstallBanner({ forceShow = false }: InstallBannerProps) {
   return (
     <div className="mx-4 mt-3 bg-bg-subtle rounded-card p-3 flex items-center gap-3 text-sm">
       <span className="flex-1 text-text-primary font-medium">
-        {isIOS
-          ? 'Zum Home-Bildschirm hinzufügen für zuverlässigere Updates.'
-          : 'App installieren für zuverlässigere Updates.'}
+        {isIOS ? t('install.ios') : t('install.android')}
       </span>
       <button
         aria-label="Banner schließen"

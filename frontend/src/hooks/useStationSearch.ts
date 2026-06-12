@@ -52,6 +52,7 @@ export function useStationSearch(): UseStationSearchResult {
     clear: () => {
       seqRef.current++
       setStations([])
+      setIsLoading(false)
     },
   }
 }
