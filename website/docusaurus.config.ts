@@ -19,7 +19,12 @@ const config: Config = {
   trailingSlash: false,
 
   onBrokenLinks: "warn",
-  onBrokenMarkdownLinks: "warn",
+  // onBrokenMarkdownLinks migrated to markdown.hooks per Docusaurus 4 deprecation
+  markdown: {
+    hooks: {
+      onBrokenMarkdownLinks: "warn",
+    },
+  },
 
   i18n: {
     defaultLocale: "en",
@@ -78,6 +83,7 @@ const config: Config = {
           items: [
             { label: "Introduction", to: "/" },
             { label: "Quick start", to: "/getting-started/quick-start-docker" },
+            { label: "Security", to: "/security" },
             { label: "Architecture", to: "/architecture/overview" },
             { label: "API reference", to: "/api/reference" },
           ],
@@ -94,17 +100,30 @@ const config: Config = {
           ],
         },
       ],
-      copyright: `Copyright © ${new Date().getFullYear()} Verspätungs-Begleiter. Built with Docusaurus. Not affiliated with Deutsche Bahn.`,
+      copyright: `Copyright © ${new Date().getFullYear()} Verspätungs-Begleiter. Built with Docusaurus ${require("@docusaurus/core/package.json").version}. Not affiliated with Deutsche Bahn.`,
     },
     prism: {
       theme: prismThemes.github,
       darkTheme: prismThemes.dracula,
-      additionalLanguages: ["bash", "go", "yaml", "toml", "json", "sql", "nginx", "docker"],
+      additionalLanguages: [
+        "bash",
+        "go",
+        "yaml",
+        "toml",
+        "json",
+        "sql",
+        "nginx",
+        "docker",
+        "typescript",
+        "lua",
+      ],
     },
     tableOfContents: {
       minHeadingLevel: 2,
       maxHeadingLevel: 4,
     },
+    // Algolia DocSearch can be wired here when the index is provisioned
+    // algolia: { appId: "...", apiKey: "...", indexName: "..." },
   } satisfies Preset.ThemeConfig,
 };
 
