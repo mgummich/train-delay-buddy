@@ -53,12 +53,14 @@ export function AlternativesScreen() {
   async function handleRecalculate() {
     if (!journeyId) return
     setIsRecalculating(true)
-    await apiClient.POST('/journeys/{id}/alternatives', {
-      params: { path: { id: journeyId } },
-    })
-    // Invalidate alternatives cache to trigger a fresh GET
-    await qc.invalidateQueries({ queryKey: queryKeys.journeyAlternatives(journeyId) })
-    setIsRecalculating(false)
+    try {
+      await apiClient.POST('/journeys/{id}/alternatives', {
+        params: { path: { id: journeyId } },
+      })
+      await qc.invalidateQueries({ queryKey: queryKeys.journeyAlternatives(journeyId) })
+    } finally {
+      setIsRecalculating(false)
+    }
   }
 
   const alternatives = altsData?.data ?? []
