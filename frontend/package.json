@@ -20,6 +20,7 @@
     "prepare": "husky"
   },
   "dependencies": {
+    "@eslint/js": "^9.39.4",
     "@fontsource-variable/geist": "^5.2.9",
     "@hookform/resolvers": "^5.4.0",
     "@radix-ui/react-dialog": "^1.1.16",
@@ -29,6 +30,7 @@
     "@radix-ui/react-toast": "^1.2.16",
     "@tanstack/react-query": "^5.101.0",
     "@tanstack/react-virtual": "^3.14.2",
+    "@testing-library/dom": "^10.4.1",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "i18next": "^26.3.1",

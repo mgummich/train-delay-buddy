@@ -1,0 +1,15 @@
+# design canvas is not production code
+design_handoff_verspaetungsbegleiter/
+
+# generated types — not reviewed
+frontend/src/api/types.gen.ts
+
+# node_modules
+node_modules/
+frontend/node_modules/
+tests/e2e/node_modules/
+website/node_modules/
+
+# build artifacts
+frontend/dist/
+website/build/

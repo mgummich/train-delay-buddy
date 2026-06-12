@@ -40,7 +40,8 @@ jobs:
 
       - name: Test
         env:
-          CGO_ENABLED: "0"
+          # CGO is required for -race; ubuntu-latest ships gcc
+          CGO_ENABLED: "1"
         run: go test -race -count=1 -timeout=5m ./...
 
   frontend:

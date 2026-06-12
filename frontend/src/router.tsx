@@ -1,5 +1,5 @@
 import { lazy, Suspense } from 'react'
-import { createBrowserRouter, RouterProvider, Navigate } from 'react-router-dom'
+import { createBrowserRouter, Navigate } from 'react-router-dom'
 import type { QueryClient } from '@tanstack/react-query'
 import { FullPageError, ScreenError, CompanionError } from '@/screens/ErrorScreens'
 import { journeyFullQuery } from '@/hooks/useJourneyFull'
