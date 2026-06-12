@@ -88,6 +88,7 @@ export function CompanionScreen() {
   const { t } = useTranslation()
   const { clearJourney: clearStore } = useJourneyStore()
   const [tab, setTab] = useState<'timeline' | 'karte'>('timeline')
+  const [finishError, setFinishError] = useState<string | null>(null)
   const currentNodeRef = useRef<HTMLDivElement>(null)
 
   const { data: journey } = useQuery({ ...journeyFullQuery(journeyId!), enabled: !!journeyId })
@@ -99,19 +100,31 @@ export function CompanionScreen() {
   const legs = journey?.legs ?? []
 
   async function handleFinish() {
-    const { response } = await apiClient.DELETE('/journeys/{id}', {
-      params: { path: { id: journeyId! } },
-    })
-    if (response.ok || isDeleteNotFound(response.status, response.url)) {
-      clearStore()
-      await clearJourney()
-      void navigate('/')
+    try {
+      const { response } = await apiClient.DELETE('/journeys/{id}', {
+        params: { path: { id: journeyId! } },
+      })
+      if (response.ok || isDeleteNotFound(response.status, response.url)) {
+        clearStore()
+        await clearJourney()
+        void navigate('/')
+      }
+    } catch {
+      setFinishError(t('companion.finishError'))
     }
   }
 
   function scrollToCurrent() {
     currentNodeRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
   }
+
+  const currentStopIndex = (() => {
+    if (!summary?.nextStep) return 1
+    const { type, stationId } = summary.nextStep
+    const idx = stops.findIndex((s) => s.stationId === stationId)
+    if (idx < 0) return 1
+    return type === 'transfer' ? idx : Math.max(0, idx - 1)
+  })()
 
   const mapStations = stops.map((s, i) => ({
     x: 14 + (i / Math.max(stops.length - 1, 1)) * 72,
@@ -123,7 +136,7 @@ export function CompanionScreen() {
         ? ('dot' as const)
         : i === stops.length - 1
           ? ('dest' as const)
-          : i === 1
+          : i === currentStopIndex
             ? ('current' as const)
             : ('accent' as const),
     side: i % 2 === 0 ? ('right' as const) : ('left' as const),
@@ -135,13 +148,13 @@ export function CompanionScreen() {
 
       {summary && <SummaryHeader summary={summary} tab={tab} onTabChange={setTab} />}
 
-      {tab === 'karte' && <MapView stations={mapStations} traveledTo={1} />}
+      {tab === 'karte' && <MapView stations={mapStations} traveledTo={currentStopIndex} />}
 
       {tab === 'timeline' && (
         <div role="list" aria-label="Reisestationen" className="px-4 pt-[6px] pb-[70px]">
           {stops.map((stop, i) => {
-            const isCurrent = i === 1
-            const isPast = i === 0
+            const isCurrent = i === currentStopIndex
+            const isPast = i < currentStopIndex
             const isDest = i === stops.length - 1
             const kind: NodeKind = isDest
               ? 'dest'
@@ -201,7 +214,9 @@ export function CompanionScreen() {
                       real={
                         stop.arrivalTimeActual
                           ? formatTime(stop.arrivalTimeActual)
-                          : formatTime(stop.departureTimePlanned ?? '')
+                          : stop.departureTimePlanned
+                            ? formatTime(stop.departureTimePlanned)
+                            : '–'
                       }
                       delay={stop.delayMinutes}
                       {...(stop.arrivalTimePlanned
@@ -289,6 +304,9 @@ export function CompanionScreen() {
 
       {/* Finish journey */}
       <div className="fixed bottom-0 left-0 right-0 p-4 safe-bottom bg-bg-app border-t border-border-subtle">
+        {finishError && (
+          <p className="text-warn text-[13px] text-center mb-2">{finishError}</p>
+        )}
         <button
           type="button"
           onClick={() => void handleFinish()}

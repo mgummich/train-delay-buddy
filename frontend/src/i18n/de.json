@@ -58,6 +58,7 @@
     "punctual": "pünktl.",
     "platform": "Gl {{n}}",
     "finishBtn": "Reise abschließen",
+    "finishError": "Fehler beim Abschließen – bitte erneut versuchen.",
     "finishConfirm": "Möchtest du die Route-Überwachung beenden?",
     "expired": "Deine Reise ist abgelaufen.",
     "expiredCta": "Neue Verbindung suchen",

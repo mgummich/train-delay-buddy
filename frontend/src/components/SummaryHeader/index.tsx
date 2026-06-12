@@ -106,7 +106,7 @@ export function SummaryHeader({ summary, tab, onTabChange }: SummaryHeaderProps)
           </div>
           <div className="flex-1 min-w-0">
             <p className="text-[14.5px] font-semibold leading-[1.35] text-text-primary">
-              {summary.nextStep.type === 'transfer' && summary.nextStep.bufferMinutes
+              {summary.nextStep.type === 'transfer' && summary.nextStep.bufferMinutes !== null
                 ? t('companion.nextStep.transfer', {
                     minutes: summary.nextStep.bufferMinutes,
                     station: summary.nextStep.stationName,

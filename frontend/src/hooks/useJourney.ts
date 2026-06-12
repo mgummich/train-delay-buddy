@@ -27,7 +27,7 @@ async function fetchSummary(journeyId: string, etag: string | null) {
     headers,
   })
 
-  if (!response.ok && response.status !== 304) throw error
+  if (!response.ok && response.status !== 304) throw error ?? new Error(`HTTP ${response.status}`)
 
   if (response.status === 304) return null
 
@@ -47,6 +47,9 @@ export function useJourney(journeyId: string, currentEtag?: string | null) {
       if (!result) {
         const cached = qc.getQueryData<JourneySummary>(queryKeys.journeySummary(journeyId))
         if (cached) return cached
+        // Stale ETag caused a 304 against an empty cache — clear it so the
+        // next poll sends no conditional header and gets a fresh 200.
+        useJourneyStore.setState({ etag: null })
         throw new Error('304 with no prior cache — will retry')
       }
 
