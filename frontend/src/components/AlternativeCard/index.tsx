@@ -1,3 +1,4 @@
+import { memo } from 'react'
 import { cn } from '@/lib/utils'
 import { RiskBadge } from '@/components/RiskBadge'
 import { formatTime } from '@/lib/datetime'
@@ -15,7 +16,7 @@ interface AlternativeCardProps {
   onSelect: (journeyId: string) => void
 }
 
-export function AlternativeCard({
+export const AlternativeCard = memo(function AlternativeCard({
   journeyId,
   timeGainMin,
   eta,
@@ -100,4 +101,4 @@ export function AlternativeCard({
       )}
     </button>
   )
-}
+})

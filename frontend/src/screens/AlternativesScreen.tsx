@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useMemo, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useQueryClient } from '@tanstack/react-query'
@@ -48,13 +48,18 @@ export function AlternativesScreen() {
   const { data: altsData, isLoading, isError } = useJourneyAlternatives(journeyId!)
   const qc = useQueryClient()
 
-  // Build active filters list for FilterRow
-  const activeFilters = filters.dbOnly ? [{ key: 'dbOnly', label: 'Nur DB' }] : []
+  const activeFilters = useMemo(
+    () => (filters.dbOnly ? [{ key: 'dbOnly', label: 'Nur DB' }] : []),
+    [filters.dbOnly],
+  )
 
-  function handleSelectRoute(altJourneyId: string) {
-    setJourney(altJourneyId, null)
-    void navigate(`/journey/${altJourneyId}/companion`)
-  }
+  const handleSelectRoute = useCallback(
+    (altJourneyId: string) => {
+      setJourney(altJourneyId, null)
+      void navigate(`/journey/${altJourneyId}/companion`)
+    },
+    [navigate, setJourney],
+  )
 
   async function handleRecalculate() {
     if (!journeyId) return

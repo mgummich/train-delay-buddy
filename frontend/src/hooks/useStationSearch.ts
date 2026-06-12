@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from 'react'
+import { useState, useCallback, useRef, useEffect } from 'react'
 import { apiClient } from '@/api/client'
 
 interface Station {
@@ -23,6 +23,12 @@ export function useStationSearch(): UseStationSearchResult {
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   // seq prevents stale responses from overwriting fresher results
   const seqRef = useRef(0)
+
+  useEffect(() => {
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current)
+    }
+  }, [])
 
   const search = useCallback((query: string) => {
     if (debounceRef.current) clearTimeout(debounceRef.current)
@@ -49,14 +55,11 @@ export function useStationSearch(): UseStationSearchResult {
     }, 200)
   }, [])
 
-  return {
-    search,
-    stations,
-    isLoading,
-    clear: () => {
-      seqRef.current++
-      setStations([])
-      setIsLoading(false)
-    },
-  }
+  const clear = useCallback(() => {
+    seqRef.current++
+    setStations([])
+    setIsLoading(false)
+  }, [])
+
+  return { search, stations, isLoading, clear }
 }

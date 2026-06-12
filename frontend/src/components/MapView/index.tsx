@@ -1,3 +1,4 @@
+import { memo } from 'react'
 import { useTranslation } from 'react-i18next'
 
 interface MapStation {
@@ -14,7 +15,7 @@ interface MapViewProps {
   traveledTo: number // index up to which the route is "traveled"
 }
 
-export function MapView({ stations, traveledTo }: MapViewProps) {
+export const MapView = memo(function MapView({ stations, traveledTo }: MapViewProps) {
   const { t } = useTranslation()
 
   const points = stations.map((s) => `${s.x},${s.y}`).join(' ')
@@ -159,4 +160,4 @@ export function MapView({ stations, traveledTo }: MapViewProps) {
       </div>
     </div>
   )
-}
+})

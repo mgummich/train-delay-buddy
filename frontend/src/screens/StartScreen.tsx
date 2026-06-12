@@ -83,6 +83,7 @@ export function StartScreen() {
   const stationSearch = useStationSearch()
   const [showStationDropdown, setShowStationDropdown] = useState(false)
   const dropdownRef = useRef<HTMLDivElement>(null)
+  const destInputRef = useRef<HTMLInputElement>(null)
   const trainInputId = useId()
   const destInputId = useId()
 
@@ -280,6 +281,7 @@ export function StartScreen() {
                   <IconPin />
                 </span>
                 <input
+                  ref={destInputRef}
                   id={destInputId}
                   aria-label={t('start.destinationField')}
                   type="text"
@@ -309,8 +311,7 @@ export function StartScreen() {
                         form.setValue('destination', s, { shouldValidate: true })
                         stationSearch.clear()
                         setShowStationDropdown(false)
-                        const el = document.getElementById(destInputId) as HTMLInputElement | null
-                        if (el) el.value = s.name
+                        if (destInputRef.current) destInputRef.current.value = s.name
                       }}
                     >
                       {s.name}

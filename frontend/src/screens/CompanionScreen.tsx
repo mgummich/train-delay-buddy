@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useMemo, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useQuery } from '@tanstack/react-query'
@@ -99,7 +99,7 @@ export function CompanionScreen() {
   const stops = journey?.stops ?? []
   const legs = journey?.legs ?? []
 
-  async function handleFinish() {
+  const handleFinish = useCallback(async () => {
     try {
       const { response } = await apiClient.DELETE('/journeys/{id}', {
         params: { path: { id: journeyId! } },
@@ -112,21 +112,21 @@ export function CompanionScreen() {
     } catch {
       setFinishError(t('companion.finishError'))
     }
-  }
+  }, [journeyId, t, clearStore, navigate])
 
-  function scrollToCurrent() {
+  const scrollToCurrent = useCallback(() => {
     currentNodeRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
-  }
+  }, [])
 
-  const currentStopIndex = (() => {
+  const currentStopIndex = useMemo(() => {
     if (!summary?.nextStep) return 1
     const { type, stationId } = summary.nextStep
     const idx = stops.findIndex((s) => s.stationId === stationId)
     if (idx < 0) return 1
     return type === 'transfer' ? idx : Math.max(0, idx - 1)
-  })()
+  }, [summary?.nextStep?.stationId, summary?.nextStep?.type, stops])
 
-  const mapStations = stops.map((s, i) => ({
+  const mapStations = useMemo(() => stops.map((s, i) => ({
     x: 14 + (i / Math.max(stops.length - 1, 1)) * 72,
     y: 86 - (i / Math.max(stops.length - 1, 1)) * 71,
     label: s.stationName,
@@ -140,7 +140,7 @@ export function CompanionScreen() {
             ? ('current' as const)
             : ('accent' as const),
     side: i % 2 === 0 ? ('right' as const) : ('left' as const),
-  }))
+  })), [stops, currentStopIndex])
 
   return (
     <div className="min-h-screen bg-bg-app">
@@ -166,7 +166,7 @@ export function CompanionScreen() {
             const leg = legs[i]
 
             return (
-              <div key={stop.stationId + i} role="listitem">
+              <div key={`${stop.stationId}-${i}`} role="listitem">
                 {/* Stop row */}
                 <div
                   ref={isCurrent ? currentNodeRef : undefined}
