@@ -3,7 +3,8 @@ import { render, screen, waitFor, fireEvent } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { http, HttpResponse } from 'msw'
-import { server, DEFAULT_JOURNEY_ID, DEFAULT_SUMMARY } from '@/test/msw-handlers'
+import { server, DEFAULT_JOURNEY_ID, DEFAULT_SUMMARY, MSW_ERRORS } from '@/test/msw-handlers'
+import { queryKeys } from '@/lib/queryClient'
 import { AlternativesScreen } from './AlternativesScreen'
 import '../i18n/index'
 
@@ -34,8 +35,8 @@ const ALTS_DATA = {
 
 function renderAlternatives(journeyId = DEFAULT_JOURNEY_ID) {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } })
-  qc.setQueryData(['journey', 'full',         journeyId], JOURNEY_DATA)
-  qc.setQueryData(['journey', 'alternatives', journeyId], ALTS_DATA)
+  qc.setQueryData(queryKeys.journeyFull(journeyId), JOURNEY_DATA)
+  qc.setQueryData(queryKeys.journeyAlternatives(journeyId), ALTS_DATA)
 
   return render(
     <QueryClientProvider client={qc}>
@@ -64,7 +65,6 @@ describe('AlternativesScreen', () => {
   })
 
   it('shows 3 skeleton cards while loading', async () => {
-    // Don't pre-seed cache — let it fetch
     const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } })
     render(
       <QueryClientProvider client={qc}>
@@ -75,9 +75,8 @@ describe('AlternativesScreen', () => {
         </MemoryRouter>
       </QueryClientProvider>
     )
-    // Immediately visible skeleton cards
-    const skeletons = document.querySelectorAll('[aria-hidden="true"]')
-    expect(skeletons.length).toBeGreaterThanOrEqual(3)
+    const statusRegion = screen.getByRole('status', { name: /geladen/i })
+    expect(statusRegion.querySelectorAll('[aria-hidden="true"]').length).toBeGreaterThanOrEqual(3)
   })
 
   it('navigates to companion on card select', async () => {
@@ -93,8 +92,8 @@ describe('AlternativesScreen', () => {
 
   it('shows Leer state when no alternatives', async () => {
     const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } })
-    qc.setQueryData(['journey', 'full',         DEFAULT_JOURNEY_ID], JOURNEY_DATA)
-    qc.setQueryData(['journey', 'alternatives', DEFAULT_JOURNEY_ID], { data: [], totalCount: 0 })
+    qc.setQueryData(queryKeys.journeyFull(DEFAULT_JOURNEY_ID), JOURNEY_DATA)
+    qc.setQueryData(queryKeys.journeyAlternatives(DEFAULT_JOURNEY_ID), { data: [], totalCount: 0 })
     render(
       <QueryClientProvider client={qc}>
         <MemoryRouter initialEntries={[`/journey/${DEFAULT_JOURNEY_ID}/alternatives`]}>
@@ -112,7 +111,57 @@ describe('AlternativesScreen', () => {
   it('shows filter count badge when DB-only is ON', async () => {
     renderAlternatives()
     await waitFor(() => screen.getByText('+18 Min'))
-    // DB-only is default ON → filter chip shows
     expect(screen.getByText('Nur DB')).toBeTruthy()
+  })
+
+  it('hides heading and filter row during error state', async () => {
+    server.use(
+      http.get('/v1/journeys/:id/alternatives', () => MSW_ERRORS.upstreamUnavailable())
+    )
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    qc.setQueryData(queryKeys.journeyFull(DEFAULT_JOURNEY_ID), JOURNEY_DATA)
+    render(
+      <QueryClientProvider client={qc}>
+        <MemoryRouter initialEntries={[`/journey/${DEFAULT_JOURNEY_ID}/alternatives`]}>
+          <Routes>
+            <Route path="/journey/:journeyId/alternatives" element={<AlternativesScreen />} />
+          </Routes>
+        </MemoryRouter>
+      </QueryClientProvider>
+    )
+    await waitFor(() =>
+      expect(screen.queryByText('Bessere Verbindungen gefunden')).toBeNull()
+    )
+    expect(screen.queryByText('Filter')).toBeNull()
+  })
+
+  it('Neu berechnen fires POST and invalidates query', async () => {
+    let postCalled = false
+    server.use(
+      http.post('/v1/journeys/:id/alternatives', ({ params }) => {
+        postCalled = true
+        return HttpResponse.json(
+          { status: 'computing', pollPath: `/v1/journeys/${params['id']}/alternatives` },
+          { status: 202 }
+        )
+      })
+    )
+    renderAlternatives()
+    await waitFor(() => screen.getByText('+18 Min'))
+    fireEvent.click(screen.getByText('Neu berechnen'))
+    await waitFor(() => expect(postCalled).toBe(true))
+  })
+
+  it('shows riskant badge for alternative with buffer < 5 min', async () => {
+    renderAlternatives()
+    await waitFor(() => screen.getByText('+18 Min'))
+    // First alt has minTransferBufferMinutes: 3 → riskant badge
+    expect(screen.getByText('Riskant')).toBeTruthy()
+  })
+
+  it('shows schnellste badge on first alternative', async () => {
+    renderAlternatives()
+    await waitFor(() => screen.getByText('+18 Min'))
+    expect(screen.getByText('Schnellste')).toBeTruthy()
   })
 })

@@ -29,7 +29,7 @@ export function AlternativesScreen() {
   const { journeyId } = useParams<{ journeyId: string }>()
   const navigate = useNavigate()
   const { t } = useTranslation()
-  const { filters } = useInstallStore()
+  const { filters, setFilters } = useInstallStore()
   const { setJourney } = useJourneyStore()
   const [filterOpen, setFilterOpen] = useState(false)
   const [isRecalculating, setIsRecalculating] = useState(false)
@@ -87,7 +87,7 @@ export function AlternativesScreen() {
       )}
 
       <div className="px-4 mt-[18px] flex flex-col gap-[18px]">
-        {!isEmpty && (
+        {!isEmpty && !isError && (
           <h2 className="font-display font-semibold text-[20px] text-text-primary">
             {t('alternatives.heading')}
           </h2>
@@ -99,14 +99,12 @@ export function AlternativesScreen() {
         )}
 
         {/* Filter row */}
-        {!isEmpty && (
+        {!isEmpty && !isError && (
           <FilterRow
             activeFilters={activeFilters}
             onOpenFilter={() => setFilterOpen(true)}
             onRemoveFilter={(key) => {
-              if (key === 'dbOnly') {
-                useInstallStore.getState().setFilters({ dbOnly: false })
-              }
+              if (key === 'dbOnly') setFilters({ dbOnly: false })
             }}
           />
         )}
@@ -191,7 +189,12 @@ export function AlternativesScreen() {
                 eta={alt.summary.eta}
                 transfers={alt.legs.length}
                 minBuffer={alt.summary.minTransferBufferMinutes ?? 0}
-                badges={[]}
+                badges={[
+                  ...(alt.summary.minTransferBufferMinutes !== null &&
+                      alt.summary.minTransferBufferMinutes < 5
+                        ? ['riskant' as const] : []),
+                  ...(i === 0 ? ['schnellste' as const] : []),
+                ]}
                 recommended={i === 0}
                 onSelect={handleSelectRoute}
               />
@@ -218,7 +221,7 @@ export function AlternativesScreen() {
         )}
 
         {/* Footer */}
-        {!isEmpty && !isLoading && (
+        {!isEmpty && !isLoading && !isError && (
           <p className="text-text-faint text-[12.5px] text-center leading-[1.4]">
             {t('alternatives.footer')}
           </p>

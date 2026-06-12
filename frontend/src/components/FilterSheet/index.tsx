@@ -34,7 +34,7 @@ export function FilterSheet({ open, onClose, resultCount }: FilterSheetProps) {
           <SheetTitle className="font-display font-semibold text-[20px] text-text-primary">
             {t('alternatives.filterBtn')}
           </SheetTitle>
-          <button className="text-accent text-[14px]">
+          <button disabled className="text-text-faint text-[14px] opacity-50 cursor-not-allowed">
             {t('alternatives.filterReset')}
           </button>
         </div>
