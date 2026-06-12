@@ -11,6 +11,15 @@ import (
 
 var trainNumberRe = regexp.MustCompile(`^([A-Z]+)([0-9].*)$`)
 
+// berlinLoc is cached once at startup; LoadLocation reads tzdata on every call.
+var berlinLoc = func() *time.Location {
+	l, err := time.LoadLocation("Europe/Berlin")
+	if err != nil {
+		return time.UTC
+	}
+	return l
+}()
+
 // NormalizeTrainNumber inserts a space between the letter prefix and numeric part.
 // "ICE123" → "ICE 123". Already-spaced inputs pass through unchanged.
 func NormalizeTrainNumber(s string) string {
@@ -71,10 +80,6 @@ func MapTripToTrainResponse(trip HAFASTrip, date string, now time.Time) TrainRes
 // FilterTripsByDate returns trips whose first stopover planned departure falls on date (YYYY-MM-DD).
 // Date comparison uses Europe/Berlin since DB operates on German timetable.
 func FilterTripsByDate(trips []HAFASTrip, date string) []HAFASTrip {
-	loc, err := time.LoadLocation("Europe/Berlin")
-	if err != nil {
-		loc = time.UTC
-	}
 	var out []HAFASTrip
 	for _, t := range trips {
 		if len(t.Stopovers) == 0 {
@@ -87,7 +92,7 @@ func FilterTripsByDate(trips []HAFASTrip, date string) []HAFASTrip {
 		if dep == nil {
 			continue
 		}
-		if dep.In(loc).Format("2006-01-02") == date {
+		if dep.In(berlinLoc).Format("2006-01-02") == date {
 			out = append(out, t)
 		}
 	}
@@ -95,17 +100,14 @@ func FilterTripsByDate(trips []HAFASTrip, date string) []HAFASTrip {
 }
 
 func inferTripStatus(trip HAFASTrip, now time.Time) string {
+	hasDelay := false
 	for _, s := range trip.Stopovers {
 		if s.Cancelled {
 			return "cancelled"
 		}
-	}
-	hasDelay := false
-	for _, s := range trip.Stopovers {
-		if (s.DepartureDelay != nil && *s.DepartureDelay != 0) ||
-			(s.ArrivalDelay != nil && *s.ArrivalDelay != 0) {
+		if !hasDelay && ((s.DepartureDelay != nil && *s.DepartureDelay != 0) ||
+			(s.ArrivalDelay != nil && *s.ArrivalDelay != 0)) {
 			hasDelay = true
-			break
 		}
 	}
 	if trip.Departure != nil && trip.Arrival != nil &&
@@ -132,7 +134,7 @@ func MapHAFASJourney(
 	now time.Time,
 ) journey.Journey {
 	legs := mapLegs(hj.Legs, now)
-	stops := collectStops(hj.Legs)
+	stops := collectStopsFromLegs(legs)
 	summary := journey.ComputeSummary(legs, destination, filters, originalETA, now)
 
 	return journey.Journey{
@@ -227,11 +229,13 @@ func mapStopovers(ss []HAFASStopover) []journey.Stop {
 	return stops
 }
 
-func collectStops(hafasLegs []HAFASLeg) []journey.Stop {
+// collectStopsFromLegs builds a deduplicated stop list from already-mapped legs,
+// avoiding a second pass over raw HAFAS stopovers.
+func collectStopsFromLegs(legs []journey.Leg) []journey.Stop {
 	var stops []journey.Stop
 	seen := make(map[string]bool)
-	for _, leg := range hafasLegs {
-		for _, s := range mapStopovers(leg.Stopovers) {
+	for _, leg := range legs {
+		for _, s := range leg.Stops {
 			if !seen[s.StationID] {
 				stops = append(stops, s)
 				seen[s.StationID] = true

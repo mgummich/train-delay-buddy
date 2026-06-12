@@ -26,7 +26,7 @@ func (f *fakeStore) Get(_ context.Context, id string) (*journey.Journey, error) 
 func (f *fakeStore) GetAlternatives(context.Context, string) ([]journey.Alternative, string, error) {
 	return nil, "", nil
 }
-func (f *fakeStore) UpdateState(context.Context, string, journey.Summary, []journey.Leg, bool) error {
+func (f *fakeStore) UpdateState(context.Context, *journey.Journey, journey.Summary, []journey.Leg, bool) error {
 	return nil
 }
 func (f *fakeStore) UpdateAlternatives(context.Context, string, []journey.Alternative) error {

@@ -44,7 +44,7 @@ func (m *mockStore) Get(_ context.Context, id string) (*journey.Journey, error) 
 func (m *mockStore) GetAlternatives(_ context.Context, id string) ([]journey.Alternative, string, error) {
 	return m.alts[id], id + ":alts:1", nil
 }
-func (m *mockStore) UpdateState(_ context.Context, _ string, _ journey.Summary, _ []journey.Leg, _ bool) error {
+func (m *mockStore) UpdateState(_ context.Context, _ *journey.Journey, _ journey.Summary, _ []journey.Leg, _ bool) error {
 	return nil
 }
 func (m *mockStore) UpdateAlternatives(_ context.Context, id string, alts []journey.Alternative) error {

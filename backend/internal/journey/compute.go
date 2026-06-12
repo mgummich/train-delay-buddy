@@ -67,18 +67,17 @@ func computeMinTransferBuffer(legs []Leg) *int {
 }
 
 func computeStatus(legs []Leg, criticalTransfer bool) Status {
+	hasDelayed := false
 	for _, leg := range legs {
 		if leg.Status == LegStatusCancelled {
 			return StatusFailed
 		}
-	}
-	if criticalTransfer {
-		return StatusCritical
-	}
-	for _, leg := range legs {
 		if leg.Status == LegStatusDelayed {
-			return StatusCritical
+			hasDelayed = true
 		}
+	}
+	if criticalTransfer || hasDelayed {
+		return StatusCritical
 	}
 	return StatusOK
 }

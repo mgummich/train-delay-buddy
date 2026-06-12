@@ -77,9 +77,10 @@ type Store interface {
 	Get(ctx context.Context, id string) (*Journey, error)
 	// GetAlternatives returns the current alternatives list and its ETag.
 	GetAlternatives(ctx context.Context, id string) ([]Alternative, string, error)
-	// UpdateState writes a state change (write-through). updateLegs must be true when
-	// platform or cancellation data changed.
-	UpdateState(ctx context.Context, id string, summary Summary, legs []Leg, updateLegs bool) error
+	// UpdateState writes a state change (write-through). base is the last-known journey
+	// (caller already holds it), which lets the implementation update Redis without an
+	// extra round-trip Get. updateLegs must be true when platform or cancellation data changed.
+	UpdateState(ctx context.Context, base *Journey, summary Summary, legs []Leg, updateLegs bool) error
 	// UpdateAlternatives replaces the alternatives list and increments the alts ETag counter.
 	UpdateAlternatives(ctx context.Context, id string, alts []Alternative) error
 	// Terminate sets terminated_at and evicts the journey from Redis.
@@ -250,7 +251,9 @@ func (s *RedisPostgresStore) GetAlternatives(ctx context.Context, id string) ([]
 }
 
 // UpdateState writes summary (and optionally legs) through Postgres then Redis.
-func (s *RedisPostgresStore) UpdateState(ctx context.Context, id string, summary Summary, legs []Leg, updateLegs bool) error {
+// base is the caller's last-known journey; the implementation copies it to build the
+// Redis entry without an extra round-trip Get.
+func (s *RedisPostgresStore) UpdateState(ctx context.Context, base *Journey, summary Summary, legs []Leg, updateLegs bool) error {
 	summaryJSON, _ := json.Marshal(summary)
 
 	wctx, cancel := context.WithTimeout(ctx, s.writeTTL)
@@ -264,7 +267,7 @@ func (s *RedisPostgresStore) UpdateState(ctx context.Context, id string, summary
 			etag_counter=etag_counter+1, last_polled_at=now()
 			WHERE id=$3 AND terminated_at IS NULL
 			RETURNING etag_counter`,
-			summaryJSON, legsJSON, id).Scan(&newCounter); err != nil {
+			summaryJSON, legsJSON, base.ID).Scan(&newCounter); err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
 				return ErrNotFound
 			}
@@ -276,7 +279,7 @@ func (s *RedisPostgresStore) UpdateState(ctx context.Context, id string, summary
 			etag_counter=etag_counter+1, last_polled_at=now()
 			WHERE id=$2 AND terminated_at IS NULL
 			RETURNING etag_counter`,
-			summaryJSON, id).Scan(&newCounter); err != nil {
+			summaryJSON, base.ID).Scan(&newCounter); err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
 				return ErrNotFound
 			}
@@ -284,16 +287,14 @@ func (s *RedisPostgresStore) UpdateState(ctx context.Context, id string, summary
 		}
 	}
 
-	j, err := s.Get(ctx, id)
-	if err != nil {
-		return err
-	}
-	j.Summary = summary
+	// Build the updated cache entry from the caller-supplied base — no round-trip Get needed.
+	updated := *base
+	updated.Summary = summary
 	if updateLegs {
-		j.Legs = legs
+		updated.Legs = legs
 	}
-	j.ETagCounter = newCounter
-	return s.writeToRedis(ctx, j, nil) // nil alts = don't touch alts key (C1)
+	updated.ETagCounter = newCounter
+	return s.writeToRedis(ctx, &updated, nil) // nil alts = don't touch alts key (C1)
 }
 
 // UpdateAlternatives replaces the alternatives and increments the alts counter.

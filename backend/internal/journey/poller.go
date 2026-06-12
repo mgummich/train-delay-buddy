@@ -219,7 +219,17 @@ func (pm *PollerManager) poll(ctx context.Context, journeyID string) {
 	}
 	newSummary.LastUpdatedAt = time.Now()
 
-	if err := pm.store.UpdateState(ctx, journeyID, newSummary, updatedLegs, legsChanged); err != nil {
+	// Compute alternatives before writing so AlternativeAvailable is correct in one write,
+	// avoiding a second UpdateState call for the flag.
+	var freshAlts []Alternative
+	if newSummary.Status == StatusCritical || newSummary.CriticalTransfer {
+		freshAlts = pm.recomputeAlts(ctx, j)
+		if len(freshAlts) > 0 {
+			newSummary.AlternativeAvailable = true
+		}
+	}
+
+	if err := pm.store.UpdateState(ctx, j, newSummary, updatedLegs, legsChanged); err != nil {
 		pm.logger.Warn("store.UpdateState failed", "journeyId", journeyID, "error", err)
 		return
 	}
@@ -231,16 +241,9 @@ func (pm *PollerManager) poll(ctx context.Context, journeyID string) {
 		"dataFetchedAt", newSummary.DataFetchedAt,
 	)
 
-	if newSummary.Status == StatusCritical || newSummary.CriticalTransfer {
-		alts := pm.recomputeAlts(ctx, j)
-		if len(alts) > 0 {
-			pm.store.UpdateAlternatives(ctx, j.ID, alts)
-			if !newSummary.AlternativeAvailable {
-				newSummary.AlternativeAvailable = true
-				if err := pm.store.UpdateState(ctx, j.ID, newSummary, j.Legs, false); err != nil {
-					pm.logger.Warn("store.UpdateState (alts flag) failed", "journeyId", j.ID, "error", err)
-				}
-			}
+	if len(freshAlts) > 0 {
+		if err := pm.store.UpdateAlternatives(ctx, j.ID, freshAlts); err != nil {
+			pm.logger.Warn("store.UpdateAlternatives failed", "journeyId", journeyID, "error", err)
 		}
 	}
 
