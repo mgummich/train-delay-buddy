@@ -80,7 +80,7 @@ services:
           cpus: "1.0"
 
   valkey:
-    image: valkey/valkey:8-alpine
+    image: valkey/valkey:8.1.8-alpine3.23
     command: valkey-server --maxmemory 256mb --maxmemory-policy volatile-lru
     healthcheck:
       test: ["CMD", "valkey-cli", "ping"]
@@ -97,7 +97,7 @@ services:
           cpus: "0.5"
 
   postgres:
-    image: postgres:16.4-alpine
+    image: postgres:17.10-alpine3.23
     environment:
       POSTGRES_DB: vbb
       POSTGRES_USER: vbb
