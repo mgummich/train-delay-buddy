@@ -1,3 +1,16 @@
 .env
 backend/server
 *.DS_Store
+
+# Dependencies
+node_modules/
+tests/e2e/node_modules/
+
+# Build / cache
+frontend/tsconfig.app.tsbuildinfo
+
+# Test output
+tests/e2e/playwright-report/
+
+# Claude Code local config
+.claude/
