@@ -1,3 +1,4 @@
+/* eslint-disable jsx-a11y/no-noninteractive-tabindex */
 export type NodeKind = 'past' | 'current' | 'future' | 'dest'
 
 interface NodeProps {

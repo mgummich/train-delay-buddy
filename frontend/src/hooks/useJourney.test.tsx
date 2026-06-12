@@ -27,12 +27,11 @@ describe('useJourney', () => {
         return HttpResponse.json(DEFAULT_SUMMARY, {
           headers: { ETag: '"test:epoch:1"' },
         })
-      }),
+      })
     )
-    const { result } = renderHook(
-      () => useJourney(DEFAULT_JOURNEY_ID, '"test:epoch:1"'),
-      { wrapper },
-    )
+    const { result } = renderHook(() => useJourney(DEFAULT_JOURNEY_ID, '"test:epoch:1"'), {
+      wrapper,
+    })
     await waitFor(() => expect(result.current.isFetched).toBe(true))
     expect(capturedHeader).toBe('"test:epoch:1"')
   })
@@ -42,8 +41,8 @@ describe('useJourney', () => {
       http.get('/v1/journeys/:id/summary', () =>
         HttpResponse.json(buildCriticalSummary(), {
           headers: { ETag: '"test:epoch:2"' },
-        }),
-      ),
+        })
+      )
     )
     const { result } = renderHook(() => useJourney(DEFAULT_JOURNEY_ID), { wrapper })
     await waitFor(() => expect(result.current.data?.status).toBe('critical'))

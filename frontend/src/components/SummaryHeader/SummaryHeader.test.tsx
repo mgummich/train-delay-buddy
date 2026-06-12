@@ -3,14 +3,19 @@ import { render, screen } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { SummaryHeader } from './index'
 import { buildSummary, buildCriticalSummary } from '@/test/factories'
+import type { JourneySummary } from '@/api/validation'
 import '../../i18n/index'
 
 describe('SummaryHeader', () => {
   it('renders time gain and ETA', () => {
     render(
       <MemoryRouter>
-        <SummaryHeader summary={buildSummary()} tab="timeline" onTabChange={() => {}} />
-      </MemoryRouter>,
+        <SummaryHeader
+          summary={buildSummary() as JourneySummary}
+          tab="timeline"
+          onTabChange={() => {}}
+        />
+      </MemoryRouter>
     )
     expect(screen.getByText(/18 Min/)).toBeTruthy()
     // ETA 2026-06-11T17:24:00Z = 19:24 Berlin (CEST)
@@ -20,8 +25,12 @@ describe('SummaryHeader', () => {
   it('has aria-live="polite" on the ETA region', () => {
     const { container } = render(
       <MemoryRouter>
-        <SummaryHeader summary={buildSummary()} tab="timeline" onTabChange={() => {}} />
-      </MemoryRouter>,
+        <SummaryHeader
+          summary={buildSummary() as JourneySummary}
+          tab="timeline"
+          onTabChange={() => {}}
+        />
+      </MemoryRouter>
     )
     expect(container.querySelector('[aria-live="polite"]')).toBeTruthy()
   })
@@ -31,11 +40,11 @@ describe('SummaryHeader', () => {
     render(
       <MemoryRouter>
         <SummaryHeader
-          summary={buildSummary({ dataFetchedAt: staleTime })}
+          summary={buildSummary({ dataFetchedAt: staleTime }) as JourneySummary}
           tab="timeline"
           onTabChange={() => {}}
         />
-      </MemoryRouter>,
+      </MemoryRouter>
     )
     expect(screen.getByText('Möglicherweise veraltet')).toBeTruthy()
   })
@@ -43,8 +52,12 @@ describe('SummaryHeader', () => {
   it('renders role="alert" when status is critical', () => {
     const { container } = render(
       <MemoryRouter>
-        <SummaryHeader summary={buildCriticalSummary()} tab="timeline" onTabChange={() => {}} />
-      </MemoryRouter>,
+        <SummaryHeader
+          summary={buildCriticalSummary() as JourneySummary}
+          tab="timeline"
+          onTabChange={() => {}}
+        />
+      </MemoryRouter>
     )
     expect(container.querySelector('[role="alert"]')).toBeTruthy()
   })
@@ -52,8 +65,12 @@ describe('SummaryHeader', () => {
   it('renders Timeline and Karte tab buttons', () => {
     render(
       <MemoryRouter>
-        <SummaryHeader summary={buildSummary()} tab="timeline" onTabChange={() => {}} />
-      </MemoryRouter>,
+        <SummaryHeader
+          summary={buildSummary() as JourneySummary}
+          tab="timeline"
+          onTabChange={() => {}}
+        />
+      </MemoryRouter>
     )
     expect(screen.getByText('Timeline')).toBeTruthy()
     expect(screen.getByText('Karte')).toBeTruthy()

@@ -8,7 +8,12 @@ interface TransferBlockProps {
   critical: boolean
 }
 
-export function TransferBlock({ bufferMinutes, nextTrain, nextPlatform, critical }: TransferBlockProps) {
+export function TransferBlock({
+  bufferMinutes,
+  nextTrain,
+  nextPlatform,
+  critical,
+}: TransferBlockProps) {
   const navigate = useNavigate()
   const { t } = useTranslation()
 

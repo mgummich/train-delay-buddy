@@ -5,12 +5,14 @@ import { saveJourney } from '@/lib/indexeddb'
 import { useJourneyStore } from '@/store/journeyStore'
 import type { JourneySummary } from '@/api/validation'
 
+type NetworkInformation = { saveData?: boolean; effectiveType?: string }
+
 function getRefetchInterval(
   status: string | undefined,
-  minBuffer: number | undefined | null,
+  minBuffer: number | undefined | null
 ): number | false {
-  if (navigator.connection && (navigator.connection as { saveData?: boolean }).saveData)
-    return 90_000
+  const nav = navigator as Navigator & { connection?: NetworkInformation }
+  if (nav.connection?.saveData) return 90_000
   if (status === 'critical' || (minBuffer !== undefined && minBuffer !== null && minBuffer < 5))
     return 10_000
   return 30_000
@@ -60,7 +62,7 @@ export function useJourney(journeyId: string, currentEtag?: string | null) {
         savedAt: new Date().toISOString(),
       })
 
-      return data
+      return data as JourneySummary
     },
     refetchInterval: (query) => {
       const d = query.state.data

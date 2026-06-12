@@ -117,7 +117,7 @@ export function CompanionScreen() {
     x: 14 + (i / Math.max(stops.length - 1, 1)) * 72,
     y: 86 - (i / Math.max(stops.length - 1, 1)) * 71,
     label: s.stationName,
-    sub: s.arrivalTimeActual ? formatTime(s.arrivalTimeActual) : undefined,
+    ...(s.arrivalTimeActual ? { sub: formatTime(s.arrivalTimeActual) } : {}),
     variant:
       i === 0
         ? ('dot' as const)
@@ -133,9 +133,7 @@ export function CompanionScreen() {
     <div className="min-h-screen bg-bg-app">
       <SubAppBar eyebrow={t('companion.eyebrow')} />
 
-      {summary && (
-        <SummaryHeader summary={summary} tab={tab} onTabChange={setTab} />
-      )}
+      {summary && <SummaryHeader summary={summary} tab={tab} onTabChange={setTab} />}
 
       {tab === 'karte' && <MapView stations={mapStations} traveledTo={1} />}
 
@@ -145,7 +143,13 @@ export function CompanionScreen() {
             const isCurrent = i === 1
             const isPast = i === 0
             const isDest = i === stops.length - 1
-            const kind: NodeKind = isDest ? 'dest' : isCurrent ? 'current' : isPast ? 'past' : 'future'
+            const kind: NodeKind = isDest
+              ? 'dest'
+              : isCurrent
+                ? 'current'
+                : isPast
+                  ? 'past'
+                  : 'future'
             const leg = legs[i]
 
             return (
@@ -200,10 +204,12 @@ export function CompanionScreen() {
                           : formatTime(stop.departureTimePlanned ?? '')
                       }
                       delay={stop.delayMinutes}
-                      planTime={
-                        stop.arrivalTimePlanned ? formatTime(stop.arrivalTimePlanned) : undefined
-                      }
-                      platform={stop.platformActual ?? stop.platformPlanned ?? undefined}
+                      {...(stop.arrivalTimePlanned
+                        ? { planTime: formatTime(stop.arrivalTimePlanned) }
+                        : {})}
+                      {...((stop.platformActual ?? stop.platformPlanned)
+                        ? { platform: (stop.platformActual ?? stop.platformPlanned)! }
+                        : {})}
                     />
                     {stop.transferBufferMinutes !== null &&
                       stop.transferBufferMinutes !== undefined &&
@@ -256,7 +262,11 @@ export function CompanionScreen() {
                       ) : (
                         <div
                           className="absolute left-1/2 -translate-x-1/2 inset-y-0"
-                          style={{ width: 2.5, background: 'var(--border-strong)', borderRadius: 2 }}
+                          style={{
+                            width: 2.5,
+                            background: 'var(--border-strong)',
+                            borderRadius: 2,
+                          }}
                         />
                       )}
                     </div>

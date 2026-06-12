@@ -27,11 +27,14 @@ function renderCompanion(journeyId = DEFAULT_JOURNEY_ID) {
       <MemoryRouter initialEntries={[`/journey/${journeyId}/companion`]}>
         <Routes>
           <Route path="/journey/:journeyId/companion" element={<CompanionScreen />} />
-          <Route path="/journey/:journeyId/alternatives" element={<div data-testid="alternatives" />} />
+          <Route
+            path="/journey/:journeyId/alternatives"
+            element={<div data-testid="alternatives" />}
+          />
           <Route path="/" element={<div data-testid="start" />} />
         </Routes>
       </MemoryRouter>
-    </QueryClientProvider>,
+    </QueryClientProvider>
   )
 }
 
@@ -65,7 +68,7 @@ describe('CompanionScreen', () => {
       http.delete('/v1/journeys/:id', () => {
         deleteCalled = true
         return new HttpResponse(null, { status: 204 })
-      }),
+      })
     )
     renderCompanion()
     await waitFor(() => screen.getByText(/Reise abschließen/))
@@ -88,7 +91,7 @@ describe('CompanionScreen', () => {
             <Route path="/journey/:journeyId/companion" element={<CompanionScreen />} />
           </Routes>
         </MemoryRouter>
-      </QueryClientProvider>,
+      </QueryClientProvider>
     )
     await waitFor(() => expect(screen.getByText('Möglicherweise veraltet')).toBeTruthy())
   })

@@ -35,7 +35,7 @@ describe('TransferBlock', () => {
     const { container } = render(
       <MemoryRouter>
         <TransferBlock bufferMinutes={9} nextTrain="RE 4321" nextPlatform="5" critical={false} />
-      </MemoryRouter>,
+      </MemoryRouter>
     )
     expect(screen.getByText(/Umstieg · Puffer 9 Min/)).toBeTruthy()
     expect(screen.getByText(/RE 4321/)).toBeTruthy()
@@ -46,7 +46,7 @@ describe('TransferBlock', () => {
     render(
       <MemoryRouter>
         <TransferBlock bufferMinutes={2} nextTrain="ICE 1573" nextPlatform="1" critical={true} />
-      </MemoryRouter>,
+      </MemoryRouter>
     )
     expect(screen.getByText(/Umstieg kritisch/)).toBeTruthy()
     const link = screen.getByRole('button', { name: /Alternative ansehen/ })
@@ -57,7 +57,12 @@ describe('TransferBlock', () => {
 describe('LegBlock', () => {
   it('renders line name and direction', () => {
     render(
-      <LegBlock line="ICE 1045" direction="Richtung Hamburg-Altona" duration="1:04 h" current={false} />,
+      <LegBlock
+        line="ICE 1045"
+        direction="Richtung Hamburg-Altona"
+        duration="1:04 h"
+        current={false}
+      />
     )
     expect(screen.getByText('ICE 1045')).toBeTruthy()
     expect(screen.getByText('Richtung Hamburg-Altona')).toBeTruthy()
@@ -65,7 +70,7 @@ describe('LegBlock', () => {
 
   it('shows blinking live badge when current', () => {
     const { container } = render(
-      <LegBlock line="ICE 1045" direction="Hamburg" duration="1:04 h" current={true} />,
+      <LegBlock line="ICE 1045" direction="Hamburg" duration="1:04 h" current={true} />
     )
     expect(container.querySelector('.vb-blink')).toBeTruthy()
     expect(screen.getByText(/Jetzt unterwegs/)).toBeTruthy()
