@@ -15,7 +15,7 @@ const FULL_JOURNEY = {
   journeyId: DEFAULT_JOURNEY_ID,
   summary:   DEFAULT_SUMMARY,
   legs:      [],
-  alternatives: [],
+  stops:     [],
 }
 
 describe('useJourneyFull', () => {
