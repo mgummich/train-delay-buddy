@@ -3,6 +3,7 @@ import { createBrowserRouter, RouterProvider, Navigate } from 'react-router-dom'
 import type { QueryClient } from '@tanstack/react-query'
 import { FullPageError, ScreenError, CompanionError } from '@/screens/ErrorScreens'
 import { journeyFullQuery } from '@/hooks/useJourneyFull'
+import { journeyAlternativesQuery } from '@/hooks/useJourneyAlternatives'
 
 // Route-based code splitting — each screen is its own chunk
 const StartScreen = lazy(() =>
@@ -41,7 +42,10 @@ export function createRouter(qc: QueryClient) {
       errorElement: <ScreenError message="Verbindungen konnten nicht geladen werden" />,
       loader: async ({ params }) => {
         const id = params.journeyId!
-        await qc.ensureQueryData(journeyFullQuery(id))
+        await Promise.all([
+          qc.ensureQueryData(journeyFullQuery(id)),
+          qc.ensureQueryData(journeyAlternativesQuery(id)),
+        ])
         return null
       },
     },
