@@ -1,4 +1,3 @@
-import { useTranslation } from 'react-i18next'
 import { cn } from '@/lib/utils'
 import { RiskBadge } from '@/components/RiskBadge'
 import { formatTime } from '@/lib/datetime'
@@ -26,8 +25,6 @@ export function AlternativeCard({
   recommended = false,
   onSelect,
 }: AlternativeCardProps) {
-  const { t } = useTranslation()
-
   return (
     <button
       type="button"
