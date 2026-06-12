@@ -80,5 +80,10 @@ export function createRouter(qc: QueryClient) {
       path: '*',
       element: <Navigate to="/" replace />,
     },
-  ])
+  ], {
+    future: {
+      v7_startTransition: true,
+      v7_relativeSplatPath: true,
+    },
+  })
 }

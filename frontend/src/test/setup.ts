@@ -3,6 +3,18 @@
  * Runs before every test file.
  */
 import '@testing-library/jest-dom'
+import i18n from 'i18next'
+import { initReactI18next } from 'react-i18next'
+
+// Minimal i18next init so useTranslation() works without a provider in tests.
+if (!i18n.isInitialized) {
+  void i18n.use(initReactI18next).init({
+    lng: 'de',
+    fallbackLng: 'de',
+    resources: {},
+    interpolation: { escapeValue: false },
+  })
+}
 import { cleanup } from '@testing-library/react'
 import { afterEach, beforeAll, afterAll, vi } from 'vitest'
 import { server } from './msw-handlers'

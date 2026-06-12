@@ -9,7 +9,7 @@ import '../../i18n/index'
 describe('SummaryHeader', () => {
   it('renders time gain and ETA', () => {
     render(
-      <MemoryRouter>
+      <MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
         <SummaryHeader
           summary={buildSummary() as JourneySummary}
           tab="timeline"
@@ -24,7 +24,7 @@ describe('SummaryHeader', () => {
 
   it('has aria-live="polite" on the ETA region', () => {
     const { container } = render(
-      <MemoryRouter>
+      <MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
         <SummaryHeader
           summary={buildSummary() as JourneySummary}
           tab="timeline"
@@ -38,7 +38,7 @@ describe('SummaryHeader', () => {
   it('shows staleness badge when dataFetchedAt > 3 minutes ago', () => {
     const staleTime = new Date(Date.now() - 4 * 60 * 1000).toISOString()
     render(
-      <MemoryRouter>
+      <MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
         <SummaryHeader
           summary={buildSummary({ dataFetchedAt: staleTime }) as JourneySummary}
           tab="timeline"
@@ -51,7 +51,7 @@ describe('SummaryHeader', () => {
 
   it('renders role="alert" when status is critical', () => {
     const { container } = render(
-      <MemoryRouter>
+      <MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
         <SummaryHeader
           summary={buildCriticalSummary() as JourneySummary}
           tab="timeline"
@@ -64,7 +64,7 @@ describe('SummaryHeader', () => {
 
   it('renders Timeline and Karte tab buttons', () => {
     render(
-      <MemoryRouter>
+      <MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
         <SummaryHeader
           summary={buildSummary() as JourneySummary}
           tab="timeline"

@@ -34,6 +34,11 @@ export default defineConfig({
     fakeTimers: {
       // Opt-in per test with: vi.useFakeTimers()
     },
+    // Suppress Node.js ExperimentalWarning for localStorage (Node 26+ global)
+    // that fires before jsdom overrides it.
+    poolOptions: {
+      forks: { execArgv: ['--disable-warning=ExperimentalWarning'] },
+    },
   },
   resolve: {
     alias: { '@': resolve(__dirname, './src') },

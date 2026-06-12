@@ -24,7 +24,7 @@ function renderCompanion(journeyId = DEFAULT_JOURNEY_ID) {
   qc.setQueryData(['journey', 'full', journeyId], FULL_JOURNEY)
   return render(
     <QueryClientProvider client={qc}>
-      <MemoryRouter initialEntries={[`/journey/${journeyId}/companion`]}>
+      <MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }} initialEntries={[`/journey/${journeyId}/companion`]}>
         <Routes>
           <Route path="/journey/:journeyId/companion" element={<CompanionScreen />} />
           <Route
@@ -86,7 +86,7 @@ describe('CompanionScreen', () => {
     })
     render(
       <QueryClientProvider client={qc}>
-        <MemoryRouter initialEntries={[`/journey/${DEFAULT_JOURNEY_ID}/companion`]}>
+        <MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }} initialEntries={[`/journey/${DEFAULT_JOURNEY_ID}/companion`]}>
           <Routes>
             <Route path="/journey/:journeyId/companion" element={<CompanionScreen />} />
           </Routes>
