@@ -5,7 +5,7 @@ title: Database
 
 # Database
 
-PostgreSQL 16. A single table. A single migration file.
+PostgreSQL 18. A single table. A single migration file.
 
 ## Schema
 

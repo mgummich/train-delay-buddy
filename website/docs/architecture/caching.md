@@ -70,7 +70,7 @@ The frontend stores the last-seen ETag in its TanStack Query cache. When the res
 
 ## Postgres ↔ Valkey consistency
 
-The system is **Valkey-first** for reads of active journeys. Writes go to Redis and Postgres in this order:
+The system is **Valkey-first** for reads of active journeys. Writes go to Valkey and Postgres in this order:
 
 ```
 poller.tick():
@@ -81,7 +81,7 @@ poller.tick():
   }
 ```
 
-If the process crashes after the Redis write but before Postgres, the *Valkey value is the truth* until its TTL expires. The next process to handle this journey will read Valkey, find the latest state, and continue. The Postgres row eventually catches up on the next successful tick (or is reconciled by the janitor).
+If the process crashes after the Valkey write but before Postgres, the *Valkey value is the truth* until its TTL expires. The next process to handle this journey will read Valkey, find the latest state, and continue. The Postgres row eventually catches up on the next successful tick (or is reconciled by the janitor).
 
 In the much rarer case of a Postgres write succeeding but Valkey failing (because Valkey was being restarted), the next read falls through to Postgres and refills Valkey. The data is correct; the only cost is one Postgres read.
 
@@ -97,7 +97,6 @@ Two protections:
 | Trigger | Action |
 |---------|--------|
 | `POST /v1/journeys` (success) | Set query data for the new journey directly (skip a redundant fetch) |
-| `POST /v1/journeys/{id}/switch` | Invalidate `journey(id)` and `alternatives(id)`; trigger immediate refetch |
 | `DELETE /v1/journeys/{id}` | Remove all queries with prefix `journey(id)`; clear Zustand `journeyId` |
 | `summary.alternativeAvailable` flips to `true` | Invalidate `alternatives(id)` |
 | `summary.status` becomes `CRITICAL` or `INFEASIBLE` | Show modal; do not invalidate (let the next poll pick it up) |

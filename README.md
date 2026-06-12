@@ -4,8 +4,8 @@
 
 ![Go](https://img.shields.io/badge/Go-1.25-00ADD8?logo=go&logoColor=white)
 ![Node](https://img.shields.io/badge/Node-22-339933?logo=node.js&logoColor=white)
-![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-336791?logo=postgresql&logoColor=white)
-![Redis](https://img.shields.io/badge/Redis-7-DC382D?logo=redis&logoColor=white)
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL-18-336791?logo=postgresql&logoColor=white)
+![Valkey](https://img.shields.io/badge/Valkey-9.1-B5C2FF?logo=redis&logoColor=white)
 ![Docker](https://img.shields.io/badge/Docker-Compose-2496ED?logo=docker&logoColor=white)
 ![License](https://img.shields.io/badge/license-MIT-22c55e)
 ![PWA](https://img.shields.io/badge/PWA-installable-5A0FC8?logo=pwa)
@@ -76,8 +76,8 @@ Additional screens in [`design_handoff_verspaetungsbegleiter/screenshots/`](desi
 |-------|------------|
 | **Backend** | Go 1.25 — chi router, pgx/v5, go-redis, Prometheus metrics |
 | **Frontend** | React 19, TypeScript, Vite 6, TanStack Query, Zustand, Tailwind CSS, shadcn/ui |
-| **Database** | PostgreSQL 16 |
-| **Cache** | Valkey 8 (BSD Redis fork, volatile-LRU, 256 MB cap) |
+| **Database** | PostgreSQL 18 |
+| **Cache** | Valkey 9.1 (BSD Redis fork, volatile-LRU, 256 MB cap) |
 | **Reverse proxy** | Nginx (production) |
 | **Containerisation** | Docker + Docker Compose |
 | **External data** | `v6.db.transport.rest` — open HAFAS API for DB realtime data |
@@ -126,7 +126,7 @@ Once all health checks pass:
 | `http://localhost:5173` | Frontend — Vite dev server with hot-reload |
 | `http://localhost:8080` | Backend API |
 | `http://localhost` | Full app via Nginx (mirrors production routing) |
-| `http://localhost:8080/readyz` | Backend health — shows Redis / Postgres / HAFAS status |
+| `http://localhost:8080/readyz` | Backend health — shows Valkey / Postgres / HAFAS status |
 
 ### Useful Compose commands
 
@@ -149,10 +149,10 @@ Use this when you want IDE debugging, faster Go build cycles, or to run tests wi
 ### Step 1 — Start infrastructure only
 
 ```bash
-docker compose up -d postgres redis
+docker compose up -d postgres valkey
 ```
 
-This starts only Postgres (`:5432`) and Redis (`:6379`), leaving the application services for local runs.
+This starts only Postgres (`:5432`) and Valkey (`:6379`), leaving the application services for local runs.
 
 ### Step 2 — Backend
 
@@ -161,8 +161,8 @@ cd backend
 go mod download
 
 export PORT=8080
-export DATABASE_URL=postgres://vbb:vbb@localhost:5432/vbb
-export REDIS_URL=redis://localhost:6379
+export DATABASE_URL=postgres://vbb:${POSTGRES_PASSWORD}@localhost:5432/vbb
+export VALKEY_URL=redis://localhost:6379
 export CORS_ALLOWED_ORIGINS=http://localhost:5173
 export LOG_LEVEL=DEBUG
 
@@ -194,8 +194,9 @@ Backend variables are read from the process environment or, when using Docker Co
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `PORT` | `8080` | HTTP listen port |
-| `DATABASE_URL` | `postgres://vbb:vbb@postgres:5432/vbb` | PostgreSQL connection string |
-| `REDIS_URL` | `redis://redis:6379` | Redis connection string |
+| `DATABASE_URL` | `postgres://vbb:${POSTGRES_PASSWORD}@postgres:5432/vbb` | PostgreSQL connection string |
+| `VALKEY_URL` | `redis://valkey:6379` | Valkey connection URL. The `redis://` scheme is reused for protocol compatibility with the `go-redis` client. |
+| `REDIS_URL` | _(none)_ | Deprecated alias for `VALKEY_URL` — honoured when `VALKEY_URL` is unset, to ease migration from a Redis-only deployment. |
 | `LOG_LEVEL` | `INFO` | One of `DEBUG`, `INFO`, `WARN`, `ERROR` |
 | `HAFAS_BASE_URL` | `https://v6.db.transport.rest` | HAFAS API base URL — swap for a self-hosted proxy |
 | `HAFAS_REQUEST_TIMEOUT` | `8s` | Per-request deadline to HAFAS |
@@ -238,7 +239,7 @@ verspaetungs-begleiter/
 │   │   ├── journey/
 │   │   │   ├── model.go            # All domain types: Journey, Leg, Summary, Filters, …
 │   │   │   ├── compute.go          # Derives Summary (ETA, status, nextStep) from legs
-│   │   │   ├── store.go            # Redis L1 + Postgres L2 store (implements Store interface)
+│   │   │   ├── store.go            # Valkey L1 + Postgres L2 store (implements Store interface)
 │   │   │   ├── poller.go           # Per-journey goroutine — ticks every 30 s, calls HAFAS
 │   │   │   └── worker_pool.go      # Bounded concurrency pool for HAFAS fetch tasks
 │   │   ├── metrics/                # Prometheus metric definitions (registered at import)
@@ -331,10 +332,10 @@ Browser (React SPA / PWA)
 │          ├── ApplyTripUpdates  (realtime data → legs)   │
 │          ├── ComputeSummary    (ETA · status · nextStep)│
 │          ├── BFS routing       (fresh alternatives)     │
-│          └── UpdateState ──► Redis (L1) + Postgres (L2) │
+│          └── UpdateState ──► Valkey (L1) + Postgres (L2) │
 └─────────────────────────────────────────────────────────┘
          │                         │
-    Valkey 8                 PostgreSQL 16
+    Valkey 9.1               PostgreSQL 18
   (hot cache,              (persistent store,
   ETag counters)            migration on boot)
 ```
@@ -354,8 +355,8 @@ Browser (React SPA / PWA)
 
 | Layer | TTL | What is cached |
 |-------|-----|----------------|
-| Redis | journey TTL (default 2 h) | Full journey JSON (fast ETag polling) |
-| Redis | 5 min | Station search results |
+| Valkey | journey TTL (default 2 h) | Full journey JSON (fast ETag polling) |
+| Valkey | 5 min | Station search results |
 | Browser (TanStack Query) | 30 s | Full journey (`GET /journeys/{id}`) |
 | Browser (TanStack Query) | 0 s (always refetch) | Alternatives list |
 | Browser (Nginx) | 1 year | Hashed static assets (JS/CSS/fonts) |
@@ -461,7 +462,7 @@ The suite covers: golden-path journey creation → alternatives → companion, c
 
 ## Database
 
-PostgreSQL 16 with a single migration file:
+PostgreSQL 18 with a single migration file:
 
 ```
 backend/migrations/001_initial.sql
@@ -482,7 +483,7 @@ CREATE TABLE journeys (
   summary_json     JSONB NOT NULL,      -- latest summary: ETA, status, nextStep, dataConfidence
   legs_json        JSONB NOT NULL,      -- current route legs with realtime timestamps
   stops_json       JSONB NOT NULL,      -- all stops across all legs
-  etag_epoch       BIGINT  NOT NULL,    -- increments when journey is loaded into Redis
+  etag_epoch       BIGINT  NOT NULL,    -- increments when journey is loaded into Valkey
   etag_counter     INTEGER NOT NULL,    -- increments on every state change (ETag key)
   created_at       TIMESTAMPTZ NOT NULL,
   terminated_at    TIMESTAMPTZ,         -- NULL = active, set = terminated
@@ -539,9 +540,9 @@ npx @scalar/cli serve backend/openapi.yaml
 | `GET` | `/v1/journeys/{id}/alternatives` | Ranked alternative routes |
 | `POST` | `/v1/journeys/{id}/alternatives` | Trigger fresh recomputation — returns 202 immediately |
 | `GET` | `/v1/trains/{number}` | Validate train number, return origin/destination/status |
-| `GET` | `/v1/stations?q=` | Station name autocomplete (Redis-cached 5 min) |
+| `GET` | `/v1/stations?q=` | Station name autocomplete (Valkey-cached 5 min) |
 | `GET` | `/health` | Liveness probe — 200 while process is alive |
-| `GET` | `/readyz` | Readiness probe — 200/503 with Redis/Postgres/HAFAS status |
+| `GET` | `/readyz` | Readiness probe — 200/503 with Valkey/Postgres/HAFAS status |
 
 ### Conventions
 
@@ -612,7 +613,7 @@ docker compose -f docker-compose.yml up -d
 | `nginx` | Port 80 — serves the built frontend SPA, proxies `/v1/*` to backend, blocks `/metrics` |
 | `backend` | Statically compiled Go binary, 512 MB RAM / 1 CPU limit, migrations on start |
 | `postgres` | Data in `postgres_data` named volume — survives container restarts |
-| `redis` | 256 MB volatile-LRU cap, data in memory only |
+| `valkey` | 256 MB volatile-LRU cap, data in memory only |
 
 ### Pre-deployment checklist
 
@@ -626,8 +627,8 @@ docker compose -f docker-compose.yml up -d
 
 ```
 GET /health  → 200 {"status":"ok"}
-GET /readyz  → 200 {"status":"ok","checks":{"redis":"ok","postgres":"ok","hafas":"ok"}}
-             → 503 when Redis or Postgres is unreachable
+GET /readyz  → 200 {"status":"ok","checks":{"valkey":"ok","postgres":"ok","hafas":"ok"}}
+             → 503 when Valkey or Postgres is unreachable
 ```
 
 ---
@@ -644,7 +645,7 @@ lsof -i :80 -i :5173 -i :8080 -i :5432 -i :6379
 
 Edit `docker-compose.override.yml` to remap ports if needed.
 
-### Backend exits with "connection refused" to Postgres or Redis
+### Backend exits with "connection refused" to Postgres or Valkey
 
 The Compose health checks prevent the backend from starting until both dependencies are ready. If startup consistently times out, increase `start_period` in `docker-compose.yml` (backend service → `healthcheck`).
 

@@ -35,7 +35,6 @@ npx redocly preview-docs backend/openapi.yaml
 | `GET` | `/v1/journeys/{id}/legs` | Leg + stop data for the timeline view |
 | `GET` | `/v1/journeys/{id}/alternatives` | Ranked alternative routes |
 | `POST` | `/v1/journeys/{id}/alternatives` | Trigger fresh recomputation — returns `202 Accepted` immediately |
-| `POST` | `/v1/journeys/{id}/switch` | Switch the active journey to a chosen alternative |
 | `GET` | `/v1/trains/{number}` | Validate a train number, return origin/destination/status |
 | `GET` | `/v1/stations?q=` | Station-name autocomplete (Valkey-cached 5 min) |
 | `GET` | `/health` | Liveness probe — `200` while the process is alive |
@@ -146,17 +145,6 @@ GET /v1/journeys/jrn_01j2k3m4n5p6q7r8/alternatives HTTP/1.1
 ```
 
 Ordering is by `(etaUtc ASC, transferBufferMinutes DESC, legCount ASC)`. Maximum 5 results.
-
-## `POST /v1/journeys/{id}/switch`
-
-```http
-POST /v1/journeys/jrn_.../switch HTTP/1.1
-Content-Type: application/json
-
-{ "alternativeId": "alt_01j2k3m4..." }
-```
-
-Returns the new summary + legs on success. Fails with `409 alternative-expired` if the chosen ID is not in the current alternatives set (the user took too long to decide and the list has been replaced).
 
 ## `GET /readyz`
 

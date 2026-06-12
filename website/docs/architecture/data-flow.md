@@ -6,7 +6,7 @@ sidebar_position: 4
 
 # Data flow
 
-End-to-end traces for the three flows that matter: creating a journey, polling its status, and switching to an alternative.
+End-to-end traces for the two core flows: creating a journey and polling its status.
 
 ## Flow 1 — Create a new journey
 
@@ -62,20 +62,6 @@ flowchart TD
 ```
 
 Client and poller never interact directly. They share state via Valkey. The 30-second client polls are *almost always* 304 in steady state; the **content of the journey changes** is driven by the poller alone.
-
-## Flow 3 — Switch to an alternative
-
-```mermaid
-flowchart TD
-  A([User taps alternative card]) --> B["POST /v1/journeys/{id}/switch\n{alternativeId}"]
-  B --> C{alternativeId\nin current set?}
-  C -->|stale| C1["409 alternative-expired"]
-  C -->|valid| D["PollerManager.Switch()\nReplace legs · bump etag_counter · persist"]
-  D --> E["200 OK {summary, legs}"]
-  E --> F["React Query invalidates journey cache\nimmediate refetch"]
-```
-
-The next client poll arrives ~30 s later and returns a 200 with the new ETag. From the user's perspective, the timeline switches instantly because the React Query cache for the active journey is invalidated and refetched as part of the success handler.
 
 ## Failure paths
 
