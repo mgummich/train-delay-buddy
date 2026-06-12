@@ -27,8 +27,11 @@ func routeTrainRequest(h *handlers.TrainsHandler, trainNumber, date string) *htt
 
 func TestTrains_ValidTrain_Returns200(t *testing.T) {
 	today := time.Now().UTC().Format("2006-01-02")
-	dep := time.Now().UTC().Add(-1 * time.Hour)
-	arr := time.Now().UTC().Add(3 * time.Hour)
+	// Anchor to noon UTC so Berlin conversion (UTC+2) stays on the same calendar day
+	// regardless of when the test runs — avoids date-crossing after 22:00 UTC.
+	noon := time.Now().UTC().Truncate(24 * time.Hour).Add(12 * time.Hour)
+	dep := noon.Add(-2 * time.Hour)
+	arr := noon.Add(4 * time.Hour)
 
 	client := newTestHAFASClient(t, func(w http.ResponseWriter, r *http.Request) {
 		json.NewEncoder(w).Encode(hafas.HAFASTripsResponse{
