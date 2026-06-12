@@ -215,10 +215,18 @@ func (s *RedisPostgresStore) getFromPostgres(ctx context.Context, id string) (*J
 	if terminatedAt != nil {
 		return nil, ErrNotFound
 	}
-	json.Unmarshal(summaryJSON, &j.Summary)
-	json.Unmarshal(legsJSON, &j.Legs)
-	json.Unmarshal(stopsJSON, &j.Stops)
-	json.Unmarshal(filtersJSON, &j.Filters)
+	if err := json.Unmarshal(summaryJSON, &j.Summary); err != nil {
+		return nil, fmt.Errorf("store.Get: corrupt summary: %w", err)
+	}
+	if err := json.Unmarshal(legsJSON, &j.Legs); err != nil {
+		return nil, fmt.Errorf("store.Get: corrupt legs: %w", err)
+	}
+	if err := json.Unmarshal(stopsJSON, &j.Stops); err != nil {
+		return nil, fmt.Errorf("store.Get: corrupt stops: %w", err)
+	}
+	if err := json.Unmarshal(filtersJSON, &j.Filters); err != nil {
+		return nil, fmt.Errorf("store.Get: corrupt filters: %w", err)
+	}
 	j.TerminatedAt = terminatedAt
 	return &j, nil
 }
@@ -248,23 +256,30 @@ func (s *RedisPostgresStore) UpdateState(ctx context.Context, id string, summary
 	wctx, cancel := context.WithTimeout(ctx, s.writeTTL)
 	defer cancel()
 
+	var newCounter int
 	if updateLegs {
 		legsJSON, _ := json.Marshal(legs)
-		_, err := s.db.Exec(wctx, `
+		if err := s.db.QueryRow(wctx, `
 			UPDATE journeys SET summary_json=$1, legs_json=$2,
 			etag_counter=etag_counter+1, last_polled_at=now()
-			WHERE id=$3 AND terminated_at IS NULL`,
-			summaryJSON, legsJSON, id)
-		if err != nil {
+			WHERE id=$3 AND terminated_at IS NULL
+			RETURNING etag_counter`,
+			summaryJSON, legsJSON, id).Scan(&newCounter); err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				return ErrNotFound
+			}
 			return fmt.Errorf("store.UpdateState postgres: %w", err)
 		}
 	} else {
-		_, err := s.db.Exec(wctx, `
+		if err := s.db.QueryRow(wctx, `
 			UPDATE journeys SET summary_json=$1,
 			etag_counter=etag_counter+1, last_polled_at=now()
-			WHERE id=$2 AND terminated_at IS NULL`,
-			summaryJSON, id)
-		if err != nil {
+			WHERE id=$2 AND terminated_at IS NULL
+			RETURNING etag_counter`,
+			summaryJSON, id).Scan(&newCounter); err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				return ErrNotFound
+			}
 			return fmt.Errorf("store.UpdateState postgres: %w", err)
 		}
 	}
@@ -277,7 +292,7 @@ func (s *RedisPostgresStore) UpdateState(ctx context.Context, id string, summary
 	if updateLegs {
 		j.Legs = legs
 	}
-	j.ETagCounter++
+	j.ETagCounter = newCounter
 	return s.writeToRedis(ctx, j, nil) // nil alts = don't touch alts key (C1)
 }
 
@@ -329,9 +344,9 @@ func (s *RedisPostgresStore) GetActive(ctx context.Context, ttlHours int) ([]Jou
 		       etag_counter, etag_epoch, created_at, last_polled_at
 		FROM journeys
 		WHERE terminated_at IS NULL
-		  AND created_at > now() - ($1 || ' hours')::interval
+		  AND created_at > now() - $1 * interval '1 hour'
 		ORDER BY created_at`,
-		fmt.Sprintf("%d", ttlHours),
+		ttlHours,
 	)
 	if err != nil {
 		return nil, err
@@ -350,10 +365,22 @@ func (s *RedisPostgresStore) GetActive(ctx context.Context, ttlHours int) ([]Jou
 		); err != nil {
 			return nil, err
 		}
-		json.Unmarshal(summaryJSON, &j.Summary)
-		json.Unmarshal(legsJSON, &j.Legs)
-		json.Unmarshal(stopsJSON, &j.Stops)
-		json.Unmarshal(filtersJSON, &j.Filters)
+		if err := json.Unmarshal(summaryJSON, &j.Summary); err != nil {
+			s.log.Warn("store.GetActive: skipping corrupt journey", "journeyId", j.ID, "field", "summary", "error", err)
+			continue
+		}
+		if err := json.Unmarshal(legsJSON, &j.Legs); err != nil {
+			s.log.Warn("store.GetActive: skipping corrupt journey", "journeyId", j.ID, "field", "legs", "error", err)
+			continue
+		}
+		if err := json.Unmarshal(stopsJSON, &j.Stops); err != nil {
+			s.log.Warn("store.GetActive: skipping corrupt journey", "journeyId", j.ID, "field", "stops", "error", err)
+			continue
+		}
+		if err := json.Unmarshal(filtersJSON, &j.Filters); err != nil {
+			s.log.Warn("store.GetActive: skipping corrupt journey", "journeyId", j.ID, "field", "filters", "error", err)
+			continue
+		}
 		journeys = append(journeys, j)
 	}
 	return journeys, rows.Err()

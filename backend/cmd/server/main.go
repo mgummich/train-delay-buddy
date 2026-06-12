@@ -89,7 +89,7 @@ func main() {
 		Journeys:           handlers.NewJourneysHandler(store, engine, pollerManager, cfg.MaxActiveJourneys),
 		Summary:            handlers.NewSummaryHandler(store),
 		Legs:               handlers.NewLegsHandler(store),
-		Alternatives:       handlers.NewAlternativesHandler(store, engine),
+		Alternatives:       handlers.NewAlternativesHandler(store, engine, 4*cfg.HAFASRequestTimeout, serverCtx),
 		Logger:             logger,
 		CORSOrigins:        cfg.CORSAllowedOrigins,
 		InstallRateLimiter: installLimiter,

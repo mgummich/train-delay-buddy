@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 	"mime"
 	"net/http"
 	"time"
@@ -107,9 +108,18 @@ func (h *JourneysHandler) Create(w http.ResponseWriter, r *http.Request) {
 
 	// Idempotency-Key handling
 	idempKey := r.Header.Get("Idempotency-Key")
+	bodyHash := ""
 	if idempKey != "" {
-		bodyHash := hashBody(req)
-		existing, _ := h.store.GetIdempotency(r.Context(), idempKey)
+		bodyHash = hashBody(req)
+		existing, err := h.store.GetIdempotency(r.Context(), idempKey)
+		if err != nil {
+			problem.Write(w, r, problem.Problem{
+				Type:   "urn:verspbegl:error:internal-error",
+				Title:  "Internal Server Error",
+				Status: http.StatusInternalServerError,
+			})
+			return
+		}
 		if existing != nil {
 			if existing.BodyHash != bodyHash {
 				problem.Write(w, r, problem.Problem{
@@ -195,12 +205,15 @@ func (h *JourneysHandler) Create(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if idempKey != "" {
-		h.store.SetIdempotency(r.Context(), idempKey, journey.IdempotencyEntry{
+		if err := h.store.SetIdempotency(r.Context(), idempKey, journey.IdempotencyEntry{
 			JourneyID:    j.ID,
-			BodyHash:     hashBody(req),
+			BodyHash:     bodyHash,
 			StatusCode:   http.StatusCreated,
 			ResponseBody: respBody,
-		})
+		}); err != nil {
+			slog.WarnContext(r.Context(), "idempotency cache write failed; replay will not work for this key",
+				"idempotencyKey", idempKey, "journeyId", j.ID, "error", err)
+		}
 	}
 
 	w.Header().Set("Content-Type", "application/json")

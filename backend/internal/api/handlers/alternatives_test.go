@@ -1,10 +1,12 @@
 package handlers_test
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 
@@ -38,7 +40,7 @@ func TestAlternatives_Get_Returns200(t *testing.T) {
 	store.alts[j.ID] = []journey.Alternative{
 		{JourneyID: "jrn_alt1000000000000000000001"},
 	}
-	h := handlers.NewAlternativesHandler(store, &mockEngine{result: &mockAltsEngineResult})
+	h := handlers.NewAlternativesHandler(store, &mockEngine{result: &mockAltsEngineResult}, 30*time.Second, context.Background())
 
 	rr := routeAltsRequest(h, http.MethodGet, j.ID, "")
 
@@ -57,7 +59,7 @@ func TestAlternatives_Get_MatchingETag_Returns304(t *testing.T) {
 	j := makeTestJourney("jrn_altstest00000000000002")
 	store.journeys[j.ID] = j
 	store.alts[j.ID] = []journey.Alternative{}
-	h := handlers.NewAlternativesHandler(store, &mockEngine{})
+	h := handlers.NewAlternativesHandler(store, &mockEngine{}, 30*time.Second, context.Background())
 
 	rr1 := routeAltsRequest(h, http.MethodGet, j.ID, "")
 	etag := rr1.Header().Get("ETag")
@@ -75,7 +77,7 @@ func TestAlternatives_Post_Returns202(t *testing.T) {
 	store := newMockStore()
 	j := makeTestJourney("jrn_altstest00000000000003")
 	store.journeys[j.ID] = j
-	h := handlers.NewAlternativesHandler(store, &mockEngine{result: &mockAltsEngineResult})
+	h := handlers.NewAlternativesHandler(store, &mockEngine{result: &mockAltsEngineResult}, 30*time.Second, context.Background())
 
 	rr := routeAltsRequest(h, http.MethodPost, j.ID, "")
 

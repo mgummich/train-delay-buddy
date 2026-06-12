@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net/http"
@@ -16,12 +17,14 @@ import (
 
 // AlternativesHandler handles GET and POST /v1/journeys/{id}/alternatives.
 type AlternativesHandler struct {
-	store  journey.Store
-	engine routing.Engine
+	store          journey.Store
+	engine         routing.Engine
+	triggerTimeout time.Duration
+	serverCtx      context.Context
 }
 
-func NewAlternativesHandler(store journey.Store, engine routing.Engine) *AlternativesHandler {
-	return &AlternativesHandler{store: store, engine: engine}
+func NewAlternativesHandler(store journey.Store, engine routing.Engine, triggerTimeout time.Duration, serverCtx context.Context) *AlternativesHandler {
+	return &AlternativesHandler{store: store, engine: engine, triggerTimeout: triggerTimeout, serverCtx: serverCtx}
 }
 
 type alternativesResponse struct {
@@ -64,6 +67,7 @@ func (h *AlternativesHandler) Get(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	total := len(alts)
 	if len(alts) > limit {
 		alts = alts[:limit]
 	}
@@ -72,7 +76,7 @@ func (h *AlternativesHandler) Get(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("ETag", etagHeader)
-	writeJSON(w, http.StatusOK, alternativesResponse{Data: alts, TotalCount: len(alts)})
+	writeJSON(w, http.StatusOK, alternativesResponse{Data: alts, TotalCount: total})
 }
 
 // Trigger kicks off a fresh alternatives recomputation. Returns 202 immediately.
@@ -98,7 +102,9 @@ func (h *AlternativesHandler) Trigger(w http.ResponseWriter, r *http.Request) {
 	}
 
 	go func() {
-		result, err := h.engine.Route(r.Context(), routing.RoutingRequest{
+		ctx, cancel := context.WithTimeout(h.serverCtx, h.triggerTimeout)
+		defer cancel()
+		result, err := h.engine.Route(ctx, routing.RoutingRequest{
 			TrainNumber:    j.TrainNumber,
 			ToStationID:    j.Destination.ID,
 			ToStationName:  j.Destination.Name,
@@ -109,7 +115,7 @@ func (h *AlternativesHandler) Trigger(w http.ResponseWriter, r *http.Request) {
 		if err != nil || len(result.Alternatives) == 0 {
 			return
 		}
-		h.store.UpdateAlternatives(r.Context(), id, result.Alternatives)
+		h.store.UpdateAlternatives(ctx, id, result.Alternatives)
 	}()
 
 	writeJSON(w, http.StatusAccepted, map[string]string{
