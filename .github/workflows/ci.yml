@@ -164,14 +164,16 @@ jobs:
           category: gosec
 
       - name: Semgrep (multi-language SAST)
-        uses: returntocorp/semgrep-action@v1
-        with:
-          config: >-
-            p/default
-            p/security-audit
-            p/owasp-top-ten
-            p/dockerfile
-            p/secrets
+        run: |
+          pip install semgrep --quiet --disable-pip-version-check
+          semgrep scan \
+            --config p/default \
+            --config p/security-audit \
+            --config p/owasp-top-ten \
+            --config p/dockerfile \
+            --config p/secrets \
+            --error \
+            --no-rewrite-rule-ids
 
   docker:
     name: Docker build
