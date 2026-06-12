@@ -204,7 +204,10 @@ export function StartScreen() {
                   placeholder="ICE 123"
                   className="flex-1 bg-transparent outline-none text-text-primary
                     text-[16px] tnum placeholder:text-text-faint"
-                  {...form.register('trainNumber', { onBlur: handleTrainBlur })}
+                  {...form.register('trainNumber', {
+                    onBlur:   handleTrainBlur,
+                    onChange: () => trainValidation.reset(),
+                  })}
                 />
                 {trainValidation.isValidating && (
                   <span className="text-text-faint text-xs">…</span>

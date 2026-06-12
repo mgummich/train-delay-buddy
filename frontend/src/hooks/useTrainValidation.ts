@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useRef } from 'react'
 import { apiClient } from '@/api/client'
 
 interface TrainData {
@@ -8,20 +8,22 @@ interface TrainData {
 
 interface UseTrainValidationResult {
   validate:     (trainNumber: string) => void
+  reset:        () => void
   error:        string | null
   trainData:    TrainData | null
   isValidating: boolean
-  clearError:   () => void
 }
 
 export function useTrainValidation(): UseTrainValidationResult {
   const [error, setError]               = useState<string | null>(null)
   const [trainData, setTrainData]       = useState<TrainData | null>(null)
   const [isValidating, setIsValidating] = useState(false)
+  const seqRef = useRef(0)
 
   const validate = useCallback((trainNumber: string) => {
     if (!trainNumber.trim()) return
 
+    const seq = ++seqRef.current
     setIsValidating(true)
     setError(null)
 
@@ -35,6 +37,7 @@ export function useTrainValidation(): UseTrainValidationResult {
         },
       })
       .then(({ data, error: apiError }) => {
+        if (seq !== seqRef.current) return
         if (apiError) {
           setError('Zug nicht gefunden für heute')
           setTrainData(null)
@@ -47,17 +50,27 @@ export function useTrainValidation(): UseTrainValidationResult {
         }
       })
       .catch(() => {
+        if (seq !== seqRef.current) return
         setError('Zug nicht gefunden für heute')
         setTrainData(null)
       })
-      .finally(() => setIsValidating(false))
+      .finally(() => {
+        if (seq === seqRef.current) setIsValidating(false)
+      })
+  }, [])
+
+  const reset = useCallback(() => {
+    seqRef.current++
+    setError(null)
+    setTrainData(null)
+    setIsValidating(false)
   }, [])
 
   return {
     validate,
+    reset,
     error,
     trainData,
     isValidating,
-    clearError: () => setError(null),
   }
 }

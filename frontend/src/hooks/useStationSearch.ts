@@ -23,7 +23,7 @@ export function useStationSearch(): UseStationSearchResult {
   const search = useCallback((query: string) => {
     if (debounceRef.current) clearTimeout(debounceRef.current)
 
-    if (!query.trim() || query.length < 2) {
+    if (!query.trim() || query.trim().length < 2) {
       setStations([])
       setIsLoading(false)
       return
