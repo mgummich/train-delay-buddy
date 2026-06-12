@@ -1,3 +1,4 @@
+// Package config loads server configuration from environment variables with typed defaults.
 package config
 
 import (
@@ -7,6 +8,8 @@ import (
 	"time"
 )
 
+// Config holds all runtime configuration values loaded from environment variables.
+// Use Load() to obtain a populated instance with defaults applied.
 type Config struct {
 	Port                 string
 	RedisURL             string
@@ -20,15 +23,17 @@ type Config struct {
 	LogLevel             string
 	HAFASRequestTimeout  time.Duration
 	HAFASQueueDepth      int
-	HAFASCBThreshold     int
-	HAFASCBProbeInterval time.Duration
+	HAFASCBThreshold     int           // consecutive failures before circuit opens
+	HAFASCBProbeInterval time.Duration // wait time before a half-open probe is attempted
 	DBMaxOpenConns       int
-	DBMinConns           int
-	DBWriteTimeout       time.Duration
+	DBMinConns           int           // minimum idle connections kept alive in the pool
+	DBWriteTimeout       time.Duration // context timeout applied to write queries
 	MigrationsDir        string
 	CORSAllowedOrigins   []string
 }
 
+// Load reads environment variables and returns a Config with defaults applied.
+// VALKEY_URL takes precedence over REDIS_URL for backwards compatibility.
 func Load() Config {
 	return Config{
 		Port:                 env("PORT", "8080"),
