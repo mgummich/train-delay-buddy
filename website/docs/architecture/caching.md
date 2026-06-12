@@ -15,12 +15,12 @@ The system uses five distinct cache layers. Each has a different consistency req
 | 1 | **Browser memory** (TanStack Query) | 30 s for summary, 0 s for alternatives | API responses | `staleTime` expiry, manual `invalidateQueries` |
 | 2 | **Browser disk** (Nginx `Cache-Control`) | 1 year for hashed assets, `no-cache` for `index.html` and API | Static assets | Hashed filename change |
 | 3 | **Service worker** (Workbox runtime cache) | network-only for live data, cache-first for assets | Static assets + offline fallback | New SW activation |
-| 4 | **Redis L1** | journey TTL (default 2 h), 5 min for station search | Full journey JSON, ETag counter | Poller writes, key expiry |
+| 4 | **Valkey L1** | journey TTL (default 2 h), 5 min for station search | Full journey JSON, ETag counter | Poller writes, key expiry |
 | 5 | **Postgres L2** | persistent until `terminated_at` is set | Canonical journey row | DELETE (manual or janitor GC) |
 
 ## Why ETags everywhere
 
-The expensive part of polling is not the JSON serialization — it is sending the payload over the wire. By making the *client* present `If-None-Match` on every poll, we shift the freshness decision to the backend, which already has the up-to-date `etag_counter` in Redis.
+The expensive part of polling is not the JSON serialization — it is sending the payload over the wire. By making the *client* present `If-None-Match` on every poll, we shift the freshness decision to the backend, which already has the up-to-date `etag_counter` in Valkey.
 
 The ETag is a stable, monotonic identifier:
 
@@ -28,13 +28,13 @@ The ETag is a stable, monotonic identifier:
 ETag = base64(etag_epoch || etag_counter)
        ↑           ↑              ↑
        │           │              └─ bumped on every state change
-       │           └─ bumped on cold restart (Redis was empty)
+       │           └─ bumped on cold restart (Valkey was empty)
        └─ ensures cross-instance uniqueness
 ```
 
 The frontend stores the last-seen ETag in its TanStack Query cache. When the response is 304, no state changes; when it is 200, the new ETag is captured for the next round.
 
-## Redis key layout
+## Valkey key layout
 
 | Key | Type | Value | TTL |
 |-----|------|-------|-----|
@@ -46,28 +46,28 @@ The frontend stores the last-seen ETag in its TanStack Query cache. When the res
 | `ratelimit:install:{id}` | sliding window counter (Lua script) | request count | 1 min sliding |
 | `ratelimit:ip:{ip}` | sliding window counter | request count | 1 min sliding |
 
-## Postgres ↔ Redis consistency
+## Postgres ↔ Valkey consistency
 
-The system is **Redis-first** for reads of active journeys. Writes go to Redis and Postgres in this order:
+The system is **Valkey-first** for reads of active journeys. Writes go to Redis and Postgres in this order:
 
 ```
 poller.tick():
   ...
   if changed {
-      WRITE to Redis  (SET journey:{id} new_state, EX ttl)
+      WRITE to Valkey  (SET journey:{id} new_state, EX ttl)
       WRITE to Postgres (UPDATE journeys SET ...)
   }
 ```
 
-If the process crashes after the Redis write but before Postgres, the *Redis value is the truth* until its TTL expires. The next process to handle this journey will read Redis, find the latest state, and continue. The Postgres row eventually catches up on the next successful tick (or is reconciled by the janitor).
+If the process crashes after the Redis write but before Postgres, the *Valkey value is the truth* until its TTL expires. The next process to handle this journey will read Valkey, find the latest state, and continue. The Postgres row eventually catches up on the next successful tick (or is reconciled by the janitor).
 
-In the much rarer case of a Postgres write succeeding but Redis failing (because Redis was being restarted), the next read falls through to Postgres and refills Redis. The data is correct; the only cost is one Postgres read.
+In the much rarer case of a Postgres write succeeding but Valkey failing (because Valkey was being restarted), the next read falls through to Postgres and refills Valkey. The data is correct; the only cost is one Postgres read.
 
 ## Cache stampedes
 
 Two protections:
 
-- **Per-journey Redis lock** (25 s TTL). Only one poller can be ticking a given journey at a time. If a second instance picks up the same journey (e.g. during a rolling deploy), it sees the lock and skips this round.
+- **Per-journey Valkey lock** (25 s TTL). Only one poller can be ticking a given journey at a time. If a second instance picks up the same journey (e.g. during a rolling deploy), it sees the lock and skips this round.
 - **HAFAS request coalescing**. A `coalescer` in `internal/hafas` deduplicates concurrent `tripUpdate(tripId)` calls — the first caller fetches; subsequent callers within the same request hash subscribe to the in-flight promise.
 
 ## Frontend cache invalidation rules

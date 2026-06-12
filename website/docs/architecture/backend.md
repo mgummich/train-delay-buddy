@@ -44,12 +44,12 @@ The entry point performs strict ordering — *fail fast* on any infrastructure i
 2. **Logger** (`slog.NewJSONHandler`) is wired with `LOG_LEVEL`. Every log line carries `request_id` and `journey_id` (when available) via `slog.Context`.
 3. **Postgres** (`pgxpool.New`) opens the pool. Pool sizing comes from `DB_MAX_OPEN_CONNS` and `DB_MIN_CONNS`.
 4. **Migrations** (`migrate.Run`) apply unapplied SQL files in alphabetical order under `MIGRATIONS_DIR`. Each file is applied in a transaction; the applied set is tracked in `schema_migrations`.
-5. **Redis** (`redis.NewClient`) opens the client. A `PING` runs immediately — failure → exit 1.
+5. **Valkey** (`redis.NewClient` via `VALKEY_URL` or `REDIS_URL` fallback) opens the client. A `PING` runs immediately — failure → exit 1. The `go-redis` library is wire-compatible with Valkey; no protocol change is needed.
 6. **HAFAS client** is constructed with `HAFAS_BASE_URL`, the worker pool, and the circuit breaker.
-7. **Store** wraps Redis + Postgres behind a single `journey.Store` interface.
+7. **Store** wraps Valkey + Postgres behind a single `journey.Store` interface.
 8. **PollerManager** is constructed but does *not* start any goroutines yet. It will start one per journey when journeys are created (or hydrated from Postgres on cold start).
 9. **HTTP server** binds the chi router with all middleware and handlers, listens on `:${PORT}`.
-10. **Graceful shutdown** registers a signal handler for SIGINT/SIGTERM. The shutdown sequence: stop accepting new requests → wait for in-flight requests (5 s) → stop pollers → close Redis → close Postgres.
+10. **Graceful shutdown** registers a signal handler for SIGINT/SIGTERM. The shutdown sequence: stop accepting new requests → wait for in-flight requests (5 s) → stop pollers → close Valkey → close Postgres.
 
 ## The poller
 
@@ -71,13 +71,13 @@ for {
 
 `tick()` does:
 
-1. **Lock** — `Store.Lock(journeyID)` acquires a Redis lock (TTL 25 s, slightly less than the tick interval).
-2. **Fetch** — pulls the current journey snapshot from Redis (or Postgres on cold miss).
+1. **Lock** — `Store.Lock(journeyID)` acquires a Valkey lock (TTL 25 s, slightly less than the tick interval).
+2. **Fetch** — pulls the current journey snapshot from Valkey (or Postgres on cold miss).
 3. **HAFAS** — for every leg, submits a `tripUpdate` task to the worker pool. Tasks are coalesced by trip ID so concurrent journeys sharing a train pay for HAFAS only once.
 4. **Apply updates** — merges realtime arrival/departure timestamps into the leg model.
 5. **Compute summary** — `compute.Summary(legs)` derives ETA, status (`ON_TIME` / `DELAYED` / `CRITICAL` / `INFEASIBLE`), and `nextStep` (the next user-visible event).
 6. **BFS** — `routing.FindAlternatives(filters, legs, hafas)` returns up to 5 alternatives, scored by ETA delta and transfer buffer.
-7. **Diff and persist** — if anything changed (summary fields, alt list contents, or leg timestamps), bump `etag_counter`, persist to Redis + Postgres.
+7. **Diff and persist** — if anything changed (summary fields, alt list contents, or leg timestamps), bump `etag_counter`, persist to Valkey + Postgres.
 8. **Unlock**.
 
 ## The worker pool
@@ -175,7 +175,7 @@ SIGTERM received
   ├─ Stop accepting new HTTP connections (http.Server.Shutdown ctx, 5 s)
   ├─ Cancel poller-manager context (all per-journey goroutines exit)
   ├─ Drain worker pool (close queue, wait for in-flight HAFAS calls, max 5 s)
-  ├─ Flush Redis pipelines
+  ├─ Flush Valkey pipelines
   └─ Close Postgres pool
 ```
 

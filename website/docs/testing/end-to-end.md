@@ -6,17 +6,20 @@ sidebar_position: 3
 
 # End-to-end tests
 
-Playwright drives a real browser against the full Docker Compose stack.
+Playwright drives a real browser. All API calls are mocked via `page.route()` — **no running backend is required.** The `playwright.config.ts` `webServer` block auto-starts `vite preview` on `:4173` before the suite begins.
 
 ```bash
-# Boot the stack
-docker compose up -d
+# Build the frontend first (only needed once, or after frontend changes)
+cd frontend && npm run build
 
-# Run the suite
-cd frontend && npm run test:e2e
-
-# Or directly
+# Run the suite (starts Vite preview automatically)
 cd tests/e2e && npx playwright test
+
+# UI mode — pick tests interactively, time-travel through traces
+npx playwright test --ui
+
+# Headed mode — watch the browser
+npx playwright test --headed
 ```
 
 The test suites live in `tests/e2e/`:
@@ -28,20 +31,47 @@ The test suites live in `tests/e2e/`:
 | `deep-link.spec.ts` | Direct URL navigation, session restore from `localStorage` |
 | `offline.spec.ts` | PWA offline behaviour — service worker, IndexedDB fallback |
 
-## How they interact with the backend
+## Architecture — fully mocked, no backend needed
 
-By default the E2E suite talks to a *real* backend with a *real* HAFAS upstream. This makes the tests slow (HAFAS latency) and flaky (HAFAS availability). Two mitigations:
+All API calls are intercepted by `page.route()` via the shared `MockServer` class (`tests/e2e/fixtures/mocks.ts`). No backend or Valkey or Postgres is required. This makes the suite:
 
-- **Network conditioning** — `playwright.config.ts` sets `timeout: 60s` and `retries: 1` on CI.
-- **Selective stubbing** — HAFAS responses for the deterministic test journeys are recorded and replayed via Playwright's `route.fulfill`. Production-shaped journeys go to the real upstream only when explicitly tagged.
+- **Fast** — no HAFAS latency, no Docker startup.
+- **Deterministic** — canned responses, no flakiness from network conditions.
+- **CI-friendly** — runs in the same job that builds the frontend.
 
-For complete isolation, set `HAFAS_BASE_URL` to point at a local mock server before running:
+`playwright.config.ts` uses the `webServer` block to auto-start `vite preview` on port 4173. Set `BASE_URL` to target an external instance if you want to test against the real stack instead.
 
-```bash
-HAFAS_BASE_URL=http://localhost:9999 docker compose up -d backend
-node tests/mock-hafas-server.mjs &
-cd frontend && npm run test:e2e
+## Page Object Model
+
+The suite uses POM to keep specs readable and selectors centralised:
+
+| Page object | File | Locators |
+|-------------|------|----------|
+| `StartPage` | `pages/start.page.ts` | Train number input, destination autocomplete, submit button |
+| `AlternativesPage` | `pages/alternatives.page.ts` | Alternative cards, choose-route button, time-gain hint |
+| `CompanionPage` | `pages/companion.page.ts` | Timeline, ETA, critical-warning, stale indicator, terminate button |
+
+All three are wired as `test.extend` fixtures in `fixtures/test.ts` — each test receives them as function parameters.
+
+## MockServer
+
+`MockServer` (`fixtures/mocks.ts`) centralises all `page.route()` calls:
+
+```ts
+// Install the full default mock table
+await mocks.install({ journeyId: "jrn_abc", summary: { status: "DELAYED" } });
+
+// Override one endpoint for a specific scenario
+await mocks.overrideSummary("jrn_abc", makeSummary({ status: "CRITICAL" }));
+
+// Simulate 404 for all journey routes
+await mocks.setAllJourneysNotFound();
+
+// Abort all network traffic (offline simulation)
+await mocks.abortAllJourneys();
 ```
+
+Factory helpers (`makeSummary`, `makeTrain`, `makeAlternative`, …) generate typed payloads with sensible defaults, accepting partial overrides.
 
 ## Useful invocations
 
@@ -79,14 +109,21 @@ These are stable across visual redesigns and double as accessibility assertions.
 
 ## CI
 
-The current `.github/workflows/ci.yml` does **not** run Playwright in CI — the public HAFAS API makes the suite too flaky for a hard gate. Run E2E locally before merging anything that touches user-facing flows.
+`.github/workflows/ci.yml` has an `e2e` job that runs on every push and PR. Because all API calls are mocked, no backend or Valkey/Postgres is needed — the job only spins up a Vite preview server.
 
-If you want CI E2E, add a `e2e` job that:
+```yaml
+e2e:
+  needs: [frontend]        # waits for unit tests to pass first
+  steps:
+    - build frontend        # npm run build
+    - install e2e deps      # npm install in tests/e2e
+    - install Playwright    # npx playwright install --with-deps chromium (Chromium only on CI)
+    - run suite             # npx playwright test
+    - upload playwright-report/  # artifact on failure, 7-day retention
+    - upload test-results/       # traces on failure
+```
 
-1. `docker compose up -d` (with `HAFAS_BASE_URL` pointed at a mock or recorded fixtures).
-2. Waits for `/readyz` to return 200.
-3. Runs `npx playwright test --reporter=github`.
-4. Uploads `playwright-report/` as an artifact on failure.
+On CI, `playwright.config.ts` drops Mobile Safari (heavy webkit deps) and runs 2 workers with 2 retries. Failures upload the HTML report and trace zips as GitHub Actions artifacts.
 
 ## Debugging a flake
 

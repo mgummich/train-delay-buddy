@@ -71,6 +71,7 @@ const sidebars: SidebarsConfig = {
         "operations/ci-cd",
       ],
     },
+    "security",
     "troubleshooting",
     "contributing",
   ],

@@ -35,7 +35,7 @@ Backend variables are read from the process environment or, when using Docker Co
 | `DB_WRITE_TIMEOUT` | `5s` | Deadline applied to every Postgres write call. |
 | `MIGRATIONS_DIR` | `./migrations` (dev) / `/app/migrations` (prod) | Path to SQL migration files. Auto-applied at startup. |
 
-### Redis
+### Valkey
 
 | Variable | Default | Description |
 |----------|---------|-------------|

@@ -16,9 +16,23 @@ The API has **no user authentication**. Abuse-shaping is achieved via:
 
 Hosting this publicly means anyone who can reach the API can create journeys. The throttles keep abuse cost-bounded, but if you expose this to the open internet, sit it behind a CDN with bot mitigation.
 
+## Journey ownership
+
+Every per-journey route (`GET/DELETE /v1/journeys/{id}`, summary, legs, alternatives) enforces ownership: the `X-Install-Id` header on the request must match the `install_id` recorded when the journey was created.
+
+On a mismatch — or when the header is absent — the backend returns **404 Not Found** (never 403) to avoid leaking the existence of journeys owned by other installs.
+
+The `JourneyOwnership` middleware (`internal/api/middleware/ownership.go`) performs this check before any handler runs, and attaches the verified journey to the request context so handlers can reuse it without a second store read.
+
+:::info Why 404 instead of 403?
+Returning 403 would confirm that a journey with that ID *exists*. Using 404 unconditionally prevents IDOR enumeration — an attacker learns nothing useful from the response.
+:::
+
 ## Idempotency
 
-`POST /v1/journeys` accepts an `Idempotency-Key` header (any opaque string up to 128 chars). The first request creates the journey, caches the response keyed by `(install_id, idempotency_key)` in Redis for 10 minutes, and returns the result. Subsequent requests with the same `(install_id, idempotency_key)` return the cached response — even if the underlying request body is different.
+`POST /v1/journeys` accepts an `Idempotency-Key` header (any opaque string up to 128 chars). The backend namespaces the cache key as `installID:rawKey` — so two different installs using the same `Idempotency-Key` string never collide, and a replay response from install A can never be delivered to install B.
+
+The first request creates the journey and caches the response in Valkey for 10 minutes. Subsequent requests with the same `(X-Install-Id, Idempotency-Key)` pair return the cached response — even if the underlying request body is different. If the same key is reused with a *different* body hash, the server returns `409 Conflict` with `urn:verspbegl:error:idempotency-conflict`.
 
 Use this to safely retry network-failed POSTs from the frontend without duplicating journeys.
 
@@ -28,7 +42,7 @@ Use this to safely retry network-failed POSTs from the frontend without duplicat
 
 The ETag is opaque and stable. Do not parse it client-side. Internally it encodes `(epoch, counter)` where:
 
-- `epoch` is a monotonic value set when the journey is first loaded into Redis (new process, cold cache → new epoch).
+- `epoch` is a monotonic value set when the journey is first loaded into Valkey (new process, cold cache → new epoch).
 - `counter` is bumped on every state mutation.
 
 ## Errors — RFC 7807

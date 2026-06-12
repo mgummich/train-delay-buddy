@@ -57,7 +57,7 @@ This site is the **single source of truth** for everything about the project:
 ## Five-minute mental model
 
 1. Frontend creates a *journey* (`POST /v1/journeys`) with train number + destination + filters.
-2. Backend runs BFS, persists the resulting route in Postgres, caches in Redis, starts a 30-second poller goroutine.
+2. Backend runs BFS, persists the resulting route in Postgres, caches in Valkey, starts a 30-second poller goroutine.
 3. Poller fetches realtime data from HAFAS, applies trip updates to the legs, recomputes the summary, and re-runs BFS to find alternatives.
 4. Frontend polls `GET /v1/journeys/{id}/summary` with `If-None-Match`. Backend returns **304** when nothing changed, **200** + a new ETag otherwise.
 5. When `summary.alternativeAvailable === true`, the UI loads `GET /v1/journeys/{id}/alternatives` and surfaces a ranked list to the user.

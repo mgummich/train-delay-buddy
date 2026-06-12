@@ -6,18 +6,18 @@ sidebar_position: 3
 
 # Local development — without Docker
 
-Use this path when you want native IDE debugging (breakpoints, profiling, live race detection) or the fastest possible Go build cycles. Postgres and Redis still run in Docker because the cost of installing them natively is not worth the marginal gain.
+Use this path when you want native IDE debugging (breakpoints, profiling, live race detection) or the fastest possible Go build cycles. Postgres and Valkey still run in Docker because the cost of installing them natively is not worth the marginal gain.
 
 ## Step 1 — Start infrastructure only
 
 ```bash
-docker compose up -d postgres redis
+docker compose up -d postgres valkey
 ```
 
 This starts only the two stateful services and leaves the application services for you to run on the host:
 
 - Postgres on `127.0.0.1:5432` (dev override exposes the port).
-- Redis on `127.0.0.1:6379` (only inside Docker network by default; expose with `--service-ports` if needed).
+- Valkey on `127.0.0.1:6379` (only inside Docker network by default; expose with `--service-ports` if needed).
 
 ## Step 2 — Run the backend on the host
 
@@ -27,7 +27,7 @@ go mod download
 
 export PORT=8080
 export DATABASE_URL=postgres://vbb:${POSTGRES_PASSWORD}@localhost:5432/vbb
-export REDIS_URL=redis://localhost:6379
+export VALKEY_URL=redis://localhost:6379
 export CORS_ALLOWED_ORIGINS=http://localhost:5173
 export LOG_LEVEL=DEBUG
 export MIGRATIONS_DIR=./migrations
@@ -59,7 +59,7 @@ Install [`air`](https://github.com/cosmtrek/air) and create a `.air.toml` in `ba
       "env": {
         "PORT": "8080",
         "DATABASE_URL": "postgres://vbb:vbb@localhost:5432/vbb",
-        "REDIS_URL": "redis://localhost:6379",
+        "VALKEY_URL": "redis://localhost:6379",
         "CORS_ALLOWED_ORIGINS": "http://localhost:5173",
         "LOG_LEVEL": "DEBUG"
       }
@@ -85,9 +85,9 @@ Vite serves on `http://localhost:5173` and proxies `/v1/*`, `/health`, and `/rea
 curl http://localhost:8080/health
 # {"status":"ok"}
 
-# 2. Backend readiness (checks Redis + Postgres + HAFAS)
+# 2. Backend readiness (checks Valkey + Postgres + HAFAS)
 curl http://localhost:8080/readyz | jq
-# {"status":"ok","checks":{"redis":"ok","postgres":"ok","hafas":"ok"}}
+# {"status":"ok","checks":{"valkey":"ok","postgres":"ok","hafas":"ok"}}
 
 # 3. End-to-end via the proxy
 curl -i http://localhost:5173/health
@@ -101,6 +101,6 @@ If `/readyz` reports any subsystem as `degraded` or `down`, jump to [Troubleshoo
 | Symptom | Likely cause | Fix |
 |---------|--------------|-----|
 | `dial tcp 127.0.0.1:5432: connect: connection refused` | Postgres container is not up yet | Wait for `docker compose ps` to report `healthy`, then re-run |
-| `redis: connection refused` | Redis port not exposed | `docker compose up -d redis` and ensure your `REDIS_URL` uses `localhost`, not `redis` |
+| `valkey: connection refused` | Valkey port not exposed | `docker compose up -d valkey` and ensure `VALKEY_URL=redis://localhost:6379` (not `redis://valkey:6379`) |
 | `CORS policy: No 'Access-Control-Allow-Origin'` | You opened `:8080` directly in the browser | Open `:5173` instead — the Vite proxy makes requests same-origin |
 | `migrations table does not exist` | Wrong `MIGRATIONS_DIR` | Set `MIGRATIONS_DIR=./migrations` from inside `backend/` |

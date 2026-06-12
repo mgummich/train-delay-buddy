@@ -17,7 +17,7 @@ The entry point. User enters a train number (e.g. `ICE 123`) and selects a desti
 **Behind the scenes:**
 
 - Train number is validated against `GET /v1/trains/{number}` as the user types (debounced 300 ms).
-- The station autocomplete calls `GET /v1/stations?q=<text>` — the backend returns up to 10 station matches and caches the result in Redis for 5 minutes.
+- The station autocomplete calls `GET /v1/stations?q=<text>` — the backend returns up to 10 station matches and caches the result in Valkey for 5 minutes.
 - A filter sheet (accessed via the slider icon) lets the user constrain routing: `dbOnly`, `safetyLevel`, `maxTransfers`.
 
 ## 2. Filter sheet

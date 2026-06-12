@@ -19,7 +19,7 @@ docker compose -f docker-compose.yml up -d
 | `nginx` | Port 80 — serves the built frontend, proxies `/v1/*` and `/health` to backend, blocks `/metrics` |
 | `backend` | Statically compiled Go binary, 512 MB / 1 CPU limit, migrations apply on start |
 | `postgres` | Named volume `postgres_data`, survives container restarts |
-| `redis` | 256 MB volatile-LRU, data in memory only |
+| `valkey` | 256 MB volatile-LRU, data in memory only |
 
 ## Pre-deployment checklist
 
@@ -67,11 +67,11 @@ Defaults are tuned for a single-instance deployment serving up to ~2000 concurre
 
 - Consumes one goroutine (≈ 8 KB stack, GC-free 30 s loop).
 - Generates ~2 HAFAS round-trips per minute (one tick × ~2 leg-updates per tick).
-- Owns one Redis key (full journey JSON, typically 5–20 KB) and one Postgres row.
+- Owns one Valkey key (full journey JSON, typically 5–20 KB) and one Postgres row.
 
 At 2000 active journeys:
 
-- Steady-state Redis memory: 30–60 MB (well below the 256 MB cap).
+- Steady-state Valkey memory: 30–60 MB (well below the 256 MB cap).
 - Steady-state HAFAS QPS: ~70/s on average, smoothed by the worker pool (default cap 50).
 - Steady-state Postgres write QPS: ≤ 70/s (most ticks produce no diff).
 
@@ -81,8 +81,8 @@ To scale beyond a single instance, see "Horizontal scaling" below.
 
 A single backend instance is the simplest deployment. To run multiple instances behind a load balancer:
 
-1. **Stickiness is not required** — handlers are stateless. All journey state lives in Redis.
-2. **Poller ownership** must be coordinated. Without coordination, two instances would tick the same journey. The simplest scheme: each instance computes `instance_id % N == journey_hash % N` and only owns a journey if the modulus matches. On rolling deploys, brief overlap is harmless thanks to the per-journey Redis lock.
+1. **Stickiness is not required** — handlers are stateless. All journey state lives in Valkey.
+2. **Poller ownership** must be coordinated. Without coordination, two instances would tick the same journey. The simplest scheme: each instance computes `instance_id % N == journey_hash % N` and only owns a journey if the modulus matches. On rolling deploys, brief overlap is harmless thanks to the per-journey Valkey lock.
 3. **Postgres connection pooling**: `DB_MAX_OPEN_CONNS × instance_count` must fit within Postgres's `max_connections`. Tune `DB_MAX_OPEN_CONNS` down per-instance as you scale out.
 4. **HAFAS rate limit**: the public proxy is shared across instances. If you scale to many instances, host your own HAFAS proxy.
 

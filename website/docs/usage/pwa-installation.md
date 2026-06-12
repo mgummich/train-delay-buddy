@@ -39,7 +39,7 @@ The app opens in its own window without browser chrome.
 | `index.html` | **Stale-while-revalidate** | Fast first paint, eventual consistency on new releases |
 | `*.js`, `*.css`, `*.woff2`, `*.png`, `*.svg`, `*.ico` (Vite-hashed) | **Cache-first, 1-year** | Hashed filenames make them immutable |
 | `GET /v1/journeys/*/summary` | **Network-only** | Realtime data must be fresh — staleness breaks the use case |
-| `GET /v1/stations` | **Network-only** | Autocomplete already cached server-side in Redis |
+| `GET /v1/stations` | **Network-only** | Autocomplete already cached server-side in Valkey |
 | `GET /v1/trains/{number}` | **Network-only** | Same reason |
 | Everything else | **Network-first with 5 s timeout** | Safe default — falls back to cache for resilience |
 

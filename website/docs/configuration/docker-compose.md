@@ -125,7 +125,7 @@ DATABASE_URL=postgres://user:pass@your-rds-host:5432/vbb?sslmode=require
 
 Drop `depends_on.postgres` from the backend.
 
-### Use an external Redis (ElastiCache / Upstash)
+### Use an external Valkey (or compatible — ElastiCache, Upstash)
 
 Same idea. Remove `valkey` from `docker-compose.yml`, set `VALKEY_URL=rediss://your-host:6380/0`, drop `depends_on.valkey`.
 

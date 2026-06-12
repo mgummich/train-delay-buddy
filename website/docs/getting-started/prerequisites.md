@@ -15,11 +15,11 @@ The project can be run two ways: **fully containerised** with Docker Compose (re
 | Docker Engine | 24.0 | `docker --version` |
 | Docker Compose | v2 (plugin) | `docker compose version` |
 
-That is the full list. The containers carry their own Go, Node, Postgres, and Redis runtimes.
+That is the full list. The containers carry their own Go, Node, Postgres, and Valkey runtimes.
 
 ## Required for local development
 
-In addition to Docker (for Postgres and Redis):
+In addition to Docker (for Postgres and Valkey):
 
 | Tool | Minimum version | Check command |
 |------|-----------------|---------------|
@@ -38,7 +38,7 @@ If you sit behind a corporate proxy, configure Docker's daemon proxy settings *a
 ## Disk and memory
 
 - **Disk**: ~1.5 GB after `docker compose build` (multi-stage builders pull Go and Node toolchain images).
-- **RAM**: 1.5 GB is comfortable. The hard caps are `backend: 512 MB`, `redis: 300 MB`, `postgres: 256 MB`, `nginx: 128 MB`.
+- **RAM**: 1.5 GB is comfortable. The hard caps are `backend: 512 MB`, `valkey: 300 MB`, `postgres: 256 MB`, `nginx: 128 MB`.
 
 ## Optional but recommended
 

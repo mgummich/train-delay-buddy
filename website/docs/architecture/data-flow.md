@@ -23,7 +23,7 @@ Backend (handlers/journeys.go::Create):
    ├─ rate-limit check (per Install-Id and per IP)
    │     └─ exceeded → 429 + Retry-After
    │
-   ├─ idempotency check (Redis lookup on Idempotency-Key)
+   ├─ idempotency check (Valkey lookup on Idempotency-Key)
    │     └─ hit  → return cached response
    │     └─ miss → proceed
    │
@@ -36,7 +36,7 @@ Backend (handlers/journeys.go::Create):
    ├─ routing.BFS(currentStation, destination, filters)
    │     └─ no route → 404 problem+json (urn:verspbegl:error:no-route)
    │
-   ├─ store.Create(journey) → Postgres INSERT + Redis SET
+   ├─ store.Create(journey) → Postgres INSERT + Valkey SET
    │
    ├─ poller-manager.Start(journey.id) → spawns goroutine
    │
@@ -58,8 +58,8 @@ Every 30 seconds, frontend issues:
 Backend (handlers/summary.go::Get):
    │
    ├─ store.GetSummary(id)
-   │     ├─ Redis HIT  (fast path, ~1 ms)
-   │     └─ Redis MISS → Postgres SELECT, refill Redis (rare)
+   │     ├─ Valkey HIT  (fast path, ~1 ms)
+   │     └─ Valkey MISS → Postgres SELECT, refill Valkey (rare)
    │
    ├─ Compute current ETag from (etag_epoch, etag_counter)
    │
@@ -75,9 +75,9 @@ Concurrently, the poller goroutine (independent of the client) ticks every 30 s:
 ```
 poller.tick():
    │
-   ├─ Lock(journey.id) in Redis (TTL 25 s)
+   ├─ Lock(journey.id) in Valkey (TTL 25 s)
    │
-   ├─ Read current state from Redis
+   ├─ Read current state from Valkey
    │
    ├─ For each leg, submit a HAFAS tripUpdate task to the worker pool
    │     └─ Tasks coalesced by trip ID across all journeys
@@ -91,13 +91,13 @@ poller.tick():
    ├─ Diff old vs. new
    │     ├─ Unchanged → release lock, exit
    │     └─ Changed   → bump etag_counter
-   │                     persist (Redis SET + Postgres UPDATE)
+   │                     persist (Valkey SET + Postgres UPDATE)
    │                     emit metrics
    │
    └─ Unlock
 ```
 
-Client and poller never interact directly. They share state via Redis. The 30-second client polls are *almost always* 304 in steady state; the **content of the journey changes** is driven by the poller alone.
+Client and poller never interact directly. They share state via Valkey. The 30-second client polls are *almost always* 304 in steady state; the **content of the journey changes** is driven by the poller alone.
 
 ## Flow 3 — Switch to an alternative
 
@@ -129,20 +129,20 @@ The next client poll arrives ~30 s later and returns a 200 with the new ETag. Fr
 | Failure | Backend response | Frontend behaviour |
 |---------|-------------------|--------------------|
 | HAFAS down (circuit breaker open) | 503 `urn:verspbegl:error:hafas-unavailable` | Banner: "Live data unavailable — retrying", keep showing last-known data |
-| Redis down | 500 `urn:verspbegl:error:internal` + log | Generic error banner, manual retry available |
-| Postgres down | `/readyz` returns 503 | Same — backend keeps serving the last Redis snapshot until journey TTL |
+| Valkey down | 500 `urn:verspbegl:error:internal` + log | Generic error banner, manual retry available |
+| Postgres down | `/readyz` returns 503 | Same — backend keeps serving the last Valkey snapshot until journey TTL |
 | Network offline | `fetch` rejects | OfflineStateLoader takes over, reads from IndexedDB |
 | Rate limit hit | 429 + Retry-After | Banner with countdown; subsequent calls suppressed until Retry-After elapses |
-| Idempotency replay | 200 OK from Redis-cached response | Indistinguishable from a normal success — by design |
+| Idempotency replay | 200 OK from Valkey-cached response | Indistinguishable from a normal success — by design |
 
 ## TTLs and retention
 
 | Object | TTL | Where |
 |--------|-----|-------|
-| Active journey | `JOURNEY_TTL_HOURS` (default 2 h since last poll) | Redis + Postgres (`terminated_at` set by GC job) |
-| Idempotency key | 10 minutes | Redis only |
-| Station search | 5 minutes | Redis only |
+| Active journey | `JOURNEY_TTL_HOURS` (default 2 h since last poll) | Valkey + Postgres (`terminated_at` set by GC job) |
+| Idempotency key | 10 minutes | Valkey only |
+| Station search | 5 minutes | Valkey only |
 | Per-journey poller goroutine | Bound to journey lifetime | In-memory |
-| Per-journey lock | 25 s | Redis (auto-expires if tick crashes mid-flight) |
+| Per-journey lock | 25 s | Valkey (auto-expires if tick crashes mid-flight) |
 
 A background goroutine ("janitor") sweeps every 5 minutes for journeys with `terminated_at IS NULL AND last_polled_at < now() - JOURNEY_TTL_HOURS`. It stops the poller and sets `terminated_at`, freeing capacity.

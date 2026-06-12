@@ -15,7 +15,7 @@ Two endpoints, two purposes:
 
 ## `/health`
 
-Returns `200 OK` whenever the process is running. It never depends on downstream subsystems — it would be wrong to restart the container because Redis is briefly slow.
+Returns `200 OK` whenever the process is running. It never depends on downstream subsystems — it would be wrong to restart the container because Valkey is briefly slow.
 
 ```http
 GET /health HTTP/1.1
@@ -31,7 +31,7 @@ Use it as the Docker `HEALTHCHECK`, the Kubernetes `livenessProbe`, and the Comp
 
 Returns `200 OK` only when the backend can actually serve user requests. It probes:
 
-- **Redis** — does `PING` return within 200 ms?
+- **Valkey** — does `PING` return within 200 ms?
 - **Postgres** — does `SELECT 1` return within 500 ms?
 - **HAFAS** — is the circuit breaker closed (or half-open with the last probe succeeded)?
 
@@ -43,7 +43,7 @@ GET /readyz HTTP/1.1
 {
   "status": "ok",
   "checks": {
-    "redis": "ok",
+    "valkey": "ok",
     "postgres": "ok",
     "hafas": "ok"
   }
@@ -56,7 +56,7 @@ When something is impaired, the response is `503 Service Unavailable` and the im
 {
   "status": "degraded",
   "checks": {
-    "redis": "ok",
+    "valkey": "ok",
     "postgres": "ok",
     "hafas": { "state": "circuit-open", "since": "2026-06-12T08:14:22Z" }
   }
@@ -66,7 +66,7 @@ When something is impaired, the response is `503 Service Unavailable` and the im
 Note that `hafas` being down does **not** make the backend unable to serve all requests — `GET /v1/journeys/{id}/summary` still works from cached state. The load balancer's behaviour is a policy choice:
 
 - **Strict**: route away from any instance reporting `degraded`. Best when you have many instances and one being slow doesn't matter.
-- **Permissive**: route to any instance with status ∈ {`ok`, `degraded`}, and only drain on full `down` (Postgres or Redis unreachable). Best for small deployments where degraded availability is better than no availability.
+- **Permissive**: route to any instance with status ∈ {`ok`, `degraded`}, and only drain on full `down` (Postgres or Valkey unreachable). Best for small deployments where degraded availability is better than no availability.
 
 ## Compose health checks
 
@@ -82,7 +82,7 @@ backend:
     start_period: 15s
 ```
 
-The `start_period` gives the backend 15 seconds to apply migrations and warm up Redis before the orchestrator counts failures.
+The `start_period` gives the backend 15 seconds to apply migrations and warm up Valkey before the orchestrator counts failures.
 
 Postgres:
 
@@ -93,10 +93,10 @@ postgres:
     interval: 5s
 ```
 
-Redis:
+Valkey:
 
 ```yaml
-redis:
+valkey:
   healthcheck:
     test: ["CMD", "valkey-cli", "ping"]
     interval: 5s

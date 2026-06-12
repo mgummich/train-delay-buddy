@@ -69,7 +69,7 @@ SELECT id, terminated_at, last_polled_at FROM journeys WHERE id = 'jrn_...';
 
 ### Stations autocomplete is empty
 
-The Redis cache may be empty and HAFAS may be slow or unavailable. Verify:
+The Valkey cache may be empty and HAFAS may be slow or unavailable. Verify:
 
 ```bash
 curl 'http://localhost:8080/v1/stations?q=Berlin'

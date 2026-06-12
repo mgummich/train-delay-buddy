@@ -71,9 +71,9 @@ For Kubernetes, use a `PodMonitor` or `ServiceMonitor` pointing at the backend p
 
 | Metric | Type | Labels | Meaning |
 |--------|------|--------|---------|
-| `cache_hits_total` | counter | `cache` (`redis`, `idempotency`, `stations`) | Cache hits |
+| `cache_hits_total` | counter | `cache` (`valkey`, `idempotency`, `stations`) | Cache hits |
 | `cache_misses_total` | counter | `cache` | Cache misses |
-| `redis_command_duration_seconds` | histogram | `command` | Redis client latency |
+| `valkey_command_duration_seconds` | histogram | `command` | Valkey client latency |
 
 ### Database
 
@@ -137,7 +137,7 @@ A minimal Grafana dashboard should cover:
 3. **HAFAS health** — request rate, error rate, breaker state.
 4. **Poller** — tick rate, error rate, diff-write rate.
 5. **DB pool** — open vs. idle vs. waiting.
-6. **Redis** — command latency, key count, evictions.
+6. **Valkey** — command latency, key count, evictions.
 
 Export your dashboard JSON to `docs/grafana-dashboard.json` so reviewers can reproduce it.
 

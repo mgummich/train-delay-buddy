@@ -50,7 +50,7 @@ Healthy state:
 
 ```
 postgres   | LOG:  database system is ready to accept connections
-redis      | Ready to accept connections tcp
+valkey      | Ready to accept connections tcp
 backend    | level=info msg="server listening" addr=:8080
 frontend   | VITE v6.x ready in 412 ms
 nginx      | start worker processes
@@ -65,7 +65,7 @@ backend-1         Up 12s (healthy)
 frontend-1        Up 12s                   127.0.0.1:5173->5173/tcp
 nginx-1           Up 8s  (healthy)         127.0.0.1:80->80/tcp
 postgres-1        Up 12s (healthy)         127.0.0.1:5432->5432/tcp
-redis-1           Up 12s (healthy)
+valkey-1           Up 12s (healthy)
 ```
 
 ## 4. Open the app
@@ -75,7 +75,7 @@ redis-1           Up 12s (healthy)
 | `http://localhost:5173` | Frontend — Vite dev server with HMR |
 | `http://localhost:8080` | Backend API |
 | `http://localhost` | Full app via Nginx (production-style routing) |
-| `http://localhost:8080/readyz` | Readiness probe — Redis / Postgres / HAFAS status |
+| `http://localhost:8080/readyz` | Readiness probe — Valkey / Postgres / HAFAS status |
 | `http://localhost:8080/metrics` | Prometheus metrics (blocked behind Nginx) |
 
 ## Useful Compose commands

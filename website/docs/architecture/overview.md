@@ -36,7 +36,7 @@ Browser (React 19 SPA / installable PWA)
 │        ├─ ApplyTripUpdates  (realtime data → leg timestamps)    │
 │        ├─ ComputeSummary    (ETA · status · nextStep)           │
 │        ├─ BFS routing       (fresh alternatives, ETA-scored)    │
-│        └─ Persist           (Redis L1 + Postgres L2)            │
+│        └─ Persist           (Valkey L1 + Postgres L2)            │
 └─────────────────────────────────────────────────────────────────┘
          │                                       │
     Valkey 8                             PostgreSQL 16
@@ -53,16 +53,16 @@ Browser (React 19 SPA / installable PWA)
 | **Domain** | Journey / Leg / Summary types, status derivation, filter rules | `internal/journey/model.go`, `internal/journey/compute.go` |
 | **Routing** | BFS over HAFAS legs, ETA scoring | `internal/routing` |
 | **HAFAS adapter** | REST client, response mapping, circuit breaker, worker pool | `internal/hafas` |
-| **Persistence** | Redis L1 (full journey JSON, ETag counter), Postgres L2 (canonical store) | `internal/journey/store.go` |
+| **Persistence** | Valkey L1 (full journey JSON, ETag counter), Postgres L2 (canonical store) | `internal/journey/store.go` |
 | **Observability** | Prometheus metrics, structured logging, health probes | `internal/metrics`, `internal/api/handlers/health.go` |
 
 ## Why this shape
 
-- **Per-journey goroutines**: each active journey owns a single goroutine with a 30-second ticker. State is read from / written to Redis under a per-journey lock. This keeps the model simple — no fan-out, no work-stealing — and bounded by `MAX_ACTIVE_JOURNEYS` (default 2000).
+- **Per-journey goroutines**: each active journey owns a single goroutine with a 30-second ticker. State is read from / written to Valkey under a per-journey lock. This keeps the model simple — no fan-out, no work-stealing — and bounded by `MAX_ACTIVE_JOURNEYS` (default 2000).
 - **Bounded HAFAS concurrency**: a global `WorkerPool` (default 50 goroutines, 200-deep queue) serialises requests to the public HAFAS proxy. When the queue is full, `Submit()` returns `false` and the caller backs off — preventing thundering-herd failures during DB nationwide incidents.
 - **Circuit breaker**: 5 consecutive HAFAS failures opens the breaker. A probe every 30 s closes it again. While open, all callers fail fast with `urn:verspbegl:error:hafas-unavailable`.
 - **ETag-based polling**: the frontend re-polls `/summary` every 30 s with `If-None-Match`. The backend short-circuits with **304** when nothing changed, which is the dominant case — minimising bandwidth and CPU.
-- **Two-tier cache**: Redis serves the polling traffic at sub-millisecond latency. Postgres is the durable source of truth — used on cold misses, server restart, or replica recovery.
+- **Two-tier cache**: Valkey serves the polling traffic at sub-millisecond latency. Postgres is the durable source of truth — used on cold misses, server restart, or replica recovery.
 
 ## Why not …
 

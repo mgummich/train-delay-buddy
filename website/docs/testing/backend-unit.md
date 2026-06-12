@@ -11,7 +11,7 @@ cd backend
 go test ./...
 ```
 
-No external services are required. Postgres, Redis, and HAFAS are all replaced with in-memory fakes that implement the same Go interfaces as the real clients.
+No external services are required. Postgres, Valkey, and HAFAS are all replaced with in-memory fakes that implement the same Go interfaces as the real clients.
 
 ## What is covered
 

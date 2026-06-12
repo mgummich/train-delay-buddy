@@ -48,7 +48,7 @@ CREATE INDEX journeys_install_id_idx
 | `summary_json` | `JSONB` | Latest summary snapshot — ETA, status, dataConfidence, nextStep |
 | `legs_json` | `JSONB` | Current route's legs with realtime arrival/departure times |
 | `stops_json` | `JSONB` | All stops across all legs (for timeline rendering) |
-| `etag_epoch` | `BIGINT` | Bumped when the journey is (re)loaded into Redis from Postgres |
+| `etag_epoch` | `BIGINT` | Bumped when the journey is (re)loaded into Valkey from Postgres |
 | `etag_counter` | `INTEGER` | Bumped on every state change |
 | `created_at` | `TIMESTAMPTZ` | Set at INSERT |
 | `terminated_at` | `TIMESTAMPTZ` | NULL = active; set by `DELETE` handler or by the janitor |

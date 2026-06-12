@@ -32,12 +32,12 @@ Branch name conventions:
 docker compose up -d
 ```
 
-Vite on `:5173`, backend on `:8080`, Postgres + Redis on the docker network. Source-mounted, hot-reloaded.
+Vite on `:5173`, backend on `:8080`, Postgres + Valkey on the docker network. Source-mounted, hot-reloaded.
 
 For backend changes that don't fit the dev-stage image:
 
 ```bash
-docker compose up -d postgres redis
+docker compose up -d postgres valkey
 cd backend && go run ./cmd/server
 ```
 

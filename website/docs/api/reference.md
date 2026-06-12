@@ -37,9 +37,9 @@ npx redocly preview-docs backend/openapi.yaml
 | `POST` | `/v1/journeys/{id}/alternatives` | Trigger fresh recomputation — returns `202 Accepted` immediately |
 | `POST` | `/v1/journeys/{id}/switch` | Switch the active journey to a chosen alternative |
 | `GET` | `/v1/trains/{number}` | Validate a train number, return origin/destination/status |
-| `GET` | `/v1/stations?q=` | Station-name autocomplete (Redis-cached 5 min) |
+| `GET` | `/v1/stations?q=` | Station-name autocomplete (Valkey-cached 5 min) |
 | `GET` | `/health` | Liveness probe — `200` while the process is alive |
-| `GET` | `/readyz` | Readiness probe — `200`/`503` with Redis/Postgres/HAFAS status |
+| `GET` | `/readyz` | Readiness probe — `200`/`503` with Valkey/Postgres/HAFAS status |
 | `GET` | `/metrics` | Prometheus metrics (blocked behind Nginx in production) |
 
 ## `POST /v1/journeys`
@@ -164,7 +164,7 @@ Returns the new summary + legs on success. Fails with `409 alternative-expired` 
 {
   "status": "ok",
   "checks": {
-    "redis": "ok",
+    "valkey": "ok",
     "postgres": "ok",
     "hafas": "ok"
   }
@@ -177,7 +177,7 @@ When any subsystem is impaired, the response code is `503` and the corresponding
 {
   "status": "degraded",
   "checks": {
-    "redis": "ok",
+    "valkey": "ok",
     "postgres": "ok",
     "hafas": { "state": "circuit-open", "since": "2026-06-12T08:14:22Z" }
   }
