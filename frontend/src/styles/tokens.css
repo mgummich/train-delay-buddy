@@ -1,0 +1,126 @@
+:root {
+  --font-display: 'Space Grotesk', system-ui, sans-serif;
+  --font-body: 'IBM Plex Sans', system-ui, sans-serif;
+
+  /* Backgrounds */
+  --bg-app:    #F6F4F2;
+  --bg-card:   #FFFFFF;
+  --bg-subtle: #F0ECE8;
+
+  /* Text */
+  --text-primary: #1F2329;
+  --text-muted:   #6B7280;
+  --text-faint:   #9CA3AF;
+
+  /* Accent */
+  --accent:        #0F766E;
+  --accent-hover:  #0D615B;
+  --accent-active: #0B4B47;
+  --accent-soft:   #E2EFEC;
+  --accent-ink:    #FFFFFF;
+
+  /* Warn */
+  --warn:        #DC6B33;
+  --warn-soft:   #FBEADF;
+  --warn-strong: #B91C1C;
+
+  /* Borders */
+  --border-subtle: #E5E7EB;
+  --border-strong: #D1D5DB;
+
+  /* Radius */
+  --radius-input: 10px;
+  --radius-card:  14px;
+  --radius-sheet: 22px;
+  --radius-btn:   12px;
+  --radius-badge: 999px;
+
+  /* Shadows */
+  --shadow-card:  0 1px 2px rgba(31,35,41,.04), 0 4px 16px rgba(31,35,41,.06);
+  --shadow-lift:  0 2px 4px rgba(31,35,41,.06), 0 12px 28px rgba(31,35,41,.10);
+  --shadow-sheet: 0 -8px 40px rgba(0,0,0,.18);
+
+  /* Motion */
+  --motion-fast:   150ms;
+  --motion-medium: 220ms;
+  --motion-slow:   300ms;
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg-app:        #111827;
+    --bg-card:       #1F2933;
+    --bg-subtle:     #19212E;
+    --text-primary:  #E5E7EB;
+    --text-muted:    #9CA3AF;
+    --text-faint:    #6B7280;
+    --accent:        #34D399;
+    --accent-hover:  #2BBE85;
+    --accent-active: #25A874;
+    --accent-soft:   #15302B;
+    --accent-ink:    #06241C;
+    --warn:          #F97316;
+    --warn-soft:     #3A2415;
+    --warn-strong:   #F87171;
+    --border-subtle: #2B3543;
+    --border-strong: #3A4658;
+    --shadow-card:   0 1px 2px rgba(0,0,0,.30), 0 4px 16px rgba(0,0,0,.32);
+    --shadow-lift:   0 2px 4px rgba(0,0,0,.34), 0 12px 28px rgba(0,0,0,.36);
+  }
+}
+
+/* ── Animations ──────────────────────────────────────────────────── */
+
+@keyframes vb-pulse {
+  0%, 100% { box-shadow: 0 0 0 4px var(--bg-card), 0 0 0 6px var(--accent-soft); }
+  50%       { box-shadow: 0 0 0 4px var(--bg-card), 0 0 0 10px transparent; }
+}
+@keyframes vb-blink {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.3; }
+}
+@keyframes vb-train-scroll {
+  0%   { top: 20%; }
+  100% { top: 80%; }
+}
+
+.vb-pulse { animation: vb-pulse 2.4s ease-in-out infinite; }
+.vb-blink { animation: vb-blink 1.6s ease-in-out infinite; }
+.vb-train { animation: vb-train-scroll 3s linear infinite; }
+
+.tnum {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* ── Focus visible ───────────────────────────────────────────────── */
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: inherit;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .vb-pulse, .vb-blink, .vb-train { animation: none; }
+  ::view-transition-old(root), ::view-transition-new(root) { animation: none; }
+}
+
+/* ── Screen transitions ──────────────────────────────────────────── */
+
+::view-transition-old(root) {
+  animation: slide-out var(--motion-medium) var(--ease-out-expo);
+}
+::view-transition-new(root) {
+  animation: slide-in var(--motion-medium) var(--ease-out-expo);
+}
+
+@keyframes slide-out {
+  from { opacity: 1; transform: translateX(0); }
+  to   { opacity: 0; transform: translateX(-16px); }
+}
+@keyframes slide-in {
+  from { opacity: 0; transform: translateX(16px); }
+  to   { opacity: 1; transform: translateX(0); }
+}

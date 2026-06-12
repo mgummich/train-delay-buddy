@@ -224,7 +224,9 @@ func (pm *PollerManager) poll(ctx context.Context, journeyID string) {
 			pm.store.UpdateAlternatives(ctx, j.ID, alts)
 			if !newSummary.AlternativeAvailable {
 				newSummary.AlternativeAvailable = true
-				pm.store.UpdateState(ctx, j.ID, newSummary, j.Legs, false)
+				if err := pm.store.UpdateState(ctx, j.ID, newSummary, j.Legs, false); err != nil {
+					pm.logger.Warn("store.UpdateState (alts flag) failed", "journeyId", j.ID, "error", err)
+				}
 			}
 		}
 	}
@@ -236,6 +238,6 @@ func (pm *PollerManager) poll(ctx context.Context, journeyID string) {
 
 func newPollRequestID() string {
 	b := make([]byte, 16)
-	rand.Read(b)
+	_, _ = rand.Read(b)
 	return hex.EncodeToString(b)
 }
