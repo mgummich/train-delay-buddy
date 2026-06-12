@@ -7,10 +7,10 @@ interface TrainData {
 }
 
 interface UseTrainValidationResult {
-  validate:     (trainNumber: string) => void
-  reset:        () => void
-  error:        string | null
-  trainData:    TrainData | null
+  validate: (trainNumber: string) => void
+  reset: () => void
+  error: string | null
+  trainData: TrainData | null
   isValidating: boolean
 }
 
@@ -21,8 +21,8 @@ interface UseTrainValidationResult {
  * on every keystroke. Call `reset()` when the input is cleared.
  */
 export function useTrainValidation(): UseTrainValidationResult {
-  const [error, setError]               = useState<string | null>(null)
-  const [trainData, setTrainData]       = useState<TrainData | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  const [trainData, setTrainData] = useState<TrainData | null>(null)
   const [isValidating, setIsValidating] = useState(false)
   const seqRef = useRef(0)
 
@@ -33,12 +33,15 @@ export function useTrainValidation(): UseTrainValidationResult {
     setIsValidating(true)
     setError(null)
 
-    const normalized = trainNumber.trim().toUpperCase().replace(/([A-Z]+)(\d)/, '$1 $2')
+    const normalized = trainNumber
+      .trim()
+      .toUpperCase()
+      .replace(/([A-Z]+)(\d)/, '$1 $2')
 
     void apiClient
       .GET('/trains/{number}', {
         params: {
-          path:  { number: normalized.replace(/\s/g, '') },
+          path: { number: normalized.replace(/\s/g, '') },
           query: { date: new Date().toISOString().split('T')[0]! },
         },
       })
@@ -50,7 +53,7 @@ export function useTrainValidation(): UseTrainValidationResult {
         } else if (data) {
           setTrainData({
             trainNumber: data.trainNumber,
-            stops: (data.stops ?? []).map(s => ({ id: s.id, name: s.name })),
+            stops: (data.stops ?? []).map((s) => ({ id: s.id, name: s.name })),
           })
           setError(null)
         }

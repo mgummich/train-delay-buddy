@@ -4,12 +4,12 @@ import { AlternativeCard } from './index'
 import '../../i18n/index'
 
 const CARD_DATA = {
-  journeyId:   'jrn_alt01234567890',
+  journeyId: 'jrn_alt01234567890',
   timeGainMin: 18,
-  eta:         '2026-06-11T17:24:00Z',
-  transfers:   2,
-  minBuffer:   3,
-  badges:      ['riskant' as const, 'schnellste' as const],
+  eta: '2026-06-11T17:24:00Z',
+  transfers: 2,
+  minBuffer: 3,
+  badges: ['riskant' as const, 'schnellste' as const],
   recommended: true,
 }
 

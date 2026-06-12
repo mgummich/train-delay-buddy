@@ -45,6 +45,6 @@ describe('FilterSheet', () => {
     render(<FilterSheet open={true} onClose={vi.fn()} resultCount={3} />)
     // Segmented buttons for 0/1/2/3/egal should be disabled
     const buttons = screen.getAllByRole('button', { name: /^[0-9]$|^egal$/ })
-    buttons.forEach(b => expect(b).toBeDisabled())
+    buttons.forEach((b) => expect(b).toBeDisabled())
   })
 })

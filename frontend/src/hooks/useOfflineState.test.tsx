@@ -13,7 +13,12 @@ import { saveJourney } from '@/lib/indexeddb'
 
 beforeEach(() => {
   globalThis.indexedDB = new IDBFactory()
-  useJourneyStore.setState({ journeyId: null, etag: null, status: null, alternativeAvailable: false })
+  useJourneyStore.setState({
+    journeyId: null,
+    etag: null,
+    status: null,
+    alternativeAvailable: false,
+  })
   _resetHydrationPromiseForTests()
 })
 

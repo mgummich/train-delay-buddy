@@ -6,7 +6,10 @@ import { useUIStore } from './uiStore'
 // Reset Zustand stores between tests
 beforeEach(() => {
   useJourneyStore.setState({
-    journeyId: null, etag: null, status: null, alternativeAvailable: false,
+    journeyId: null,
+    etag: null,
+    status: null,
+    alternativeAvailable: false,
   })
   useUIStore.setState({ confirmDialogOpen: false, toasts: [] })
 })

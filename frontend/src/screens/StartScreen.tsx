@@ -15,10 +15,13 @@ import { useJourneyStore } from '@/store/journeyStore'
 
 const schema = z.object({
   trainNumber: z.string().min(3, 'Zugnummer eingeben'),
-  destination: z.object({
-    id:   z.string(),
-    name: z.string(),
-  }, { required_error: 'Zielbahnhof wählen' }),
+  destination: z.object(
+    {
+      id: z.string(),
+      name: z.string(),
+    },
+    { required_error: 'Zielbahnhof wählen' }
+  ),
   onTrain: z.boolean(),
 })
 
@@ -34,8 +37,16 @@ function IconBolt({ size = 13 }: { size?: number }) {
 
 function IconTrain({ size = 18 }: { size?: number }) {
   return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none"
-      stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.75"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
       <rect x="4" y="3" width="16" height="13" rx="3" />
       <path d="M4 13h16M8 13v5M16 13v5M6 18h12" />
       <circle cx="8.5" cy="8.5" r="1.5" fill="currentColor" />
@@ -46,8 +57,16 @@ function IconTrain({ size = 18 }: { size?: number }) {
 
 function IconPin({ size = 18 }: { size?: number }) {
   return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none"
-      stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.75"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
       <path d="M12 22s-8-6.5-8-12a8 8 0 1 1 16 0c0 5.5-8 12-8 12z" />
       <circle cx="12" cy="10" r="3" />
     </svg>
@@ -58,14 +77,14 @@ export function StartScreen() {
   const { t } = useTranslation()
   const navigate = useNavigate()
   const { setJourney } = useJourneyStore()
-  const [plausibilityOpen, setPlausibilityOpen]   = useState(false)
-  const [pendingJourneyId, setPendingJourneyId]   = useState<string | null>(null)
+  const [plausibilityOpen, setPlausibilityOpen] = useState(false)
+  const [pendingJourneyId, setPendingJourneyId] = useState<string | null>(null)
   const trainValidation = useTrainValidation()
-  const stationSearch   = useStationSearch()
+  const stationSearch = useStationSearch()
   const [showStationDropdown, setShowStationDropdown] = useState(false)
-  const dropdownRef  = useRef<HTMLDivElement>(null)
+  const dropdownRef = useRef<HTMLDivElement>(null)
   const trainInputId = useId()
-  const destInputId  = useId()
+  const destInputId = useId()
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
@@ -81,7 +100,7 @@ export function StartScreen() {
   }, [showStationDropdown])
 
   const form = useForm<FormValues>({
-    resolver:      zodResolver(schema),
+    resolver: zodResolver(schema),
     defaultValues: { trainNumber: '', onTrain: true },
   })
 
@@ -94,13 +113,13 @@ export function StartScreen() {
     const idempotencyKey = crypto.randomUUID()
     const { data, error } = await apiClient.POST('/journeys', {
       body: {
-        trainNumber:    values.trainNumber.trim().toUpperCase(),
-        destination:    values.destination.id,
+        trainNumber: values.trainNumber.trim().toUpperCase(),
+        destination: values.destination.id,
         iAmOnThisTrain: values.onTrain,
         filters: {
-          dbOnly:       true,
+          dbOnly: true,
           maxTransfers: null,
-          safetyLevel:  'normal',
+          safetyLevel: 'normal',
         },
       },
       headers: { 'Idempotency-Key': idempotencyKey },
@@ -153,15 +172,19 @@ export function StartScreen() {
 
       <div className="px-4 pt-2 pb-8 flex flex-col gap-6">
         <div className="flex flex-col gap-[10px] mt-2">
-          <span className="inline-flex items-center gap-[6px] self-start
+          <span
+            className="inline-flex items-center gap-[6px] self-start
             bg-accent-soft text-accent text-[12.5px] font-semibold
-            px-3 py-1 rounded-badge">
+            px-3 py-1 rounded-badge"
+          >
             <IconBolt size={13} />
             {t('start.eyebrow')}
           </span>
 
-          <h1 className="font-display font-bold text-[26px] leading-[1.18]
-            tracking-[-0.01em] text-text-primary max-w-[15ch]">
+          <h1
+            className="font-display font-bold text-[26px] leading-[1.18]
+            tracking-[-0.01em] text-text-primary max-w-[15ch]"
+          >
             {t('start.title')}
           </h1>
 
@@ -170,9 +193,18 @@ export function StartScreen() {
           </p>
 
           <div className="flex items-start gap-[7px] mt-[2px]">
-            <svg className="text-text-faint flex-shrink-0 mt-[1px]" width="15" height="15"
-              viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round">
-              <circle cx="12" cy="12" r="9" /><path d="M12 11v5M12 8v.5" />
+            <svg
+              className="text-text-faint flex-shrink-0 mt-[1px]"
+              width="15"
+              height="15"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.9"
+              strokeLinecap="round"
+            >
+              <circle cx="12" cy="12" r="9" />
+              <path d="M12 11v5M12 8v.5" />
             </svg>
             <p className="text-text-faint text-[12.5px] leading-[1.45] max-w-[34ch]">
               {t('start.infoLine')}
@@ -180,22 +212,33 @@ export function StartScreen() {
           </div>
         </div>
 
-        <form onSubmit={(e) => { void form.handleSubmit(onSubmit)(e) }} noValidate>
-          <div className="bg-bg-card rounded-card border border-border-subtle shadow-card
-            p-4 flex flex-col gap-4">
-
+        <form
+          onSubmit={(e) => {
+            void form.handleSubmit(onSubmit)(e)
+          }}
+          noValidate
+        >
+          <div
+            className="bg-bg-card rounded-card border border-border-subtle shadow-card
+            p-4 flex flex-col gap-4"
+          >
             {/* Train number */}
             <div className="flex flex-col gap-[6px]">
-              <label htmlFor={trainInputId}
-                className="text-[13px] font-semibold text-text-muted">
+              <label htmlFor={trainInputId} className="text-[13px] font-semibold text-text-muted">
                 {t('start.trainField')}
               </label>
-              <div className={`flex items-center gap-3 h-[48px] px-3
+              <div
+                className={`flex items-center gap-3 h-[48px] px-3
                 border-[1.5px] rounded-input bg-bg-card transition-colors duration-fast
-                ${form.formState.errors.trainNumber || trainValidation.error
-                  ? 'border-warn'
-                  : 'border-border-strong focus-within:border-accent'}`}>
-                <span className="text-text-faint"><IconTrain /></span>
+                ${
+                  form.formState.errors.trainNumber || trainValidation.error
+                    ? 'border-warn'
+                    : 'border-border-strong focus-within:border-accent'
+                }`}
+              >
+                <span className="text-text-faint">
+                  <IconTrain />
+                </span>
                 <input
                   id={trainInputId}
                   aria-label={t('start.trainField')}
@@ -206,13 +249,11 @@ export function StartScreen() {
                   className="flex-1 bg-transparent outline-none text-text-primary
                     text-[16px] tnum placeholder:text-text-faint"
                   {...form.register('trainNumber', {
-                    onBlur:   handleTrainBlur,
+                    onBlur: handleTrainBlur,
                     onChange: () => trainValidation.reset(),
                   })}
                 />
-                {trainValidation.isValidating && (
-                  <span className="text-text-faint text-xs">…</span>
-                )}
+                {trainValidation.isValidating && <span className="text-text-faint text-xs">…</span>}
               </div>
               {(form.formState.errors.trainNumber || trainValidation.error) && (
                 <p className="text-warn text-[12.5px]">
@@ -223,15 +264,21 @@ export function StartScreen() {
 
             {/* Destination */}
             <div className="flex flex-col gap-[6px] relative">
-              <label htmlFor={destInputId}
-                className="text-[13px] font-semibold text-text-muted">
+              <label htmlFor={destInputId} className="text-[13px] font-semibold text-text-muted">
                 {t('start.destinationField')}
               </label>
-              <div className={`flex items-center gap-3 h-[48px] px-3
+              <div
+                className={`flex items-center gap-3 h-[48px] px-3
                 border-[1.5px] rounded-input bg-bg-card transition-colors duration-fast
-                ${form.formState.errors.destination
-                  ? 'border-warn' : 'border-border-strong focus-within:border-accent'}`}>
-                <span className="text-text-faint"><IconPin /></span>
+                ${
+                  form.formState.errors.destination
+                    ? 'border-warn'
+                    : 'border-border-strong focus-within:border-accent'
+                }`}
+              >
+                <span className="text-text-faint">
+                  <IconPin />
+                </span>
                 <input
                   id={destInputId}
                   aria-label={t('start.destinationField')}
@@ -247,8 +294,11 @@ export function StartScreen() {
               </div>
 
               {showStationDropdown && stationSearch.stations.length > 0 && (
-                <div ref={dropdownRef} className="absolute top-full left-0 right-0 mt-1 bg-bg-card
-                  rounded-card shadow-lift border border-border-subtle z-10 overflow-hidden">
+                <div
+                  ref={dropdownRef}
+                  className="absolute top-full left-0 right-0 mt-1 bg-bg-card
+                  rounded-card shadow-lift border border-border-subtle z-10 overflow-hidden"
+                >
                   {stationSearch.stations.map((s) => (
                     <button
                       key={s.id}
@@ -311,7 +361,11 @@ export function StartScreen() {
             >
               {form.formState.isSubmitting ? '…' : t('start.submitBtn')}
             </button>
-            <button type="button" disabled className="text-accent text-[14px] opacity-50 cursor-not-allowed">
+            <button
+              type="button"
+              disabled
+              className="text-accent text-[14px] opacity-50 cursor-not-allowed"
+            >
               {t('start.secondaryLink')}
             </button>
           </div>

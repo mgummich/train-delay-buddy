@@ -4,8 +4,8 @@ import { Switch } from '@/components/ui/switch'
 import { useInstallStore } from '@/store/installStore'
 
 interface FilterSheetProps {
-  open:        boolean
-  onClose:     () => void
+  open: boolean
+  onClose: () => void
   resultCount: number
 }
 
@@ -22,11 +22,13 @@ export function FilterSheet({ open, onClose, resultCount }: FilterSheetProps) {
   const { filters, setFilters } = useInstallStore()
 
   return (
-    <Sheet open={open} onOpenChange={(o) => { if (!o) onClose() }}>
-      <SheetContent
-        side="bottom"
-        className="bg-bg-card rounded-t-sheet shadow-sheet px-0 pb-0"
-      >
+    <Sheet
+      open={open}
+      onOpenChange={(o) => {
+        if (!o) onClose()
+      }}
+    >
+      <SheetContent side="bottom" className="bg-bg-card rounded-t-sheet shadow-sheet px-0 pb-0">
         <GrabHandle />
 
         {/* Header */}
@@ -40,7 +42,6 @@ export function FilterSheet({ open, onClose, resultCount }: FilterSheetProps) {
         </div>
 
         <div className="px-[18px] pt-[18px] pb-0 flex flex-col gap-[22px] overflow-y-auto max-h-[70vh]">
-
           {/* Block 1 — Nur frühere Ankünfte (display-only, always ON in V1) */}
           <div className="flex items-start gap-3">
             <div className="flex-1">
@@ -71,13 +72,23 @@ export function FilterSheet({ open, onClose, resultCount }: FilterSheetProps) {
                   key={m}
                   disabled
                   className={`h-9 px-3 rounded-badge border-[1.5px] text-[13.5px] font-medium
-                    ${i < 2
-                      ? 'border-accent bg-accent-soft text-accent'
-                      : 'border-border-strong text-text-muted bg-bg-card'}`}
+                    ${
+                      i < 2
+                        ? 'border-accent bg-accent-soft text-accent'
+                        : 'border-border-strong text-text-muted bg-bg-card'
+                    }`}
                 >
                   {i < 2 && (
-                    <svg className="inline mr-1" width="14" height="14" viewBox="0 0 24 24" fill="none"
-                      stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+                    <svg
+                      className="inline mr-1"
+                      width="14"
+                      height="14"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2.5"
+                      strokeLinecap="round"
+                    >
                       <path d="M20 6L9 17l-5-5" />
                     </svg>
                   )}
@@ -102,9 +113,7 @@ export function FilterSheet({ open, onClose, resultCount }: FilterSheetProps) {
 
           {/* Block 3 — Maximale Umstiege (V2 stub, disabled) */}
           <div className="flex flex-col gap-[10px] opacity-50">
-            <h3 className="text-[15.5px] font-semibold text-text-primary">
-              Maximale Umstiege
-            </h3>
+            <h3 className="text-[15.5px] font-semibold text-text-primary">Maximale Umstiege</h3>
             <div className="flex gap-[7px]">
               {['0', '1', '2', '3', 'egal'].map((v) => (
                 <button
@@ -123,9 +132,7 @@ export function FilterSheet({ open, onClose, resultCount }: FilterSheetProps) {
 
           {/* Block 4 — Puffer beim Umstieg (V2 stub, disabled) */}
           <div className="flex flex-col gap-[10px] opacity-50">
-            <h3 className="text-[15.5px] font-semibold text-text-primary">
-              Puffer beim Umstieg
-            </h3>
+            <h3 className="text-[15.5px] font-semibold text-text-primary">Puffer beim Umstieg</h3>
             <div className="flex gap-[7px]">
               {['Aggressiv', 'Normal', 'Vorsichtig'].map((v) => (
                 <button

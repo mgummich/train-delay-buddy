@@ -20,9 +20,9 @@ async function fetchAlternatives(journeyId: string) {
 export function journeyAlternativesQuery(journeyId: string): UseQueryOptions<AlternativesData> {
   return {
     queryKey: queryKeys.journeyAlternatives(journeyId),
-    queryFn:  () => fetchAlternatives(journeyId),
+    queryFn: () => fetchAlternatives(journeyId),
     staleTime: 0,
-    gcTime:    2 * 60_000,
+    gcTime: 2 * 60_000,
   }
 }
 

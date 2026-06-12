@@ -2,15 +2,15 @@ import { useState, useCallback, useRef } from 'react'
 import { apiClient } from '@/api/client'
 
 interface Station {
-  id:   string
+  id: string
   name: string
 }
 
 interface UseStationSearchResult {
-  search:    (query: string) => void
-  stations:  Station[]
+  search: (query: string) => void
+  stations: Station[]
   isLoading: boolean
-  clear:     () => void
+  clear: () => void
 }
 
 /**
@@ -18,11 +18,11 @@ interface UseStationSearchResult {
  * Queries shorter than 2 characters clear the results immediately without a network call.
  */
 export function useStationSearch(): UseStationSearchResult {
-  const [stations, setStations]   = useState<Station[]>([])
+  const [stations, setStations] = useState<Station[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   // seq prevents stale responses from overwriting fresher results
-  const seqRef      = useRef(0)
+  const seqRef = useRef(0)
 
   const search = useCallback((query: string) => {
     if (debounceRef.current) clearTimeout(debounceRef.current)

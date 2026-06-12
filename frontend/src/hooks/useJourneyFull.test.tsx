@@ -13,32 +13,22 @@ function wrapper({ children }: { children: React.ReactNode }) {
 
 const FULL_JOURNEY = {
   journeyId: DEFAULT_JOURNEY_ID,
-  summary:   DEFAULT_SUMMARY,
-  legs:      [],
-  stops:     [],
+  summary: DEFAULT_SUMMARY,
+  legs: [],
+  stops: [],
 }
 
 describe('useJourneyFull', () => {
   it('fetches and returns journey data', async () => {
-    server.use(
-      http.get('/v1/journeys/:id', () => HttpResponse.json(FULL_JOURNEY))
-    )
-    const { result } = renderHook(
-      () => useJourneyFull(DEFAULT_JOURNEY_ID),
-      { wrapper }
-    )
+    server.use(http.get('/v1/journeys/:id', () => HttpResponse.json(FULL_JOURNEY)))
+    const { result } = renderHook(() => useJourneyFull(DEFAULT_JOURNEY_ID), { wrapper })
     await waitFor(() => expect(result.current.data).toBeTruthy())
     expect(result.current.data?.journeyId).toBe(DEFAULT_JOURNEY_ID)
   })
 
   it('returns error state on 404', async () => {
-    server.use(
-      http.get('/v1/journeys/:id', () => MSW_ERRORS.journeyNotFound())
-    )
-    const { result } = renderHook(
-      () => useJourneyFull('jrn_notfound0000000000'),
-      { wrapper }
-    )
+    server.use(http.get('/v1/journeys/:id', () => MSW_ERRORS.journeyNotFound()))
+    const { result } = renderHook(() => useJourneyFull('jrn_notfound0000000000'), { wrapper })
     await waitFor(() => expect(result.current.isError).toBe(true))
   })
 

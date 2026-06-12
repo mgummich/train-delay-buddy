@@ -3,22 +3,22 @@ import { useTranslation } from 'react-i18next'
 type ErrorType = 'offline' | 'upstream' | 'overloaded' | 'rate-limit' | 'unknown'
 
 interface ErrorBannerProps {
-  type:         ErrorType
+  type: ErrorType
   lastUpdated?: string
-  onRetry?:     () => void
+  onRetry?: () => void
 }
 
 export function ErrorBanner({ type, lastUpdated, onRetry }: ErrorBannerProps) {
   const { t } = useTranslation()
 
   const messages: Record<ErrorType, string> = {
-    offline:      lastUpdated
+    offline: lastUpdated
       ? t('errors.offline', { time: new Date(lastUpdated).toLocaleTimeString('de-DE') })
       : t('errors.offline', { time: '–' }),
-    upstream:     t('errors.upstream'),
-    overloaded:   t('errors.overloaded'),
+    upstream: t('errors.upstream'),
+    overloaded: t('errors.overloaded'),
     'rate-limit': t('errors.rateLimit'),
-    unknown:      t('errors.unknown'),
+    unknown: t('errors.unknown'),
   }
 
   const isFullscreen = type === 'overloaded'

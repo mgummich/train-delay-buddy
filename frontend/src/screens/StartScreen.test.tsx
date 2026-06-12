@@ -45,9 +45,7 @@ describe('StartScreen', () => {
     const trainInput = screen.getByLabelText('Zugnummer')
     await userEvent.type(trainInput, 'ICE999')
     fireEvent.blur(trainInput)
-    await waitFor(() =>
-      expect(screen.getByText('Zug nicht gefunden für heute')).toBeTruthy()
-    )
+    await waitFor(() => expect(screen.getByText('Zug nicht gefunden für heute')).toBeTruthy())
   })
 
   it('navigates to alternatives after successful submit', async () => {
@@ -58,9 +56,7 @@ describe('StartScreen', () => {
     await user.type(trainInput, 'ICE 123')
     fireEvent.blur(trainInput)
     // Wait for validation to clear
-    await waitFor(() =>
-      expect(screen.queryByText('Zug nicht gefunden für heute')).toBeNull()
-    )
+    await waitFor(() => expect(screen.queryByText('Zug nicht gefunden für heute')).toBeNull())
 
     const destInput = screen.getByLabelText('Zielbahnhof')
     await user.type(destInput, 'Fra')
@@ -68,29 +64,39 @@ describe('StartScreen', () => {
     fireEvent.click(screen.getByText('Frankfurt (Main) Hbf'))
 
     const submitBtn = screen.getByRole('button', { name: /Beste Verbindung/ })
-    await waitFor(() => expect((submitBtn as HTMLButtonElement).disabled).toBe(false), { timeout: 500 })
+    await waitFor(() => expect((submitBtn as HTMLButtonElement).disabled).toBe(false), {
+      timeout: 500,
+    })
 
     fireEvent.click(submitBtn)
-    await waitFor(() =>
-      expect(screen.getByTestId('alternatives-page')).toBeTruthy()
-    )
+    await waitFor(() => expect(screen.getByTestId('alternatives-page')).toBeTruthy())
   })
 
   it('shows plausibility dialog when confidence is not high', async () => {
     const { HttpResponse } = await import('msw')
     server.use(
       http.post('http://localhost/v1/journeys', () =>
-        HttpResponse.json({
-          journeyId:    DEFAULT_JOURNEY_ID,
-          plausibility: { onTrainConfidence: 'low', reason: null },
-          summary:      { eta: null, status: 'ok', timeGainVsOriginalMinutes: null,
-                          timeGainVsCurrentRouteMinutes: null, minTransferBufferMinutes: null,
-                          criticalTransfer: false, alternativeAvailable: false,
-                          dataConfidence: 'high', nextStep: null,
-                          dataFetchedAt: new Date().toISOString(),
-                          lastUpdatedAt: new Date().toISOString() },
-          alternatives: [],
-        }, { status: 201, headers: { Location: `/v1/journeys/${DEFAULT_JOURNEY_ID}` } })
+        HttpResponse.json(
+          {
+            journeyId: DEFAULT_JOURNEY_ID,
+            plausibility: { onTrainConfidence: 'low', reason: null },
+            summary: {
+              eta: null,
+              status: 'ok',
+              timeGainVsOriginalMinutes: null,
+              timeGainVsCurrentRouteMinutes: null,
+              minTransferBufferMinutes: null,
+              criticalTransfer: false,
+              alternativeAvailable: false,
+              dataConfidence: 'high',
+              nextStep: null,
+              dataFetchedAt: new Date().toISOString(),
+              lastUpdatedAt: new Date().toISOString(),
+            },
+            alternatives: [],
+          },
+          { status: 201, headers: { Location: `/v1/journeys/${DEFAULT_JOURNEY_ID}` } }
+        )
       )
     )
     renderStart()
@@ -107,11 +113,11 @@ describe('StartScreen', () => {
     fireEvent.click(screen.getByText('Frankfurt (Main) Hbf'))
 
     const submitBtn = screen.getByRole('button', { name: /Beste Verbindung/ })
-    await waitFor(() => expect((submitBtn as HTMLButtonElement).disabled).toBe(false), { timeout: 500 })
+    await waitFor(() => expect((submitBtn as HTMLButtonElement).disabled).toBe(false), {
+      timeout: 500,
+    })
 
     fireEvent.click(submitBtn)
-    await waitFor(() =>
-      expect(screen.getByText('Ja, Route planen')).toBeTruthy()
-    )
+    await waitFor(() => expect(screen.getByText('Ja, Route planen')).toBeTruthy())
   })
 })

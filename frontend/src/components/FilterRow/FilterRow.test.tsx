@@ -5,9 +5,7 @@ import '../../i18n/index'
 
 describe('FilterRow', () => {
   it('shows filter button', () => {
-    render(
-      <FilterRow activeFilters={[]} onOpenFilter={vi.fn()} onRemoveFilter={vi.fn()} />
-    )
+    render(<FilterRow activeFilters={[]} onOpenFilter={vi.fn()} onRemoveFilter={vi.fn()} />)
     expect(screen.getByText('Filter')).toBeTruthy()
   })
 

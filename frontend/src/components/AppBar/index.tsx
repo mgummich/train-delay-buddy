@@ -4,8 +4,17 @@ import { IconSettings } from '@/components/icons/IconSettings'
 
 function BrandMark() {
   return (
-    <div style={{ width: 26, height: 26, borderRadius: 8, background: 'var(--accent)',
-      display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+    <div
+      style={{
+        width: 26,
+        height: 26,
+        borderRadius: 8,
+        background: 'var(--accent)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+      }}
+    >
       <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
         <circle cx="4.5" cy="5" r="1.5" fill="white" />
         <circle cx="9.5" cy="5" r="1.5" fill="white" />

@@ -17,7 +17,9 @@ describe('useTrainValidation', () => {
     server.use(http.get(TRAINS_URL, () => MSW_ERRORS.trainNotFound()))
     const { result } = renderHook(() => useTrainValidation())
 
-    act(() => { result.current.validate('ICE999') })
+    act(() => {
+      result.current.validate('ICE999')
+    })
 
     await waitFor(() => expect(result.current.isValidating).toBe(false))
     expect(result.current.error).toBe('Zug nicht gefunden für heute')
@@ -26,7 +28,9 @@ describe('useTrainValidation', () => {
   it('clears error on valid train', async () => {
     const { result } = renderHook(() => useTrainValidation())
 
-    act(() => { result.current.validate('ICE 123') })
+    act(() => {
+      result.current.validate('ICE 123')
+    })
 
     await waitFor(() => expect(result.current.isValidating).toBe(false))
     expect(result.current.error).toBeNull()
@@ -35,17 +39,23 @@ describe('useTrainValidation', () => {
 
   it('does nothing on empty input', () => {
     const { result } = renderHook(() => useTrainValidation())
-    act(() => { result.current.validate('') })
+    act(() => {
+      result.current.validate('')
+    })
     expect(result.current.isValidating).toBe(false)
   })
 
   it('reset() clears error and trainData', async () => {
     const { result } = renderHook(() => useTrainValidation())
 
-    act(() => { result.current.validate('ICE 123') })
+    act(() => {
+      result.current.validate('ICE 123')
+    })
     await waitFor(() => expect(result.current.trainData).not.toBeNull())
 
-    act(() => { result.current.reset() })
+    act(() => {
+      result.current.reset()
+    })
     expect(result.current.trainData).toBeNull()
     expect(result.current.error).toBeNull()
     expect(result.current.isValidating).toBe(false)

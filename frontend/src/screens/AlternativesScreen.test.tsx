@@ -11,9 +11,9 @@ import '../i18n/index'
 // Journey schema (GET /journeys/{id}) has NO alternatives field per openapi spec.
 const JOURNEY_DATA = {
   journeyId: DEFAULT_JOURNEY_ID,
-  summary:   DEFAULT_SUMMARY,
-  legs:      [],
-  stops:     [],
+  summary: DEFAULT_SUMMARY,
+  legs: [],
+  stops: [],
 }
 
 // Alternatives come from GET /journeys/{id}/alternatives — Alternative has nested summary.
@@ -21,12 +21,22 @@ const ALTS_DATA = {
   data: [
     {
       journeyId: 'jrn_alt01234567890a',
-      summary: { ...DEFAULT_SUMMARY, timeGainVsOriginalMinutes: 18, eta: '2026-06-11T17:24:00Z', minTransferBufferMinutes: 3 },
+      summary: {
+        ...DEFAULT_SUMMARY,
+        timeGainVsOriginalMinutes: 18,
+        eta: '2026-06-11T17:24:00Z',
+        minTransferBufferMinutes: 3,
+      },
       legs: [],
     },
     {
       journeyId: 'jrn_alt01234567890b',
-      summary: { ...DEFAULT_SUMMARY, timeGainVsOriginalMinutes: 12, eta: '2026-06-11T17:30:00Z', minTransferBufferMinutes: 11 },
+      summary: {
+        ...DEFAULT_SUMMARY,
+        timeGainVsOriginalMinutes: 12,
+        eta: '2026-06-11T17:30:00Z',
+        minTransferBufferMinutes: 11,
+      },
       legs: [],
     },
   ],
@@ -53,9 +63,7 @@ function renderAlternatives(journeyId = DEFAULT_JOURNEY_ID) {
 describe('AlternativesScreen', () => {
   it('renders heading', async () => {
     renderAlternatives()
-    await waitFor(() =>
-      expect(screen.getByText('Bessere Verbindungen gefunden')).toBeTruthy()
-    )
+    await waitFor(() => expect(screen.getByText('Bessere Verbindungen gefunden')).toBeTruthy())
   })
 
   it('renders alternative cards', async () => {
@@ -83,9 +91,9 @@ describe('AlternativesScreen', () => {
     renderAlternatives()
     await waitFor(() => screen.getByText('+18 Min'))
     // SubAppBar back + settings buttons come before alt cards, so find first card button
-    const altCardBtn = screen.getAllByRole('button').find(
-      (b) => b.closest('[class*="rounded-card"]') !== null
-    )!
+    const altCardBtn = screen
+      .getAllByRole('button')
+      .find((b) => b.closest('[class*="rounded-card"]') !== null)!
     fireEvent.click(altCardBtn)
     await waitFor(() => expect(screen.getByTestId('companion')).toBeTruthy())
   })
@@ -115,9 +123,7 @@ describe('AlternativesScreen', () => {
   })
 
   it('hides heading and filter row during error state', async () => {
-    server.use(
-      http.get('/v1/journeys/:id/alternatives', () => MSW_ERRORS.upstreamUnavailable())
-    )
+    server.use(http.get('/v1/journeys/:id/alternatives', () => MSW_ERRORS.upstreamUnavailable()))
     const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } })
     qc.setQueryData(queryKeys.journeyFull(DEFAULT_JOURNEY_ID), JOURNEY_DATA)
     render(
@@ -129,9 +135,7 @@ describe('AlternativesScreen', () => {
         </MemoryRouter>
       </QueryClientProvider>
     )
-    await waitFor(() =>
-      expect(screen.queryByText('Bessere Verbindungen gefunden')).toBeNull()
-    )
+    await waitFor(() => expect(screen.queryByText('Bessere Verbindungen gefunden')).toBeNull())
     expect(screen.queryByText('Filter')).toBeNull()
   })
 

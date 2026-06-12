@@ -9,16 +9,21 @@ import {
 } from '@/components/ui/dialog'
 
 interface PlausibilityDialogProps {
-  open:      boolean
+  open: boolean
   onConfirm: () => void
-  onDeny:    () => void
+  onDeny: () => void
 }
 
 export function PlausibilityDialog({ open, onConfirm, onDeny }: PlausibilityDialogProps) {
   const { t } = useTranslation()
 
   return (
-    <Dialog open={open} onOpenChange={(o) => { if (!o) onDeny() }}>
+    <Dialog
+      open={open}
+      onOpenChange={(o) => {
+        if (!o) onDeny()
+      }}
+    >
       <DialogContent className="bg-bg-card rounded-sheet max-w-sm mx-4">
         <DialogHeader>
           <DialogTitle className="font-display font-semibold text-[20px]">

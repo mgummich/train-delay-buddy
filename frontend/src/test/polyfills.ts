@@ -7,11 +7,19 @@ if (typeof globalThis.localStorage === 'undefined') {
     writable: true,
     value: {
       getItem: (key: string) => _store[key] ?? null,
-      setItem: (key: string, val: string) => { _store[key] = val },
-      removeItem: (key: string) => { delete _store[key] },
-      clear: () => { Object.keys(_store).forEach((k) => delete _store[k]) },
+      setItem: (key: string, val: string) => {
+        _store[key] = val
+      },
+      removeItem: (key: string) => {
+        delete _store[key]
+      },
+      clear: () => {
+        Object.keys(_store).forEach((k) => delete _store[k])
+      },
       key: (i: number) => Object.keys(_store)[i] ?? null,
-      get length() { return Object.keys(_store).length },
+      get length() {
+        return Object.keys(_store).length
+      },
     },
   })
 }

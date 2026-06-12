@@ -4,29 +4,34 @@ import { cn } from '@/lib/utils'
 type BadgeVariant = 'riskant' | 'schnellste' | 'stabilste' | 'nur-db' | 'neutral'
 
 const variantStyles: Record<BadgeVariant, string> = {
-  riskant:   'bg-warn-soft text-warn border-transparent',
+  riskant: 'bg-warn-soft text-warn border-transparent',
   schnellste: 'bg-accent text-accent-ink border-transparent',
   stabilste: 'bg-accent-soft text-accent border-transparent',
-  'nur-db':  'bg-bg-subtle text-text-muted border-border-subtle',
-  neutral:   'bg-bg-subtle text-text-muted border-border-subtle',
+  'nur-db': 'bg-bg-subtle text-text-muted border-border-subtle',
+  neutral: 'bg-bg-subtle text-text-muted border-border-subtle',
 }
 
 const variantLabels: Record<BadgeVariant, string> = {
-  riskant:   'Riskant',
+  riskant: 'Riskant',
   schnellste: 'Schnellste',
   stabilste: 'Am stabilsten',
-  'nur-db':  'Nur DB',
-  neutral:   '',
+  'nur-db': 'Nur DB',
+  neutral: '',
 }
 
 interface RiskBadgeProps {
-  variant:      BadgeVariant
-  children?:    ReactNode
-  className?:   string
+  variant: BadgeVariant
+  children?: ReactNode
+  className?: string
   'aria-label'?: string
 }
 
-export function RiskBadge({ variant, children, className, 'aria-label': ariaLabel }: RiskBadgeProps) {
+export function RiskBadge({
+  variant,
+  children,
+  className,
+  'aria-label': ariaLabel,
+}: RiskBadgeProps) {
   return (
     <span
       aria-label={ariaLabel}

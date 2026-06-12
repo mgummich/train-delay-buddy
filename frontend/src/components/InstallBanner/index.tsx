@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 
-const SNOOZE_KEY  = 'vb-install-dismissed'
+const SNOOZE_KEY = 'vb-install-dismissed'
 const SNOOZE_DAYS = 7
 
 function isStandalone(): boolean {
@@ -22,7 +22,7 @@ interface InstallBannerProps {
 
 export function InstallBanner({ forceShow = false }: InstallBannerProps) {
   const { t } = useTranslation()
-  const [show, setShow]   = useState(false)
+  const [show, setShow] = useState(false)
   const [isIOS, setIsIOS] = useState(false)
 
   useEffect(() => {

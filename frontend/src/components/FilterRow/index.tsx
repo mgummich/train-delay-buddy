@@ -1,20 +1,28 @@
 import { useTranslation } from 'react-i18next'
 
 interface ActiveFilter {
-  key:   string
+  key: string
   label: string
 }
 
 interface FilterRowProps {
-  activeFilters:  ActiveFilter[]
-  onOpenFilter:   () => void
+  activeFilters: ActiveFilter[]
+  onOpenFilter: () => void
   onRemoveFilter: (key: string) => void
 }
 
 function IconFilter({ size = 15 }: { size?: number }) {
   return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none"
-      stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
       <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3" />
     </svg>
   )
@@ -36,9 +44,11 @@ export function FilterRow({ activeFilters, onOpenFilter, onRemoveFilter }: Filte
         <IconFilter />
         {t('alternatives.filterBtn')}
         {activeFilters.length > 0 && (
-          <span className="tnum min-w-[18px] h-[18px] px-[5px] rounded-badge
+          <span
+            className="tnum min-w-[18px] h-[18px] px-[5px] rounded-badge
             bg-accent text-accent-ink text-[11.5px] font-bold
-            flex items-center justify-center">
+            flex items-center justify-center"
+          >
             {activeFilters.length}
           </span>
         )}
@@ -58,8 +68,15 @@ export function FilterRow({ activeFilters, onOpenFilter, onRemoveFilter }: Filte
             aria-label={`${f.label} Filter entfernen`}
             className="opacity-70 hover:opacity-100 flex items-center"
           >
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none"
-              stroke="currentColor" strokeWidth="2.4" strokeLinecap="round">
+            <svg
+              width="13"
+              height="13"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2.4"
+              strokeLinecap="round"
+            >
               <path d="M6 6l12 12M18 6L6 18" />
             </svg>
           </button>

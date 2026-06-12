@@ -18,8 +18,16 @@ import { apiClient } from '@/api/client'
 
 function IconShield({ size = 30 }: { size?: number }) {
   return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none"
-      stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.75"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
       <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
     </svg>
   )
@@ -41,9 +49,7 @@ export function AlternativesScreen() {
   const qc = useQueryClient()
 
   // Build active filters list for FilterRow
-  const activeFilters = filters.dbOnly
-    ? [{ key: 'dbOnly', label: 'Nur DB' }]
-    : []
+  const activeFilters = filters.dbOnly ? [{ key: 'dbOnly', label: 'Nur DB' }] : []
 
   function handleSelectRoute(altJourneyId: string) {
     setJourney(altJourneyId, null)
@@ -72,11 +78,22 @@ export function AlternativesScreen() {
 
       {/* Reference strip */}
       {journeyData?.summary && (
-        <div className="mx-4 mt-2 bg-bg-subtle rounded-card px-[15px] py-[13px]
-          flex gap-[11px] items-start">
-          <svg className="text-text-muted flex-shrink-0 mt-[1px]" width="17" height="17"
-            viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round">
-            <circle cx="12" cy="12" r="9" /><path d="M12 8v4l3 3" />
+        <div
+          className="mx-4 mt-2 bg-bg-subtle rounded-card px-[15px] py-[13px]
+          flex gap-[11px] items-start"
+        >
+          <svg
+            className="text-text-muted flex-shrink-0 mt-[1px]"
+            width="17"
+            height="17"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.9"
+            strokeLinecap="round"
+          >
+            <circle cx="12" cy="12" r="9" />
+            <path d="M12 8v4l3 3" />
           </svg>
           <p className="text-text-muted text-[14px] leading-[1.45]">
             {t('alternatives.currentTrain', {
@@ -94,9 +111,7 @@ export function AlternativesScreen() {
         )}
 
         {/* Error state */}
-        {isError && (
-          <ErrorBanner type="upstream" />
-        )}
+        {isError && <ErrorBanner type="upstream" />}
 
         {/* Filter row */}
         {!isEmpty && !isError && (
@@ -111,7 +126,11 @@ export function AlternativesScreen() {
 
         {/* Loading — 3 skeleton cards */}
         {isLoading && (
-          <div className="flex flex-col gap-3" role="status" aria-label="Verbindungen werden geladen">
+          <div
+            className="flex flex-col gap-3"
+            role="status"
+            aria-label="Verbindungen werden geladen"
+          >
             <SkeletonCard />
             <SkeletonCard />
             <SkeletonCard />
@@ -122,8 +141,10 @@ export function AlternativesScreen() {
         {isEmpty && (
           <div className="flex flex-col gap-[18px]">
             <div className="flex flex-col items-center text-center gap-[14px] pt-6 px-3 pb-2">
-              <span className="w-16 h-16 rounded-[18px] bg-accent-soft text-accent
-                flex items-center justify-center">
+              <span
+                className="w-16 h-16 rounded-[18px] bg-accent-soft text-accent
+                flex items-center justify-center"
+              >
                 <IconShield />
               </span>
               <h2 className="font-display font-semibold text-[21px] text-text-primary max-w-[18ch]">
@@ -132,8 +153,10 @@ export function AlternativesScreen() {
               <p className="text-text-muted text-[14.5px] leading-[1.55] max-w-[32ch]">
                 {t('alternatives.empty.body')}
               </p>
-              <span className="inline-flex items-center gap-2 h-7 px-3 rounded-badge
-                bg-accent-soft text-accent text-[13px] font-semibold">
+              <span
+                className="inline-flex items-center gap-2 h-7 px-3 rounded-badge
+                bg-accent-soft text-accent text-[13px] font-semibold"
+              >
                 <span className="w-[7px] h-[7px] rounded-full bg-accent vb-blink" />
                 {t('alternatives.empty.liveBadge')}
               </span>
@@ -167,8 +190,15 @@ export function AlternativesScreen() {
                   text-text-primary font-semibold text-[14.5px] flex items-center justify-center gap-2
                   active:scale-[0.97] transition-transform duration-fast"
               >
-                <svg width="17" height="17" viewBox="0 0 24 24" fill="none"
-                  stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                <svg
+                  width="17"
+                  height="17"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                >
                   <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3" />
                 </svg>
                 {t('alternatives.empty.loosFilters')}
@@ -191,8 +221,9 @@ export function AlternativesScreen() {
                 minBuffer={alt.summary.minTransferBufferMinutes ?? 0}
                 badges={[
                   ...(alt.summary.minTransferBufferMinutes != null &&
-                      alt.summary.minTransferBufferMinutes < 5
-                        ? ['riskant' as const] : []),
+                  alt.summary.minTransferBufferMinutes < 5
+                    ? ['riskant' as const]
+                    : []),
                   ...(i === 0 ? ['schnellste' as const] : []),
                 ]}
                 recommended={i === 0}
@@ -213,8 +244,10 @@ export function AlternativesScreen() {
               active:scale-[0.97] transition-transform duration-fast disabled:opacity-50"
           >
             {isRecalculating ? (
-              <span className="w-3 h-3 border-2 border-text-muted border-t-transparent
-                rounded-full animate-spin" />
+              <span
+                className="w-3 h-3 border-2 border-text-muted border-t-transparent
+                rounded-full animate-spin"
+              />
             ) : null}
             {t('alternatives.recalcBtn')}
           </button>

@@ -20,9 +20,9 @@ async function fetchJourneyFull(journeyId: string) {
 export function journeyFullQuery(journeyId: string): UseQueryOptions<JourneyFullData> {
   return {
     queryKey: queryKeys.journeyFull(journeyId),
-    queryFn:  () => fetchJourneyFull(journeyId),
+    queryFn: () => fetchJourneyFull(journeyId),
     staleTime: 30_000,
-    gcTime:    5 * 60_000,
+    gcTime: 5 * 60_000,
   }
 }
 

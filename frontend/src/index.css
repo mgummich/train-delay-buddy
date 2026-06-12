@@ -1,7 +1,7 @@
 @import './styles/tokens.css';
-@import "tw-animate-css";
-@import "shadcn/tailwind.css";
-@import "@fontsource-variable/geist";
+@import 'tw-animate-css';
+@import 'shadcn/tailwind.css';
+@import '@fontsource-variable/geist';
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -19,8 +19,12 @@ body {
 }
 
 /* iOS safe area */
-.safe-top    { padding-top:    max(env(safe-area-inset-top), 16px); }
-.safe-bottom { padding-bottom: max(env(safe-area-inset-bottom), 16px); }
+.safe-top {
+  padding-top: max(env(safe-area-inset-top), 16px);
+}
+.safe-bottom {
+  padding-bottom: max(env(safe-area-inset-bottom), 16px);
+}
 
 @layer base {
   .theme {
