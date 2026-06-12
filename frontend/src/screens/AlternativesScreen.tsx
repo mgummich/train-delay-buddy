@@ -50,7 +50,7 @@ export function AlternativesScreen() {
 
   const activeFilters = useMemo(
     () => (filters.dbOnly ? [{ key: 'dbOnly', label: 'Nur DB' }] : []),
-    [filters.dbOnly],
+    [filters.dbOnly]
   )
 
   const handleSelectRoute = useCallback(
@@ -58,7 +58,7 @@ export function AlternativesScreen() {
       setJourney(altJourneyId, null)
       void navigate(`/journey/${altJourneyId}/companion`)
     },
-    [navigate, setJourney],
+    [navigate, setJourney]
   )
 
   async function handleRecalculate() {

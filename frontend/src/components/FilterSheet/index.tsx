@@ -28,7 +28,11 @@ export function FilterSheet({ open, onClose, resultCount }: FilterSheetProps) {
         if (!o) onClose()
       }}
     >
-      <SheetContent side="bottom" className="bg-bg-card rounded-t-sheet shadow-sheet px-0 pb-0" aria-describedby={undefined}>
+      <SheetContent
+        side="bottom"
+        className="bg-bg-card rounded-t-sheet shadow-sheet px-0 pb-0"
+        aria-describedby={undefined}
+      >
         <GrabHandle />
 
         {/* Header */}

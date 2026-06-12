@@ -96,8 +96,8 @@ export function CompanionScreen() {
 
   const summary: JourneySummary = (liveSummary ?? journey?.summary) as JourneySummary
 
-  const stops = journey?.stops ?? []
-  const legs = journey?.legs ?? []
+  const stops = useMemo(() => journey?.stops ?? [], [journey?.stops])
+  const legs = useMemo(() => journey?.legs ?? [], [journey?.legs])
 
   const handleFinish = useCallback(async () => {
     try {
@@ -124,23 +124,27 @@ export function CompanionScreen() {
     const idx = stops.findIndex((s) => s.stationId === stationId)
     if (idx < 0) return 1
     return type === 'transfer' ? idx : Math.max(0, idx - 1)
-  }, [summary?.nextStep?.stationId, summary?.nextStep?.type, stops])
+  }, [summary?.nextStep, stops])
 
-  const mapStations = useMemo(() => stops.map((s, i) => ({
-    x: 14 + (i / Math.max(stops.length - 1, 1)) * 72,
-    y: 86 - (i / Math.max(stops.length - 1, 1)) * 71,
-    label: s.stationName,
-    ...(s.arrivalTimeActual ? { sub: formatTime(s.arrivalTimeActual) } : {}),
-    variant:
-      i === 0
-        ? ('dot' as const)
-        : i === stops.length - 1
-          ? ('dest' as const)
-          : i === currentStopIndex
-            ? ('current' as const)
-            : ('accent' as const),
-    side: i % 2 === 0 ? ('right' as const) : ('left' as const),
-  })), [stops, currentStopIndex])
+  const mapStations = useMemo(
+    () =>
+      stops.map((s, i) => ({
+        x: 14 + (i / Math.max(stops.length - 1, 1)) * 72,
+        y: 86 - (i / Math.max(stops.length - 1, 1)) * 71,
+        label: s.stationName,
+        ...(s.arrivalTimeActual ? { sub: formatTime(s.arrivalTimeActual) } : {}),
+        variant:
+          i === 0
+            ? ('dot' as const)
+            : i === stops.length - 1
+              ? ('dest' as const)
+              : i === currentStopIndex
+                ? ('current' as const)
+                : ('accent' as const),
+        side: i % 2 === 0 ? ('right' as const) : ('left' as const),
+      })),
+    [stops, currentStopIndex]
+  )
 
   return (
     <div className="min-h-screen bg-bg-app">
@@ -304,9 +308,7 @@ export function CompanionScreen() {
 
       {/* Finish journey */}
       <div className="fixed bottom-0 left-0 right-0 p-4 safe-bottom bg-bg-app border-t border-border-subtle">
-        {finishError && (
-          <p className="text-warn text-[13px] text-center mb-2">{finishError}</p>
-        )}
+        {finishError && <p className="text-warn text-[13px] text-center mb-2">{finishError}</p>}
         <button
           type="button"
           onClick={() => void handleFinish()}

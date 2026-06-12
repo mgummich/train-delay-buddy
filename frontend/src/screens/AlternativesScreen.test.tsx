@@ -50,7 +50,10 @@ function renderAlternatives(journeyId = DEFAULT_JOURNEY_ID) {
 
   return render(
     <QueryClientProvider client={qc}>
-      <MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }} initialEntries={[`/journey/${journeyId}/alternatives`]}>
+      <MemoryRouter
+        future={{ v7_startTransition: true, v7_relativeSplatPath: true }}
+        initialEntries={[`/journey/${journeyId}/alternatives`]}
+      >
         <Routes>
           <Route path="/journey/:journeyId/alternatives" element={<AlternativesScreen />} />
           <Route path="/journey/:journeyId/companion" element={<div data-testid="companion" />} />
@@ -76,7 +79,10 @@ describe('AlternativesScreen', () => {
     const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } })
     render(
       <QueryClientProvider client={qc}>
-        <MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }} initialEntries={[`/journey/${DEFAULT_JOURNEY_ID}/alternatives`]}>
+        <MemoryRouter
+          future={{ v7_startTransition: true, v7_relativeSplatPath: true }}
+          initialEntries={[`/journey/${DEFAULT_JOURNEY_ID}/alternatives`]}
+        >
           <Routes>
             <Route path="/journey/:journeyId/alternatives" element={<AlternativesScreen />} />
           </Routes>
@@ -104,7 +110,10 @@ describe('AlternativesScreen', () => {
     qc.setQueryData(queryKeys.journeyAlternatives(DEFAULT_JOURNEY_ID), { data: [], totalCount: 0 })
     render(
       <QueryClientProvider client={qc}>
-        <MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }} initialEntries={[`/journey/${DEFAULT_JOURNEY_ID}/alternatives`]}>
+        <MemoryRouter
+          future={{ v7_startTransition: true, v7_relativeSplatPath: true }}
+          initialEntries={[`/journey/${DEFAULT_JOURNEY_ID}/alternatives`]}
+        >
           <Routes>
             <Route path="/journey/:journeyId/alternatives" element={<AlternativesScreen />} />
           </Routes>
@@ -128,7 +137,10 @@ describe('AlternativesScreen', () => {
     qc.setQueryData(queryKeys.journeyFull(DEFAULT_JOURNEY_ID), JOURNEY_DATA)
     render(
       <QueryClientProvider client={qc}>
-        <MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }} initialEntries={[`/journey/${DEFAULT_JOURNEY_ID}/alternatives`]}>
+        <MemoryRouter
+          future={{ v7_startTransition: true, v7_relativeSplatPath: true }}
+          initialEntries={[`/journey/${DEFAULT_JOURNEY_ID}/alternatives`]}
+        >
           <Routes>
             <Route path="/journey/:journeyId/alternatives" element={<AlternativesScreen />} />
           </Routes>
