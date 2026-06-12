@@ -80,7 +80,8 @@ services:
           cpus: "1.0"
 
   valkey:
-    image: valkey/valkey:8.1.8-alpine3.23
+    image: valkey/valkey:9.1.0-alpine3.23
+    user: "999:1000"
     command: valkey-server --maxmemory 256mb --maxmemory-policy volatile-lru
     healthcheck:
       test: ["CMD", "valkey-cli", "ping"]
@@ -97,13 +98,13 @@ services:
           cpus: "0.5"
 
   postgres:
-    image: postgres:17.10-alpine3.23
+    image: postgres:18.4-alpine3.23
     environment:
       POSTGRES_DB: vbb
       POSTGRES_USER: vbb
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD required}
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - postgres_data:/var/lib/postgresql
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U vbb"]
       interval: 5s
