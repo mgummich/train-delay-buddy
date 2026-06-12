@@ -1,6 +1,11 @@
 # design canvas is not production code
 design_handoff_verspaetungsbegleiter/
 
+# nginx.conf — header-redefinition rule is a false positive.
+# Nginx requires add_header to be repeated in every location block that
+# sets its own headers; they are not inherited, so repetition is mandatory.
+nginx/
+
 # generated types — not reviewed
 frontend/src/api/types.gen.ts
 
