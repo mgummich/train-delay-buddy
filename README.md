@@ -1,126 +1,179 @@
 # Verspätungs-Begleiter
 
-Real-time alternative routing for Deutsche Bahn journeys. Enter your current train and destination — the app monitors your connection and surfaces faster alternatives as delays emerge.
+<div align="center">
 
-**Not affiliated with Deutsche Bahn.** Uses the public [`db.transport.rest`](https://v6.db.transport.rest) HAFAS proxy.
+![Go](https://img.shields.io/badge/Go-1.25-00ADD8?logo=go&logoColor=white)
+![Node](https://img.shields.io/badge/Node-22-339933?logo=node.js&logoColor=white)
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-336791?logo=postgresql&logoColor=white)
+![Redis](https://img.shields.io/badge/Redis-7-DC382D?logo=redis&logoColor=white)
+![Docker](https://img.shields.io/badge/Docker-Compose-2496ED?logo=docker&logoColor=white)
+![License](https://img.shields.io/badge/license-MIT-22c55e)
+![PWA](https://img.shields.io/badge/PWA-installable-5A0FC8?logo=pwa)
+
+**Real-time alternative routing for Deutsche Bahn journeys.**  
+Enter your current train and destination — the app monitors your connection live and surfaces faster alternatives as delays emerge.
+
+> **Not affiliated with Deutsche Bahn.** Uses the public [`v6.db.transport.rest`](https://v6.db.transport.rest) HAFAS proxy.
+
+</div>
+
+---
+
+## Table of contents
+
+- [What it does](#what-it-does)
+- [Screenshots](#screenshots)
+- [Tech stack](#tech-stack)
+- [Prerequisites](#prerequisites)
+- [Quick start — Docker Compose](#quick-start--docker-compose)
+- [Local development — without Docker](#local-development--without-docker)
+- [Environment variables](#environment-variables)
+- [Project structure](#project-structure)
+- [Architecture overview](#architecture-overview)
+- [Development workflow](#development-workflow)
+- [Testing](#testing)
+- [Database](#database)
+- [API reference](#api-reference)
+- [Metrics](#metrics)
+- [PWA installation](#pwa-installation)
+- [Production deployment](#production-deployment)
+- [Troubleshooting](#troubleshooting)
 
 ---
 
 ## What it does
 
 1. You enter a train number (e.g. `ICE 123`) and your destination station.
-2. The backend polls HAFAS every 30 seconds for realtime updates on your legs.
-3. A BFS routing engine runs in the background and computes alternative routes that arrive earlier.
-4. The frontend polls for status changes and shows you ranked alternatives with time gain, transfer buffer, and risk badges.
-5. You tap an alternative to switch to it and continue monitoring from there.
+2. The backend polls HAFAS every 30 seconds for realtime updates on every leg of your route.
+3. A BFS routing engine reruns in the background and computes alternative routes that arrive earlier.
+4. The frontend polls for state changes and shows you ranked alternatives — with time gain, minimum transfer buffer, and risk badges.
+5. Tap an alternative to switch to it; the poller immediately follows the new route.
+6. Install as a PWA for offline resilience and home-screen access (no app store required).
+
+---
+
+## Screenshots
+
+<div align="center">
+
+| Start | Alternatives | Companion timeline |
+|:---:|:---:|:---:|
+| ![Start screen](design_handoff_verspaetungsbegleiter/screenshots/1-start.png) | ![Alternatives](design_handoff_verspaetungsbegleiter/screenshots/2-alternativen.png) | ![Timeline](design_handoff_verspaetungsbegleiter/screenshots/3-reisebegleiter-timeline.png) |
+
+| Filter sheet | Empty state | Dark mode |
+|:---:|:---:|:---:|
+| ![Filter](design_handoff_verspaetungsbegleiter/screenshots/5-filter-sheet.png) | ![Leer](design_handoff_verspaetungsbegleiter/screenshots/9-leer-zustand.png) | ![Dark](design_handoff_verspaetungsbegleiter/screenshots/10-darkmode-beispiel.png) |
+
+</div>
+
+Additional screens in [`design_handoff_verspaetungsbegleiter/screenshots/`](design_handoff_verspaetungsbegleiter/screenshots/).
 
 ---
 
 ## Tech stack
 
 | Layer | Technology |
-|-------|-----------|
-| Backend | Go 1.25 — chi router, pgx/v5, go-redis, Prometheus metrics |
-| Frontend | React 19, TypeScript, Vite 6, TanStack Query, Zustand, Tailwind CSS, shadcn/ui |
-| Database | PostgreSQL 16 |
-| Cache / pub-sub | Redis 7 |
-| Reverse proxy | Nginx (production) |
-| Containerisation | Docker + Docker Compose |
-| External data | `v6.db.transport.rest` — open HAFAS API for DB realtime data |
+|-------|------------|
+| **Backend** | Go 1.25 — chi router, pgx/v5, go-redis, Prometheus metrics |
+| **Frontend** | React 19, TypeScript, Vite 6, TanStack Query, Zustand, Tailwind CSS, shadcn/ui |
+| **Database** | PostgreSQL 16 |
+| **Cache** | Redis 7 (volatile-LRU, 256 MB cap) |
+| **Reverse proxy** | Nginx (production) |
+| **Containerisation** | Docker + Docker Compose |
+| **External data** | `v6.db.transport.rest` — open HAFAS API for DB realtime data |
+| **PWA** | vite-plugin-pwa + Workbox, installable on iOS and Android |
 
 ---
 
 ## Prerequisites
 
-| Tool | Minimum version | Check |
-|------|----------------|-------|
+| Tool | Minimum version | Check command |
+|------|----------------|---------------|
 | Docker | 24 | `docker --version` |
 | Docker Compose | v2 (plugin) | `docker compose version` |
-| Go | 1.25 | `go version` (local dev only) |
-| Node | 22 | `node --version` (local dev only) |
-| npm | 10 | `npm --version` (local dev only) |
+| Go | 1.25 | `go version` _(local dev only)_ |
+| Node | 22 | `node --version` _(local dev only)_ |
+| npm | 10 | `npm --version` _(local dev only)_ |
 
-A running internet connection is required — the backend calls `v6.db.transport.rest` for train data.
+> [!NOTE]
+> An internet connection is required — the backend calls `v6.db.transport.rest` for live train data. No API key is needed.
 
 ---
 
 ## Quick start — Docker Compose
 
-The fastest path to a running stack. Everything is containerised.
+The fastest path to a running stack. Every service is containerised; nothing needs to be installed beyond Docker.
 
 ```bash
-# 1. Clone
+# 1. Clone the repository
 git clone <repo-url> verspaetungs-begleiter
 cd verspaetungs-begleiter
 
-# 2. Create your env file
+# 2. Create your env file (defaults work out of the box)
 cp .env.example .env
-# The defaults work out of the box for local dev — no edits required.
 
-# 3. Start all services
+# 3. Build and start all services
 docker compose up -d
 
-# 4. Watch logs until everything is healthy
+# 4. Follow logs until everything is healthy (takes ~20 s on first run)
 docker compose logs -f
 ```
 
-Once all health checks pass (~20 s), open:
+Once all health checks pass:
 
 | URL | Service |
 |-----|---------|
-| `http://localhost:5173` | Frontend (Vite dev server, hot-reload) |
+| `http://localhost:5173` | Frontend — Vite dev server with hot-reload |
 | `http://localhost:8080` | Backend API |
-| `http://localhost` | Full app via Nginx (mirrors production) |
+| `http://localhost` | Full app via Nginx (mirrors production routing) |
 | `http://localhost:8080/readyz` | Backend health — shows Redis / Postgres / HAFAS status |
 
 ### Useful Compose commands
 
 ```bash
-docker compose ps                  # check service health
-docker compose logs -f backend     # tail backend logs
-docker compose logs -f frontend    # tail frontend logs
-docker compose restart backend     # restart one service
-docker compose down                # stop everything
-docker compose down -v             # stop + delete Postgres data volume
-docker compose up -d --build       # rebuild images after Dockerfile change
+docker compose ps                  # check service and health status
+docker compose logs -f backend     # stream backend logs
+docker compose logs -f frontend    # stream frontend logs
+docker compose restart backend     # restart one service without stopping others
+docker compose down                # stop all services
+docker compose down -v             # stop + delete the Postgres data volume (resets DB)
+docker compose up -d --build       # rebuild images after Dockerfile or dependency change
 ```
 
 ---
 
 ## Local development — without Docker
 
-Suitable when you want IDE debugging, faster Go rebuild cycles, or to run tests directly.
+Use this when you want IDE debugging, faster Go build cycles, or to run tests without containers.
 
-### 1. Start only the infrastructure services
+### Step 1 — Start infrastructure only
 
 ```bash
 docker compose up -d postgres redis
 ```
 
-This starts Postgres (port 5432) and Redis (port 6379) without the application services.
+This starts only Postgres (`:5432`) and Redis (`:6379`), leaving the application services for local runs.
 
-### 2. Backend
+### Step 2 — Backend
 
 ```bash
 cd backend
 go mod download
 
-# Set required environment variables
 export PORT=8080
 export DATABASE_URL=postgres://vbb:vbb@localhost:5432/vbb
 export REDIS_URL=redis://localhost:6379
 export CORS_ALLOWED_ORIGINS=http://localhost:5173
 export LOG_LEVEL=DEBUG
-# All other vars have defaults — see Environment variables below
 
 go run ./cmd/server
 ```
 
-The server runs on `http://localhost:8080`. Database migrations apply automatically on startup.
+The server starts on `http://localhost:8080`. Database migrations apply automatically on every start — no manual migration step.
 
-### 3. Frontend
+### Step 3 — Frontend
 
-In a separate terminal:
+Open a second terminal:
 
 ```bash
 cd frontend
@@ -128,43 +181,43 @@ npm install
 npm run dev
 ```
 
-The dev server starts on `http://localhost:5173`. It proxies `/v1/*`, `/health`, and `/readyz` to `localhost:8080` automatically (configured in `vite.config.ts`), so no CORS issues during development.
+The dev server starts on `http://localhost:5173`. It proxies `/v1/*`, `/health`, and `/readyz` to `localhost:8080` via the Vite config, so there are no CORS issues during development.
 
 ---
 
 ## Environment variables
 
-All backend variables are read from the environment or `.env` file. The `.env` file is only loaded by Docker Compose — when running locally, export them directly or use a tool like `direnv`.
+Backend variables are read from the process environment or, when using Docker Compose, from the `.env` file. When running locally without Compose, `export` the variables you need or use a tool like [`direnv`](https://direnv.net/).
 
 ### Backend
 
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `PORT` | `8080` | HTTP listen port |
-| `DATABASE_URL` | `postgres://vbb:vbb@postgres:5432/vbb` | PostgreSQL DSN |
+| `DATABASE_URL` | `postgres://vbb:vbb@postgres:5432/vbb` | PostgreSQL connection string |
 | `REDIS_URL` | `redis://redis:6379` | Redis connection string |
-| `LOG_LEVEL` | `INFO` | `DEBUG`, `INFO`, `WARN`, `ERROR` |
-| `HAFAS_BASE_URL` | `https://v6.db.transport.rest` | HAFAS API base URL — change for self-hosted proxy |
-| `HAFAS_REQUEST_TIMEOUT` | `8s` | Per-request timeout to HAFAS |
-| `HAFAS_WORKER_POOL_SIZE` | `50` | Concurrent HAFAS goroutines |
-| `HAFAS_QUEUE_DEPTH` | `200` | Backpressure queue size; `Submit()` returns false when full |
-| `HAFAS_CB_THRESHOLD` | `5` | Consecutive HAFAS errors before circuit breaker trips |
-| `HAFAS_CB_PROBE_INTERVAL` | `30s` | How often the tripped circuit breaker probes HAFAS |
-| `MAX_ACTIVE_JOURNEYS` | `2000` | Capacity cap — new POSTs return 503 when reached |
-| `JOURNEY_TTL_HOURS` | `2` | Inactive journeys older than this are garbage-collected |
+| `LOG_LEVEL` | `INFO` | One of `DEBUG`, `INFO`, `WARN`, `ERROR` |
+| `HAFAS_BASE_URL` | `https://v6.db.transport.rest` | HAFAS API base URL — swap for a self-hosted proxy |
+| `HAFAS_REQUEST_TIMEOUT` | `8s` | Per-request deadline to HAFAS |
+| `HAFAS_WORKER_POOL_SIZE` | `50` | Max concurrent HAFAS goroutines |
+| `HAFAS_QUEUE_DEPTH` | `200` | Backpressure queue depth; `Submit()` returns false when full |
+| `HAFAS_CB_THRESHOLD` | `5` | Consecutive HAFAS failures before circuit breaker opens |
+| `HAFAS_CB_PROBE_INTERVAL` | `30s` | How often an open circuit breaker probes HAFAS to recover |
+| `MAX_ACTIVE_JOURNEYS` | `2000` | Capacity cap — `POST /v1/journeys` returns 503 when reached |
+| `JOURNEY_TTL_HOURS` | `2` | Journeys inactive longer than this are garbage-collected |
 | `RATE_LIMIT_PER_INSTALL` | `60` | Max requests/min per `X-Install-Id` UUID |
 | `RATE_LIMIT_PER_IP` | `30` | Max requests/min per IP (fallback when header absent) |
-| `DB_MAX_OPEN_CONNS` | `20` | pgx connection pool max size |
-| `DB_MIN_CONNS` | `5` | pgx connection pool min idle connections |
-| `DB_WRITE_TIMEOUT` | `5s` | Deadline applied to all Postgres write operations |
-| `MIGRATIONS_DIR` | `./migrations` | Path to SQL migration files (auto-applied on startup) |
-| `CORS_ALLOWED_ORIGINS` | _(none)_ | Comma-separated allowed origins, e.g. `http://localhost:5173` — required for local frontend dev |
+| `DB_MAX_OPEN_CONNS` | `20` | pgx connection pool maximum size |
+| `DB_MIN_CONNS` | `5` | pgx connection pool minimum idle connections |
+| `DB_WRITE_TIMEOUT` | `5s` | Deadline on all Postgres write operations |
+| `MIGRATIONS_DIR` | `./migrations` | Path to SQL migration files — auto-applied at startup |
+| `CORS_ALLOWED_ORIGINS` | _(none)_ | Comma-separated allowed origins, e.g. `http://localhost:5173`. Required when frontend and backend are on different origins. |
 
 ### Frontend
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `VITE_API_BASE_URL` | _(empty)_ | Backend base URL. Empty string means relative URLs — correct for dev proxy and production (same origin). Set to `https://api.example.com` only when frontend and backend are on different domains. |
+| `VITE_API_BASE_URL` | _(empty)_ | Backend base URL. Empty = relative URLs, which is correct for the Vite dev proxy and for same-origin production (Nginx). Set to `https://api.example.com` only when frontend and backend are on different domains. |
 
 ---
 
@@ -177,58 +230,77 @@ verspaetungs-begleiter/
 │   ├── cmd/server/main.go          # Entry point — wires all deps, starts HTTP server
 │   ├── internal/
 │   │   ├── api/
-│   │   │   ├── handlers/           # HTTP handlers (journeys, summary, legs, alternatives, trains, stations, health)
-│   │   │   └── middleware/         # Rate limiting, request-id, CORS, logging
-│   │   ├── config/                 # Env-var loading with defaults
-│   │   ├── hafas/                  # HAFAS client + response mapping
+│   │   │   ├── handlers/           # HTTP handlers (journeys, summary, legs, alternatives,
+│   │   │   │                       #   trains, stations, health)
+│   │   │   └── middleware/         # Rate limiting, request-id injection, CORS, logging
+│   │   ├── config/                 # Env-var loading with defaults (config.go)
+│   │   ├── hafas/                  # HAFAS REST client + response mapping to domain types
 │   │   ├── journey/
-│   │   │   ├── model.go            # All domain types (Journey, Leg, Summary, etc.)
-│   │   │   ├── compute.go          # Summary derivation from legs
-│   │   │   ├── store.go            # Redis + Postgres store (implements Store interface)
-│   │   │   ├── poller.go           # Per-journey goroutine polling HAFAS on a ticker
-│   │   │   └── worker_pool.go      # Bounded HAFAS concurrency pool
-│   │   ├── metrics/                # Prometheus metric registrations
-│   │   ├── migrate/                # SQL migration runner
-│   │   ├── problem/                # RFC 7807 problem+json helpers
-│   │   ├── reqid/                  # Request ID middleware
-│   │   └── routing/                # BFS routing engine + alternative scorer
+│   │   │   ├── model.go            # All domain types: Journey, Leg, Summary, Filters, …
+│   │   │   ├── compute.go          # Derives Summary (ETA, status, nextStep) from legs
+│   │   │   ├── store.go            # Redis L1 + Postgres L2 store (implements Store interface)
+│   │   │   ├── poller.go           # Per-journey goroutine — ticks every 30 s, calls HAFAS
+│   │   │   └── worker_pool.go      # Bounded concurrency pool for HAFAS fetch tasks
+│   │   ├── metrics/                # Prometheus metric definitions (registered at import)
+│   │   ├── migrate/                # SQL migration runner — runs on every server start
+│   │   ├── problem/                # RFC 7807 application/problem+json response helpers
+│   │   ├── reqid/                  # X-Request-Id middleware for log correlation
+│   │   └── routing/                # BFS routing engine + ETA-based alternative scorer
 │   ├── migrations/
-│   │   └── 001_initial.sql         # Single migration — journeys table + indexes
-│   ├── openapi.yaml                # REST API specification (OpenAPI 3.1)
-│   ├── Dockerfile                  # Multi-stage: dev / builder / production
+│   │   └── 001_initial.sql         # Sole migration — journeys table + indexes
+│   ├── openapi.yaml                # OpenAPI 3.1 specification (source of truth)
+│   ├── Dockerfile                  # Multi-stage: dev → builder → production (Alpine)
 │   └── go.mod
 │
 ├── frontend/
 │   ├── src/
 │   │   ├── api/
-│   │   │   ├── client.ts           # openapi-fetch client + X-Install-Id middleware
-│   │   │   ├── types.gen.ts        # Auto-generated TypeScript types from openapi.yaml
-│   │   │   └── validation.ts       # Zod schemas for API responses
-│   │   ├── components/             # Reusable UI components (AlternativeCard, FilterSheet, RiskBadge, …)
-│   │   ├── hooks/                  # TanStack Query hooks (useJourneyFull, useJourneyAlternatives, …)
+│   │   │   ├── client.ts           # openapi-fetch client + X-Install-Id request middleware
+│   │   │   ├── types.gen.ts        # Auto-generated TypeScript types (from openapi.yaml)
+│   │   │   └── validation.ts       # Zod schemas for runtime API response validation
+│   │   ├── components/             # UI components: AlternativeCard, FilterSheet,
+│   │   │                           #   RiskBadge, AppBar, Skeleton, ErrorBanner, …
+│   │   ├── hooks/                  # TanStack Query hooks: useJourneyFull,
+│   │   │                           #   useJourneyAlternatives, useTrainValidation, …
 │   │   ├── i18n/                   # German translations (de.json)
 │   │   ├── lib/
-│   │   │   ├── datetime.ts         # UTC → Europe/Berlin formatting
-│   │   │   ├── indexeddb.ts        # Offline journey persistence
-│   │   │   ├── installId.ts        # Persistent device ID (IDB → localStorage fallback)
-│   │   │   └── queryClient.ts      # TanStack Query client + key factories
-│   │   ├── mocks/                  # MSW mock service worker (dev/test)
-│   │   ├── router.tsx              # React Router 6.4 with loader-based cache priming
-│   │   ├── screens/                # Full-page route components (StartScreen, AlternativesScreen, CompanionScreen, …)
-│   │   ├── store/                  # Zustand stores (journeyStore, installStore, uiStore)
-│   │   └── test/                   # Shared test utilities (MSW handlers, factories, render helpers)
-│   ├── public/                     # Static assets + PWA manifest
-│   ├── Dockerfile                  # Multi-stage: dev / builder / prod (nginx)
-│   ├── vite.config.ts              # Vite + React + PWA plugin + dev proxy
+│   │   │   ├── datetime.ts         # UTC ISO → Europe/Berlin local time formatting
+│   │   │   ├── indexeddb.ts        # Offline journey persistence (IDB)
+│   │   │   ├── installId.ts        # Persistent device ID: IDB → localStorage fallback
+│   │   │   └── queryClient.ts      # TanStack Query client singleton + key factories
+│   │   ├── mocks/                  # MSW service worker for API mocking in dev/tests
+│   │   ├── router.tsx              # React Router 6.4 — loader-based TQ cache priming
+│   │   ├── screens/                # Full-page components: StartScreen, AlternativesScreen,
+│   │   │                           #   CompanionScreen, SettingsScreen, ErrorScreens
+│   │   ├── store/                  # Zustand stores: journeyStore, installStore, uiStore
+│   │   └── test/                   # Shared test helpers: MSW handlers, factories, render
+│   ├── public/                     # Static assets + PWA manifest.json + icons
+│   ├── Dockerfile                  # Multi-stage: dev → builder → prod (nginx)
+│   ├── vite.config.ts              # Vite + React plugin + PWA (Workbox) + dev proxy
 │   └── package.json
 │
-├── nginx/
-│   └── nginx.conf                  # Reverse proxy + security headers + SPA fallback
+├── tests/
+│   └── e2e/                        # Playwright end-to-end test suites
+│       ├── golden-path.spec.ts     # Happy-path journey creation → alternatives → companion
+│       ├── critical-status.spec.ts # Critical-transfer and failed-route scenarios
+│       ├── deep-link.spec.ts       # Direct URL navigation and session restore
+│       └── offline.spec.ts         # PWA offline behaviour
 │
-├── docker-compose.yml              # Production service definitions
+├── nginx/
+│   └── nginx.conf                  # Reverse proxy, security headers, SPA fallback,
+│                                   #   /metrics blocked from public access
+│
+├── docs/
+│   └── specs/                      # Architecture and product specifications
+│
+├── design_handoff_verspaetungsbegleiter/
+│   ├── screenshots/                # Reference screenshots of all screens
+│   ├── design-system.md            # Design tokens, colour palette, typography
+│   └── screens.jsx                 # Design canvas for UI reference
+│
+├── docker-compose.yml              # Production service definitions (no exposed DB ports)
 ├── docker-compose.override.yml     # Dev overrides: exposed ports, source volumes, hot-reload
-├── .env.example                    # Environment variable template
-└── .husky/                         # Git hooks
+└── .env.example                    # Environment variable template — copy to .env
 ```
 
 ---
@@ -236,30 +308,58 @@ verspaetungs-begleiter/
 ## Architecture overview
 
 ```
-Browser
-  │  HTTP (dev: :5173 via Vite proxy; prod: :80 via Nginx)
+Browser (React SPA / PWA)
+  │
+  │  dev:  http://localhost:5173  (Vite dev server + proxy)
+  │  prod: http://localhost:80    (Nginx)
+  │
   ▼
-Frontend (React SPA)
-  │  REST /v1/*   ←  openapi-fetch (typed)   →  X-Install-Id header on every request
-  ▼
-Backend (Go)
-  ├── chi router + middleware (rate limit, request-id, CORS)
-  ├── Handlers → Store (Redis L1 cache → Postgres L2)
-  └── PollerManager
-        └── per-journey goroutine (polls HAFAS every 30 s via WorkerPool)
-              ├── applies realtime trip updates to legs
-              ├── derives new Summary (ComputeSummary)
-              ├── re-runs BFS routing for alternatives
-              └── writes updated state to Redis + Postgres via UpdateState
+┌─────────────────────────────────────────────────────────┐
+│  Backend  (Go / chi)                                    │
+│                                                         │
+│  Middleware: rate-limit · request-id · CORS · logging   │
+│                                                         │
+│  Handlers                                               │
+│    POST /v1/journeys     ──► BFS Engine ──► Store       │
+│    GET  /v1/journeys/:id/summary  (ETag / 304)          │
+│    GET  /v1/journeys/:id/alternatives                   │
+│    POST /v1/journeys/:id/alternatives  (202 async)      │
+│                                                         │
+│  PollerManager                                          │
+│    └── goroutine per journey (30 s ticker)              │
+│          ├── WorkerPool ──► HAFAS API (db.transport.rest)│
+│          ├── ApplyTripUpdates  (realtime data → legs)   │
+│          ├── ComputeSummary    (ETA · status · nextStep)│
+│          ├── BFS routing       (fresh alternatives)     │
+│          └── UpdateState ──► Redis (L1) + Postgres (L2) │
+└─────────────────────────────────────────────────────────┘
+         │                         │
+    Redis 7                  PostgreSQL 16
+  (hot cache,              (persistent store,
+  ETag counters)            migration on boot)
 ```
 
-**Data flow for a new journey:**
+### Data flow — new journey
 
-1. `POST /v1/journeys` → BFS routing against HAFAS → journey stored → poller starts
-2. Frontend polls `GET /v1/journeys/{id}/summary` every 30 s with `If-None-Match` (ETag)
-3. Backend returns 304 when nothing changed, 200 + new ETag when state changes
-4. When `summary.alternativeAvailable` is true, frontend fetches `GET /v1/journeys/{id}/alternatives`
-5. User taps an alternative → `setJourney(altId)` + navigate to CompanionScreen → poller follows the new route
+| Step | What happens |
+|------|-------------|
+| 1 | `POST /v1/journeys` — BFS routing against HAFAS, journey stored, poller starts |
+| 2 | Frontend polls `GET /v1/journeys/{id}/summary` every 30 s with `If-None-Match` |
+| 3 | Backend returns **304** (unchanged) or **200** + new ETag when state changes |
+| 4 | When `summary.alternativeAvailable = true`, frontend fetches alternatives list |
+| 5 | User taps an alternative → navigate to CompanionScreen → poller follows new route |
+| 6 | User taps "Reise abschließen" → `DELETE /v1/journeys/{id}` → poller stopped |
+
+### Caching strategy
+
+| Layer | TTL | What is cached |
+|-------|-----|----------------|
+| Redis | journey TTL (default 2 h) | Full journey JSON (fast ETag polling) |
+| Redis | 5 min | Station search results |
+| Browser (TanStack Query) | 30 s | Full journey (`GET /journeys/{id}`) |
+| Browser (TanStack Query) | 0 s (always refetch) | Alternatives list |
+| Browser (Nginx) | 1 year | Hashed static assets (JS/CSS/fonts) |
+| Browser (Nginx) | no-cache | `index.html`, API responses |
 
 ---
 
@@ -270,18 +370,18 @@ Backend (Go)
 ```bash
 cd frontend
 
-npm run dev            # Start Vite dev server on :5173 with HMR
-npm run build          # TypeScript compile + Vite production build → dist/
-npm run typecheck      # tsc --noEmit (no emit, type errors only)
+npm run dev            # Vite dev server on :5173 with HMR and API proxy
+npm run build          # TypeScript compile + production Vite build → dist/
+npm run preview        # Preview the production build locally
+npm run typecheck      # tsc --noEmit — type errors only, no output files
 npm run lint           # ESLint + Prettier check (fails on any warning)
-npm run lint:fix       # Auto-fix ESLint and Prettier violations
-npm run test           # Vitest unit tests (single run)
-npm run test:watch     # Vitest in watch mode
-npm run test:coverage  # Coverage report to coverage/
-npm run test:e2e       # Playwright end-to-end tests
+npm run lint:fix       # Auto-fix all ESLint and Prettier violations
+npm run test           # Vitest unit tests — single run
+npm run test:watch     # Vitest in interactive watch mode
+npm run test:coverage  # Vitest with coverage report → coverage/
 npm run codegen        # Regenerate src/api/types.gen.ts from ../backend/openapi.yaml
-npm run codegen:check  # Verify types.gen.ts is up to date (CI use)
-npm run size-limit     # Check bundle size against limits
+npm run codegen:check  # Verify types.gen.ts matches openapi.yaml (use in CI)
+npm run size-limit     # Check production bundle size against configured limits
 ```
 
 ### Backend commands
@@ -289,33 +389,13 @@ npm run size-limit     # Check bundle size against limits
 ```bash
 cd backend
 
-go run ./cmd/server            # Start server (applies migrations on boot)
-go test ./...                  # Run all tests
-go test ./internal/journey/... # Run tests in one package
-go build -o /tmp/server ./cmd/server  # Compile binary
-go mod tidy                    # Sync go.sum + remove unused deps
-go vet ./...                   # Static analysis
-```
-
-### Running tests
-
-**Backend:**
-```bash
-cd backend && go test ./...
-```
-Tests use in-memory mocks for the store and routing engine — no Postgres or Redis required.
-
-**Frontend unit tests:**
-```bash
-cd frontend && npm run test
-```
-Uses Vitest + MSW for API mocking. All 86 tests run in under 4 seconds.
-
-**Frontend E2E:**
-```bash
-# Requires the full stack running
-docker compose up -d
-cd frontend && npm run test:e2e
+go run ./cmd/server             # Start server (migrations apply automatically)
+go test ./...                   # Run all tests
+go test -v ./internal/journey/. # Verbose tests for one package
+go test -run TestName ./...     # Run a specific test by name
+go build -o /tmp/server ./cmd/server  # Compile a binary
+go mod tidy                     # Sync go.sum, remove unused dependencies
+go vet ./...                    # Static analysis
 ```
 
 ### Regenerating API types
@@ -326,168 +406,295 @@ Whenever `backend/openapi.yaml` changes, regenerate the TypeScript types:
 cd frontend && npm run codegen
 ```
 
-This runs `openapi-typescript` against `../backend/openapi.yaml` and overwrites `src/api/types.gen.ts`. Commit both files together.
+This overwrites `src/api/types.gen.ts`. Commit `openapi.yaml` and `types.gen.ts` together in the same commit.
 
-### Git hooks
+> [!WARNING]
+> Never edit `src/api/types.gen.ts` by hand — it is fully overwritten by `codegen`.
 
-A pre-commit hook (Husky + lint-staged) runs automatically on `git commit`:
+### Pre-commit hooks
 
-- Staged `.ts`/`.tsx` files → ESLint + Prettier
-- Only changed files are linted, so it's fast
+Husky runs `lint-staged` on every `git commit`. Staged `.ts`/`.tsx` files are passed through ESLint and Prettier automatically. Only changed files are processed, so it runs in under a second.
 
-If you skip hooks for a one-off: `git commit --no-verify` (use sparingly).
+```bash
+# Skip hooks for a one-off (use sparingly)
+git commit --no-verify
+```
+
+---
+
+## Testing
+
+### Backend unit tests
+
+```bash
+cd backend && go test ./...
+```
+
+No external services required. The store, routing engine, and HAFAS client are all mocked with in-memory fakes.
+
+### Frontend unit tests
+
+```bash
+cd frontend && npm run test
+```
+
+Uses **Vitest** + **MSW** (Mock Service Worker). MSW intercepts all HTTP calls at the network layer — no backend needed. All 86 tests run in under 4 seconds.
+
+### End-to-end tests
+
+E2E tests live in `tests/e2e/` and use **Playwright**. They require the full stack running:
+
+```bash
+# Start the stack
+docker compose up -d
+
+# Run the E2E suite
+cd tests/e2e && npx playwright test
+
+# Or from the frontend directory (same suite, different entry)
+cd frontend && npm run test:e2e
+```
+
+The suite covers: golden-path journey creation → alternatives → companion, critical-transfer scenarios, deep-link navigation, and PWA offline behaviour.
 
 ---
 
 ## Database
 
-PostgreSQL 16. A single migration file creates the `journeys` table:
+PostgreSQL 16 with a single migration file:
 
 ```
 backend/migrations/001_initial.sql
 ```
 
-Migrations run automatically when the backend starts (via the embedded runner in `internal/migrate`). There is no separate migration step.
+Migrations run automatically on every server start via the embedded runner in `internal/migrate`. There is no separate migration step and no migration tool to install.
 
-**Schema overview:**
+### Schema
 
 ```sql
-journeys (
-  id               TEXT PRIMARY KEY,      -- jrn_<ulid-style> identifier
-  install_id       TEXT,                  -- device UUID for rate limiting / ownership
-  train_number     TEXT,
-  destination_id   TEXT,                  -- HAFAS station ID
-  destination_name TEXT,
-  filters_json     JSONB,                 -- routing constraints (dbOnly, safetyLevel, …)
-  summary_json     JSONB,                 -- latest computed summary (ETA, status, nextStep)
-  legs_json        JSONB,                 -- current route legs with realtime data
-  stops_json       JSONB,                 -- all stops across all legs
-  etag_epoch       BIGINT,                -- increments when journey is loaded into Redis
-  etag_counter     INTEGER,               -- increments on every state change
-  created_at       TIMESTAMPTZ,
-  terminated_at    TIMESTAMPTZ,           -- NULL = still active
+CREATE TABLE journeys (
+  id               TEXT PRIMARY KEY,    -- jrn_<ulid-style>, e.g. "jrn_01j2k3m4n5p6q7r8"
+  install_id       TEXT NOT NULL,       -- device UUID for rate limiting and ownership
+  train_number     TEXT NOT NULL,
+  destination_id   TEXT NOT NULL,       -- HAFAS station ID, e.g. "8000105"
+  destination_name TEXT NOT NULL,
+  filters_json     JSONB NOT NULL,      -- routing constraints: dbOnly, safetyLevel, maxTransfers
+  summary_json     JSONB NOT NULL,      -- latest summary: ETA, status, nextStep, dataConfidence
+  legs_json        JSONB NOT NULL,      -- current route legs with realtime timestamps
+  stops_json       JSONB NOT NULL,      -- all stops across all legs
+  etag_epoch       BIGINT  NOT NULL,    -- increments when journey is loaded into Redis
+  etag_counter     INTEGER NOT NULL,    -- increments on every state change (ETag key)
+  created_at       TIMESTAMPTZ NOT NULL,
+  terminated_at    TIMESTAMPTZ,         -- NULL = active, set = terminated
   last_polled_at   TIMESTAMPTZ
-)
+);
 ```
 
-To connect to the database directly:
+Indexes: `journeys_active_idx` (partial — `WHERE terminated_at IS NULL`) and `journeys_install_id_idx`.
+
+### Connecting directly
 
 ```bash
 # Via Docker
 docker compose exec postgres psql -U vbb vbb
 
-# Via local psql (if ports exposed)
+# Via local psql (when override ports are exposed)
 psql postgres://vbb:vbb@localhost:5432/vbb
 ```
+
+### Adding a migration
+
+Create a new numbered SQL file in `backend/migrations/`:
+
+```bash
+touch backend/migrations/002_add_column.sql
+```
+
+The runner applies all unapplied files in alphabetical order on the next server start.
 
 ---
 
 ## API reference
 
-The full OpenAPI 3.1 specification lives at `backend/openapi.yaml`. Key endpoints:
+The full **OpenAPI 3.1** specification lives at [`backend/openapi.yaml`](backend/openapi.yaml).
+
+To explore it interactively:
+
+```bash
+# Scalar (recommended — modern UI)
+npx @scalar/cli serve backend/openapi.yaml
+
+# Or open with Swagger UI / Redoc pointing at the file
+```
+
+### Endpoint summary
 
 | Method | Path | Description |
 |--------|------|-------------|
-| `POST` | `/v1/journeys` | Create journey, start monitoring, compute initial alternatives |
-| `GET` | `/v1/journeys/{id}` | Full journey — summary + legs (initial load only, not for polling) |
-| `DELETE` | `/v1/journeys/{id}` | Terminate monitoring |
+| `POST` | `/v1/journeys` | Create journey, start poller, compute initial alternatives |
+| `GET` | `/v1/journeys/{id}` | Full journey: summary + legs (initial load only — not for polling) |
+| `DELETE` | `/v1/journeys/{id}` | Terminate monitoring, stop poller |
 | `GET` | `/v1/journeys/{id}/summary` | Compact status — poll every 30 s with `If-None-Match` ETag |
 | `GET` | `/v1/journeys/{id}/legs` | Leg and stop data for timeline rendering |
 | `GET` | `/v1/journeys/{id}/alternatives` | Ranked alternative routes |
-| `POST` | `/v1/journeys/{id}/alternatives` | Trigger fresh alternatives recomputation (202 async) |
-| `GET` | `/v1/trains/{number}` | Validate train number + return metadata |
+| `POST` | `/v1/journeys/{id}/alternatives` | Trigger fresh recomputation — returns 202 immediately |
+| `GET` | `/v1/trains/{number}` | Validate train number, return origin/destination/status |
 | `GET` | `/v1/stations?q=` | Station name autocomplete (Redis-cached 5 min) |
-| `GET` | `/health` | Liveness probe |
-| `GET` | `/readyz` | Readiness probe — checks Redis, Postgres, HAFAS |
+| `GET` | `/health` | Liveness probe — 200 while process is alive |
+| `GET` | `/readyz` | Readiness probe — 200/503 with Redis/Postgres/HAFAS status |
 
-All timestamps are **UTC ISO 8601**. Errors use **RFC 7807** `application/problem+json` with `urn:verspbegl:error:<slug>` type URNs.
+### Conventions
 
-**Authentication:** None. Abuse-shaped via `X-Install-Id` UUID header (generated on first app launch, persisted in IndexedDB) and IP rate limiting.
+- All timestamps are **UTC ISO 8601** — the frontend handles local timezone conversion.
+- Errors use **RFC 7807** `application/problem+json` with stable `urn:verspbegl:error:<slug>` type URNs.
+- **No authentication.** Abuse-shaped via `X-Install-Id` UUID header (generated on first app launch, stored in IndexedDB with localStorage backup) and IP rate limiting.
+- The `Idempotency-Key` header on `POST /v1/journeys` provides a 10-minute replay window.
 
-To explore the API interactively, point [Scalar](https://github.com/scalar/scalar) or [Swagger UI](https://github.com/swagger-api/swagger-ui) at `backend/openapi.yaml`.
+---
+
+## Metrics
+
+The backend exposes Prometheus metrics at `GET /metrics` (Prometheus text format).
+
+```bash
+curl http://localhost:8080/metrics
+```
+
+> [!NOTE]
+> `/metrics` is **blocked by Nginx** in production (`deny all`). Access it directly on port 8080 or via an internal monitoring network.
+
+Scrape configuration for Prometheus:
+
+```yaml
+scrape_configs:
+  - job_name: verspaetungsbegleiter
+    static_configs:
+      - targets: ["backend:8080"]
+```
+
+---
+
+## PWA installation
+
+The app is a fully installable Progressive Web App. The service worker pre-caches all static assets for offline rendering of previously visited screens.
+
+**Install on iOS (Safari):**
+1. Open `http://localhost` (or your production URL) in Safari.
+2. Tap the Share button → "Add to Home Screen".
+3. Tap "Add".
+
+**Install on Android (Chrome):**
+1. Open the app in Chrome.
+2. Tap the "Install app" prompt that appears in the address bar, or open the browser menu → "Add to Home Screen".
+
+**Install on desktop (Chrome/Edge):**
+1. Click the install icon in the address bar (right side).
+
+**Service worker behaviour:**
+- Static assets (JS/CSS/fonts/icons): pre-cached on install, served offline.
+- `/v1/journeys/*/summary` and `/v1/stations`: network-only — never served from cache (realtime data must be fresh).
+- The `OfflineStateLoader` component reads the last-known journey from IndexedDB and displays it when the network is unavailable.
 
 ---
 
 ## Production deployment
 
-The production `docker-compose.yml` (without the override file) runs a fully containerised stack:
+The production `docker-compose.yml` (without the override file) runs the hardened stack with no exposed database ports and resource limits applied:
 
 ```bash
-# Production — no source volumes, no exposed database ports
+# Production — no source mounts, no open DB ports
 docker compose -f docker-compose.yml up -d
 ```
 
 **What runs:**
-- `nginx` — serves the built frontend SPA on port 80, proxies `/v1/*` to backend, blocks `/metrics`
-- `backend` — statically compiled Go binary, migrations applied on start, 512 MB RAM limit
-- `postgres` — data persisted in named `postgres_data` volume
-- `redis` — 256 MB volatile-LRU cache
+| Service | Details |
+|---------|---------|
+| `nginx` | Port 80 — serves the built frontend SPA, proxies `/v1/*` to backend, blocks `/metrics` |
+| `backend` | Statically compiled Go binary, 512 MB RAM / 1 CPU limit, migrations on start |
+| `postgres` | Data in `postgres_data` named volume — survives container restarts |
+| `redis` | 256 MB volatile-LRU cap, data in memory only |
 
-**Before deploying to a real host:**
+### Pre-deployment checklist
 
-1. Change Postgres credentials in `docker-compose.yml` and `DATABASE_URL`.
-2. Set `CORS_ALLOWED_ORIGINS` to your production frontend domain (or leave empty if same-origin via Nginx).
-3. Put TLS termination in front of Nginx (your load balancer or Certbot). The app does not handle TLS itself.
-4. Set `LOG_LEVEL=WARN` in production to reduce noise.
+1. **Change Postgres credentials** — update `POSTGRES_PASSWORD` and `DATABASE_URL` in `docker-compose.yml`. Never use `vbb/vbb` in production.
+2. **Set `CORS_ALLOWED_ORIGINS`** — or leave empty if frontend and backend are served from the same domain via Nginx.
+3. **TLS** — the app does not handle TLS. Put Nginx behind a TLS-terminating load balancer or use Certbot.
+4. **`LOG_LEVEL=WARN`** — reduces log volume in production.
+5. **Monitor `/readyz`** — configure your load balancer to route traffic only to healthy instances.
 
-**Health check endpoints for orchestrators:**
+### Health check endpoints
 
 ```
-GET /health  → 200 {"status":"ok"}             # liveness
-GET /readyz  → 200/503 {"status":"ok|degraded"} # readiness
+GET /health  → 200 {"status":"ok"}
+GET /readyz  → 200 {"status":"ok","checks":{"redis":"ok","postgres":"ok","hafas":"ok"}}
+             → 503 when Redis or Postgres is unreachable
 ```
 
 ---
 
 ## Troubleshooting
 
-### `docker compose up` fails immediately
+### `docker compose up` fails on port conflicts
 
-Check that no other process uses ports 80, 5173, or 8080:
+Check for processes already using the required ports:
 
 ```bash
-lsof -i :80 -i :5173 -i :8080
+lsof -i :80 -i :5173 -i :8080 -i :5432 -i :6379
 ```
 
-### Backend exits with "connection refused" to Postgres/Redis
+Edit `docker-compose.override.yml` to remap ports if needed.
 
-The Compose health checks gate the backend start — if Postgres or Redis take longer than expected to initialise, increase `start_period` in `docker-compose.yml`.
+### Backend exits with "connection refused" to Postgres or Redis
 
-### Frontend shows a blank screen / network errors
+The Compose health checks prevent the backend from starting until both dependencies are ready. If startup consistently times out, increase `start_period` in `docker-compose.yml` (backend service → `healthcheck`).
 
-1. Check the backend is healthy: `curl http://localhost:8080/health`
+### Frontend shows a blank screen or API errors
+
+1. Verify the backend is healthy: `curl http://localhost:8080/health`
 2. Check CORS: `CORS_ALLOWED_ORIGINS` must include the frontend origin when running without Nginx.
-3. In dev, the Vite proxy handles `/v1/*` — make sure you're opening `http://localhost:5173`, not port 8080 directly.
+3. In dev, the Vite proxy handles `/v1/*` — open `http://localhost:5173`, **not** `:8080` directly.
+4. Open browser devtools → Network tab and look for failed requests to `/v1/`.
 
-### HAFAS returns no trains
+### HAFAS returns no trains or empty results
 
-`v6.db.transport.rest` is a public community API — it can be slow or rate-limited. Check:
+`v6.db.transport.rest` is a public community API — it can be slow, temporarily rate-limited, or unavailable. Test it directly:
 
 ```bash
-curl "https://v6.db.transport.rest/stops/8000105/departures?duration=30" | head -c 500
+curl "https://v6.db.transport.rest/trips?trainNumber=ICE123&nationalExpress=true" | head -c 500
 ```
 
-If it returns an error, wait and try again. The backend circuit breaker will automatically recover.
+The backend circuit breaker will automatically recover once HAFAS responds successfully. You can monitor its state via `/readyz`.
 
-### TypeScript types are out of sync with the API
+### TypeScript types are out of sync with `openapi.yaml`
 
 ```bash
-cd frontend && npm run codegen:check
-# If it fails:
+cd frontend
+
+# Check if types need regenerating
+npm run codegen:check
+
+# Regenerate and commit
 npm run codegen
-git add src/api/types.gen.ts
+git add src/api/types.gen.ts backend/openapi.yaml
+git commit -m "chore: sync generated API types"
 ```
 
-### Running tests in CI without a database
-
-Backend tests use mocked stores — no Postgres or Redis needed:
+### Tests fail on "Cannot find module" or import errors
 
 ```bash
-cd backend && go test ./...
+# Backend
+cd backend && go mod tidy
+
+# Frontend
+cd frontend && npm install
 ```
 
-Frontend tests use MSW to intercept all HTTP calls — no backend needed:
+### Resetting all local data
 
 ```bash
-cd frontend && npm test
+# Stop services and delete the Postgres volume
+docker compose down -v
+
+# Restart fresh
+docker compose up -d
 ```
