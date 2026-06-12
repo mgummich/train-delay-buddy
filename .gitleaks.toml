@@ -1,0 +1,10 @@
+title = "gitleaks configuration"
+
+# Allowlist Docker image version pins that trigger the generic-api-key rule.
+# Pattern: namespace/image:semver[-suffix]  e.g. valkey/valkey:9.1.0-alpine3.23
+[[allowlists]]
+description = "Docker image version pins are not secrets"
+regexTarget = "line"
+regexes = [
+  '''\w[\w.-]*/\w[\w.-]+:\d+\.\d+[\w.\-]*''',
+]
