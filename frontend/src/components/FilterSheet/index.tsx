@@ -1,5 +1,5 @@
 import { useTranslation } from 'react-i18next'
-import { Sheet, SheetContent } from '@/components/ui/sheet'
+import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet'
 import { Switch } from '@/components/ui/switch'
 import { useInstallStore } from '@/store/installStore'
 
@@ -31,9 +31,9 @@ export function FilterSheet({ open, onClose, resultCount }: FilterSheetProps) {
 
         {/* Header */}
         <div className="flex items-center justify-between px-[18px] pt-3 pb-0">
-          <h2 className="font-display font-semibold text-[20px] text-text-primary">
+          <SheetTitle className="font-display font-semibold text-[20px] text-text-primary">
             {t('alternatives.filterBtn')}
-          </h2>
+          </SheetTitle>
           <button className="text-accent text-[14px]">
             {t('alternatives.filterReset')}
           </button>
@@ -54,7 +54,6 @@ export function FilterSheet({ open, onClose, resultCount }: FilterSheetProps) {
             <Switch
               checked={true}
               aria-label="Nur frühere Ankünfte"
-              aria-checked="true"
               disabled
               className="opacity-100"
             />
