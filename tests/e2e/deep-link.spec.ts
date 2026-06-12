@@ -39,15 +39,16 @@ test.describe("URL routing and deep-links", () => {
 
   test("browser back from companion to alternatives works", async ({
     mocks,
+    alternativesPage,
     page,
   }) => {
-    await mocks.install({ journeyId: JOURNEY_ID, alternatives: [] });
+    await mocks.install({ journeyId: JOURNEY_ID });
 
     await page.goto(`/journey/${JOURNEY_ID}/alternatives`);
     await page.goto(`/journey/${JOURNEY_ID}/companion`);
     await expect(page).toHaveURL(/companion/);
 
     await page.goBack();
-    await expect(page).toHaveURL(/alternatives/);
+    await alternativesPage.expectVisible();
   });
 });

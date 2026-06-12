@@ -20,9 +20,7 @@ test.describe("critical status", () => {
     await companionPage.goto(JOURNEY_ID);
 
     await expect(companionPage.criticalWarning).toBeVisible({ timeout: 5_000 });
-    await expect(
-      companionPage.page.getByText(/Umstieg kritisch|kritisch/i),
-    ).toBeVisible();
+    await expect(companionPage.criticalTransferText).toBeVisible();
     await expect(companionPage.seeAlternativesButton).toBeVisible();
   });
 
@@ -50,9 +48,7 @@ test.describe("critical status", () => {
     });
     await companionPage.goto(JOURNEY_ID);
 
-    await expect(
-      companionPage.page.getByText(/Route nicht mehr nutzbar|nicht mehr nutzbar/i),
-    ).toBeVisible({ timeout: 5_000 });
+    await expect(companionPage.routeNotUsableText).toBeVisible({ timeout: 5_000 });
     await expect(companionPage.findNewConnectionButton).toBeVisible();
   });
 
@@ -66,9 +62,6 @@ test.describe("critical status", () => {
     });
     await companionPage.goto(JOURNEY_ID);
 
-    const liveRegion = companionPage.page
-      .locator('[role="alert"], [aria-live="assertive"]')
-      .first();
-    await expect(liveRegion).toBeAttached();
+    await expect(companionPage.liveRegion).toBeAttached();
   });
 });

@@ -17,6 +17,7 @@ test.describe("offline degradation", () => {
 
     await context.setOffline(true);
 
+    // 35s: poll cycle is ~30s; allow one full cycle before asserting stale state
     await expect(companionPage.staleIndicator).toBeVisible({ timeout: 35_000 });
     await expect(companionPage.eta).toBeVisible();
     await expect(companionPage.eta).toHaveText(etaBefore!);
@@ -42,6 +43,7 @@ test.describe("offline degradation", () => {
     await expect(companionPage.eta).toBeVisible();
 
     await context.setOffline(true);
+    // 35s: poll cycle is ~30s; allow one full cycle before asserting stale state
     await expect(companionPage.staleIndicator).toBeVisible({ timeout: 35_000 });
 
     await context.setOffline(false);
@@ -59,10 +61,10 @@ test.describe("offline degradation", () => {
 
     await companionPage.goto(JOURNEY_ID);
 
-    const hasErrorUI = await companionPage.companionError
-      .isVisible()
-      .catch(() => false);
-    const hasStartScreen = page.url().endsWith("/");
-    expect(hasErrorUI || hasStartScreen).toBe(true);
+    try {
+      await expect(companionPage.companionError).toBeVisible({ timeout: 5_000 });
+    } catch {
+      await expect(page).toHaveURL("/");
+    }
   });
 });

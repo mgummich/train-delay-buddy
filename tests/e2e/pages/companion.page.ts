@@ -6,6 +6,9 @@ export class CompanionPage {
   readonly timeline: Locator;
   readonly eta: Locator;
   readonly criticalWarning: Locator;
+  readonly criticalTransferText: Locator;
+  readonly routeNotUsableText: Locator;
+  readonly liveRegion: Locator;
   readonly staleIndicator: Locator;
   readonly companionError: Locator;
   readonly terminateButton: Locator;
@@ -18,6 +21,9 @@ export class CompanionPage {
     this.timeline = page.getByTestId("timeline");
     this.eta = page.getByTestId("eta");
     this.criticalWarning = page.getByTestId("critical-warning");
+    this.criticalTransferText = page.getByText(/Umstieg kritisch|kritisch/i);
+    this.routeNotUsableText = page.getByText(/Route nicht mehr nutzbar|nicht mehr nutzbar/i);
+    this.liveRegion = this.screen.locator('[role="alert"], [aria-live="assertive"]');
     this.staleIndicator = page.getByTestId("stale-indicator");
     this.companionError = page.getByTestId("companion-error");
     this.terminateButton = page.getByRole("button", { name: /Reise abschließen/i });

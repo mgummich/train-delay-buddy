@@ -111,21 +111,7 @@ export class MockServer {
     await this.page.route("**/v1/trains/**", (r) => r.fulfill({ json: makeTrain() }));
     await this.page.route("**/v1/stations**", (r) => r.fulfill({ json: makeStations() }));
 
-    await this.page.route("**/v1/journeys", (route) => {
-      if (route.request().method() === "POST") {
-        route.fulfill({
-          status: 201,
-          json: makeJourneyCreateResponse({
-            journeyId,
-            summary,
-            plausibility: opts.plausibility,
-          }),
-          headers: { Location: `/v1/journeys/${journeyId}` },
-        });
-        return;
-      }
-      route.continue();
-    });
+    await this.page.route("**/v1/journeys", this.routeJourneyCreate(journeyId, opts));
 
     await this.page.route(`**/v1/journeys/${journeyId}`, (route) => {
       if (route.request().method() === "DELETE") {
@@ -159,20 +145,26 @@ export class MockServer {
 
   /** Replace POST /v1/journeys with a low-confidence plausibility response. */
   async overrideJourneyCreatePlausibilityLow(journeyId: string): Promise<void> {
-    await this.page.route("**/v1/journeys", (route) => {
-      if (route.request().method() === "POST") {
-        route.fulfill({
-          status: 201,
-          json: makeJourneyCreateResponse({
-            journeyId,
-            plausibility: { onTrainConfidence: "low", reason: "Train has passed destination" },
-          }),
-          headers: { Location: `/v1/journeys/${journeyId}` },
-        });
-        return;
-      }
-      route.continue();
-    });
+    await this.page.route(
+      "**/v1/journeys",
+      this.routeJourneyCreate(journeyId, {
+        plausibility: { onTrainConfidence: "low", reason: "Train has passed destination" },
+      }),
+    );
+  }
+
+  private routeJourneyCreate(
+    journeyId: string,
+    opts: Pick<MockOptions, "summary" | "plausibility"> = {},
+  ) {
+    return (route: Route) => {
+      if (route.request().method() !== "POST") { route.continue(); return; }
+      route.fulfill({
+        status: 201,
+        json: makeJourneyCreateResponse({ journeyId, summary: opts.summary, plausibility: opts.plausibility }),
+        headers: { Location: `/v1/journeys/${journeyId}` },
+      });
+    };
   }
 
   /** Force all journey lookups to 404. */

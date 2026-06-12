@@ -1,5 +1,5 @@
 import { test, expect } from "./fixtures/test";
-import { DEFAULT_JOURNEY_ID, makeSummary } from "./fixtures/mocks";
+import { DEFAULT_JOURNEY_ID } from "./fixtures/mocks";
 
 test.describe("golden path — train → alternatives → companion", () => {
   test.beforeEach(async ({ mocks }) => {
@@ -80,10 +80,4 @@ test.describe("golden path — train → alternatives → companion", () => {
     await expect(page).toHaveURL("/");
   });
 
-  test("summary factory override compiles and runs", async ({ mocks }) => {
-    await mocks.overrideSummary(
-      DEFAULT_JOURNEY_ID,
-      makeSummary({ timeGainVsOriginalMinutes: 42 }),
-    );
-  });
 });
