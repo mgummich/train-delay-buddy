@@ -58,7 +58,13 @@ export function createRouter(qc: QueryClient) {
       ),
       errorElement: <CompanionError />,
       loader: async ({ params }) => {
-        return { journeyId: params.journeyId }
+        const id = params.journeyId!
+        try {
+          await qc.ensureQueryData(journeyFullQuery(id))
+        } catch {
+          throw new Response('Journey not found', { status: 404 })
+        }
+        return null
       },
     },
     {
