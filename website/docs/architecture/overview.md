@@ -6,43 +6,35 @@ sidebar_position: 1
 
 # Architecture overview
 
-```
-Browser (React 19 SPA / installable PWA)
-  │
-  │  dev:  http://localhost:5173 (Vite dev server + proxy)
-  │  prod: http://localhost:80   (Nginx reverse proxy)
-  │
-  ▼
-┌─────────────────────────────────────────────────────────────────┐
-│  Backend (Go 1.25 + chi)                                        │
-│                                                                 │
-│  Middleware chain                                               │
-│   ├─ X-Request-Id injection (UUID per request)                  │
-│   ├─ CORS (configurable allow-list)                             │
-│   ├─ Structured access logging (slog → JSON)                    │
-│   └─ Rate limiting (per X-Install-Id + per IP)                  │
-│                                                                 │
-│  HTTP handlers (chi router, OpenAPI 3.1 source of truth)        │
-│   POST   /v1/journeys                ── BFS engine ─► Store     │
-│   GET    /v1/journeys/{id}/summary   (ETag / 304 / 200)         │
-│   GET    /v1/journeys/{id}/legs      (timeline + stops)         │
-│   GET    /v1/journeys/{id}/alternatives                         │
-│   POST   /v1/journeys/{id}/alternatives  (202 async refresh)    │
-│   DELETE /v1/journeys/{id}           (stop poller)              │
-│                                                                 │
-│  PollerManager                                                  │
-│   └─ goroutine per journey (30 s ticker)                        │
-│        ├─ WorkerPool ── HAFAS API (db.transport.rest)           │
-│        ├─ ApplyTripUpdates  (realtime data → leg timestamps)    │
-│        ├─ ComputeSummary    (ETA · status · nextStep)           │
-│        ├─ BFS routing       (fresh alternatives, ETA-scored)    │
-│        └─ Persist           (Valkey L1 + Postgres L2)            │
-└─────────────────────────────────────────────────────────────────┘
-         │                                       │
-    Valkey 8                             PostgreSQL 16
-  (hot cache, ETag counters,           (durable journeys table,
-   station autocomplete,                migrations on boot)
-   short TTL)
+```mermaid
+graph TD
+  Browser["Browser\nReact 19 SPA / PWA"]
+
+  subgraph Proxy["Reverse proxy"]
+    Nginx["Nginx\nprod :80  ·  dev: Vite :5173"]
+  end
+
+  subgraph BE["Backend — Go + chi"]
+    MW["Middleware chain\nRequest-Id · CORS · Logging · Rate-limit"]
+    Handlers["HTTP handlers\nPOST /v1/journeys\nGET  /v1/journeys/{id}/summary\nGET  /v1/journeys/{id}/legs\nGET  /v1/journeys/{id}/alternatives\nDELETE /v1/journeys/{id}"]
+    Poller["PollerManager\ngoroutine / journey · 30 s tick"]
+    Pool["WorkerPool\n50 goroutines · 200-deep queue"]
+  end
+
+  HAFAS["HAFAS API\ndb.transport.rest"]
+  Valkey["Valkey L1\nhot cache · ETag counters\nstation search · idempotency"]
+  Postgres["PostgreSQL L2\ndurable store\nmigrations on boot"]
+
+  Browser -->|HTTP| Nginx
+  Nginx   -->|proxy /v1/*| MW
+  MW      --> Handlers
+  Handlers --> Poller
+  Poller  --> Pool
+  Pool    -->|tripUpdate| HAFAS
+  Poller  -->|read/write| Valkey
+  Poller  -->|write| Postgres
+  Handlers -->|read| Valkey
+  Valkey  -->|miss fallback| Postgres
 ```
 
 ## Layered design

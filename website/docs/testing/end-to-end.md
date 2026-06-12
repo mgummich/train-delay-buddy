@@ -113,17 +113,20 @@ These are stable across visual redesigns and double as accessibility assertions.
 
 ```yaml
 e2e:
-  needs: [frontend]        # waits for unit tests to pass first
+  needs: [frontend]            # waits for frontend unit tests first
+  continue-on-error: true      # non-blocking: failures reported but don't block merges
+  timeout-minutes: 20
   steps:
-    - build frontend        # npm run build
-    - install e2e deps      # npm install in tests/e2e
-    - install Playwright    # npx playwright install --with-deps chromium (Chromium only on CI)
-    - run suite             # npx playwright test
-    - upload playwright-report/  # artifact on failure, 7-day retention
-    - upload test-results/       # traces on failure
+    - build frontend            # npm run build
+    - install e2e deps          # npm install --no-audit --no-fund
+    - typecheck e2e             # npm run typecheck
+    - install Playwright        # npx playwright install --with-deps chromium (Chromium only on CI)
+    - run suite                 # npx playwright test
+    - upload playwright-report/ # artifact on failure, 7-day retention
+    - upload test-results/      # traces on failure
 ```
 
-On CI, `playwright.config.ts` drops Mobile Safari (heavy webkit deps) and runs 2 workers with 2 retries. Failures upload the HTML report and trace zips as GitHub Actions artifacts.
+`continue-on-error: true` means failures surface in the summary but don't block merges. On CI, `playwright.config.ts` drops Mobile Safari (heavy webkit deps) and runs 2 workers with 2 retries. Failures upload the HTML report and trace zips as GitHub Actions artifacts.
 
 ## Debugging a flake
 
@@ -136,8 +139,8 @@ On CI, `playwright.config.ts` drops Mobile Safari (heavy webkit deps) and runs 2
 
 `playwright.config.ts` runs each test across:
 
-- **Chromium** (Desktop Chrome) — default.
-- **Mobile Safari** (iPhone 14 emulation) — covers the PWA install path.
-- **Firefox** — sanity check, no full-feature coverage required.
+- **Mobile Chrome** (Pixel 5 emulation) — primary target; matches the mobile-first PWA design.
+- **Desktop Chrome** — always runs.
+- **Mobile Safari** (iPhone 13 emulation) — **local only**; webkit deps are too heavy for CI.
 
 Tests should be browser-agnostic. If you need a browser-specific block, gate it with `test.skip(browserName === ..., "reason")`.

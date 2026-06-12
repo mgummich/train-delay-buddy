@@ -17,13 +17,13 @@ Both run on `ubuntu-latest` only — no matrix.
 
 ## `ci.yml` — Code verification
 
-Three jobs run in parallel where possible:
+Four jobs run; `backend` and `frontend` run in parallel, `docker` and `e2e` wait on them:
 
 ### Job: `backend`
 
 ```yaml
-- actions/checkout@v4
-- actions/setup-go@v5 (with cache, go.mod-based)
+- actions/checkout@v6
+- actions/setup-go@v6 (with cache, go.mod-based)
 - go mod verify
 - go vet ./...
 - go build ./...
@@ -35,8 +35,8 @@ The `-race` detector adds ~30 % runtime but catches concurrency bugs that would 
 ### Job: `frontend`
 
 ```yaml
-- actions/checkout@v4
-- actions/setup-node@v4 (node 22, npm cache)
+- actions/checkout@v6
+- actions/setup-node@v6 (node 22, npm cache)
 - npm ci
 - npm run codegen:check    # fails if types.gen.ts is out of date
 - npm run lint
@@ -46,14 +46,58 @@ The `-race` detector adds ~30 % runtime but catches concurrency bugs that would 
 
 The `codegen:check` step is critical — it guarantees the committed TypeScript types match the OpenAPI spec.
 
+### Job: `e2e`
+
+```yaml
+needs: [frontend]
+continue-on-error: true    # non-blocking — failures reported but don't block merges
+timeout-minutes: 20
+- actions/checkout@v6
+- actions/setup-node@v6 (node 22, npm cache for both frontend and tests/e2e)
+- npm ci (frontend)
+- npm run build (frontend)
+- npm install --no-audit --no-fund (tests/e2e)
+- npm run typecheck (tests/e2e)
+- npx playwright install --with-deps chromium
+- npx playwright test
+- actions/upload-artifact@v7 (playwright-report, 7-day retention, on failure)
+- actions/upload-artifact@v7 (traces, on failure)
+```
+
+`continue-on-error: true` means E2E failures are visible in the summary but do not block PRs from merging. Remove that flag once all screens are fully implemented.
+
+### Job: `sast`
+
+Runs in parallel with `backend` and `frontend`:
+
+```yaml
+permissions:
+  contents: read
+  security-events: write
+- gitleaks/gitleaks-action@v3      # secret scanning across full history
+- securego/gosec@master            # Go SAST, HIGH severity, SARIF output
+- github/codeql-action/upload-sarif@v4  # uploads gosec.sarif
+- pip install semgrep              # multi-language SAST via semgrep CLI
+  semgrep scan \
+    --config p/default \
+    --config p/security-audit \
+    --config p/owasp-top-ten \
+    --config p/dockerfile \
+    --config p/secrets \
+    --error
+```
+
+Semgrep runs as a direct CLI call (not the deprecated `returntocorp/semgrep-action`) to avoid version-lock issues. gosec results appear as code-scanning alerts in the Security tab via the uploaded SARIF.
+
 ### Job: `docker`
 
 ```yaml
 needs: [backend, frontend]   # only runs after both pass
+- cp .env.example .env       # required for compose validation
 - docker compose config --quiet
-- docker/setup-buildx-action@v3
-- docker/build-push-action@v6 (backend, target=production)
-- docker/build-push-action@v6 (frontend, target=prod)
+- docker/setup-buildx-action@v4
+- docker/build-push-action@v7 (backend, target=production)
+- docker/build-push-action@v7 (frontend, target=prod)
 ```
 
 `cache-from` and `cache-to: type=gha,mode=max` reuse layer cache across runs. A warm build takes ~30 seconds; a cold build takes ~3 minutes.
@@ -96,12 +140,12 @@ on:
 ### Pipeline shape
 
 ```yaml
-- actions/checkout@v4
-- actions/setup-node@v4 (with npm cache scoped to website/package-lock.json)
+- actions/checkout@v6
+- actions/setup-node@v6 (node 22, npm cache scoped to website/package-lock.json)
 - npm ci (in website/)
-- npm run build (which auto-copies screenshots via the prepare-assets script)
-- actions/upload-pages-artifact@v3 (path: website/build)
-- actions/deploy-pages@v4
+- npm run build
+- actions/upload-pages-artifact@v5 (path: website/build)
+- actions/deploy-pages@v5
 ```
 
 ### Permissions
@@ -110,7 +154,7 @@ on:
 permissions:
   contents: read
   pages: write
-  id-token: write   # required by deploy-pages@v4
+  id-token: write   # required by deploy-pages@v5
 ```
 
 These match GitHub's standard Pages-deploy template. No other secrets are needed; the OIDC token signed by `id-token: write` authorises the deploy.
@@ -133,7 +177,15 @@ Before pushing, you can run the same checks locally:
 # Frontend
 (cd frontend && npm ci && npm run codegen:check && npm run lint && npm run typecheck && npm run test)
 
+# E2E (build frontend first)
+(cd frontend && npm run build)
+(cd tests/e2e && npm install && npx playwright install chromium && npx playwright test)
+
+# Security (requires Python for semgrep)
+pip install semgrep && semgrep scan --config p/default --config p/security-audit --config p/owasp-top-ten --config p/dockerfile --config p/secrets --error
+
 # Docker
+cp .env.example .env
 docker compose config --quiet
 docker compose -f docker-compose.yml build
 
@@ -141,7 +193,7 @@ docker compose -f docker-compose.yml build
 (cd website && npm ci && npm run build)
 ```
 
-If all four blocks pass, your CI run will pass.
+If all blocks pass, your CI run will pass.
 
 ## Publishing images (optional)
 
@@ -156,7 +208,7 @@ To publish images to GitHub Container Registry on `master`:
     password: ${{ secrets.GITHUB_TOKEN }}
 
 - name: Build and push backend
-  uses: docker/build-push-action@v6
+  uses: docker/build-push-action@v7
   with:
     context: ./backend
     target: production

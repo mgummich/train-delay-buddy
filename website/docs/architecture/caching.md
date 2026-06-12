@@ -10,13 +10,35 @@ The system uses five distinct cache layers. Each has a different consistency req
 
 ## The five layers
 
+```mermaid
+graph LR
+  Browser["Browser"]
+
+  subgraph L1L2["Client layers"]
+    TQ["L1 · TanStack Query\nAPI responses\n30 s staleTime"]
+    SW["L2 · Service Worker\nWorkbox · offline fallback\ncache-first for assets"]
+    Disk["L3 · Nginx Cache-Control\nhashed assets: 1 yr\nindex.html + API: no-cache"]
+  end
+
+  subgraph L3L4["Server layers"]
+    Valkey["L4 · Valkey\nfull journey JSON · ETag counter\nstation search · TTL 2 h"]
+    PG["L5 · PostgreSQL\ncanonical store\npersistent until terminated_at"]
+  end
+
+  Browser --> TQ
+  Browser --> SW
+  Browser --> Disk
+  TQ -->|cache miss| Valkey
+  Valkey -->|miss fallback| PG
+```
+
 | # | Layer | TTL | What is cached | Invalidation |
 |---|-------|-----|----------------|--------------|
-| 1 | **Browser memory** (TanStack Query) | 30 s for summary, 0 s for alternatives | API responses | `staleTime` expiry, manual `invalidateQueries` |
-| 2 | **Browser disk** (Nginx `Cache-Control`) | 1 year for hashed assets, `no-cache` for `index.html` and API | Static assets | Hashed filename change |
-| 3 | **Service worker** (Workbox runtime cache) | network-only for live data, cache-first for assets | Static assets + offline fallback | New SW activation |
-| 4 | **Valkey L1** | journey TTL (default 2 h), 5 min for station search | Full journey JSON, ETag counter | Poller writes, key expiry |
-| 5 | **Postgres L2** | persistent until `terminated_at` is set | Canonical journey row | DELETE (manual or janitor GC) |
+| 1 | **TanStack Query** | 30 s summary · 0 s alternatives | API responses | `staleTime` expiry, manual `invalidateQueries` |
+| 2 | **Service Worker** (Workbox) | network-only for live data · cache-first for assets | Static assets + offline fallback | New SW activation |
+| 3 | **Nginx `Cache-Control`** | 1 year hashed assets · `no-cache` for `index.html` + API | Static assets | Hashed filename change |
+| 4 | **Valkey L1** | 2 h journey TTL · 5 min station search | Full journey JSON, ETag counter | Poller writes, key expiry |
+| 5 | **Postgres L2** | persistent until `terminated_at` | Canonical journey row | DELETE (manual or janitor GC) |
 
 ## Why ETags everywhere
 

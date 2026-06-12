@@ -21,6 +21,7 @@ const config: Config = {
   onBrokenLinks: "warn",
   // onBrokenMarkdownLinks migrated to markdown.hooks per Docusaurus 4 deprecation
   markdown: {
+    mermaid: true,
     hooks: {
       onBrokenMarkdownLinks: "warn",
     },
@@ -30,6 +31,8 @@ const config: Config = {
     defaultLocale: "en",
     locales: ["en"],
   },
+
+  themes: ["@docusaurus/theme-mermaid"],
 
   presets: [
     [

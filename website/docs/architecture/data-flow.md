@@ -10,116 +10,69 @@ End-to-end traces for the three flows that matter: creating a journey, polling i
 
 ## Flow 1 — Create a new journey
 
-```
-User taps "Start"
-   │
-   ▼
-Frontend: useCreateJourney() → POST /v1/journeys
-   { trainNumber, destinationId, filters, X-Install-Id, Idempotency-Key }
-   │
-   ▼
-Backend (handlers/journeys.go::Create):
-   │
-   ├─ rate-limit check (per Install-Id and per IP)
-   │     └─ exceeded → 429 + Retry-After
-   │
-   ├─ idempotency check (Valkey lookup on Idempotency-Key)
-   │     └─ hit  → return cached response
-   │     └─ miss → proceed
-   │
-   ├─ capacity check (count of active journeys < MAX_ACTIVE_JOURNEYS)
-   │     └─ at cap → 503 problem+json (urn:verspbegl:error:at-capacity)
-   │
-   ├─ HAFAS.GetTrain(trainNumber)
-   │     └─ failure → 502 / circuit breaker
-   │
-   ├─ routing.BFS(currentStation, destination, filters)
-   │     └─ no route → 404 problem+json (urn:verspbegl:error:no-route)
-   │
-   ├─ store.Create(journey) → Postgres INSERT + Valkey SET
-   │
-   ├─ poller-manager.Start(journey.id) → spawns goroutine
-   │
-   └─ 201 Created { id, summary, legs }
-        + ETag header
-        + Location: /v1/journeys/{id}
+```mermaid
+flowchart TD
+  A([User taps Start]) --> B["POST /v1/journeys\nuseCreateJourney()"]
+  B --> C{Rate limit?}
+  C -->|exceeded| C1["429 + Retry-After"]
+  C -->|ok| D{Idempotency\nhit?}
+  D -->|hit| D1["200 cached response"]
+  D -->|miss| E{Capacity\ncheck}
+  E -->|at cap| E1["503 at-capacity"]
+  E -->|ok| F["HAFAS.GetTrain()"]
+  F -->|failure| F1["502 / circuit breaker"]
+  F -->|ok| G["routing.BFS()"]
+  G -->|no route| G1["404 no-route"]
+  G -->|ok| H["store.Create()\nPostgres INSERT + Valkey SET"]
+  H --> I["PollerManager.Start()\nspawns goroutine"]
+  I --> J["201 Created\n{id, summary, legs} + ETag"]
 ```
 
 The poller immediately performs its first tick (no 30-second wait) so the first poll from the client returns up-to-date data.
 
 ## Flow 2 — Poll for updates
 
-```
-Every 30 seconds, frontend issues:
-   GET /v1/journeys/{id}/summary
-   If-None-Match: "<etag-from-previous-poll>"
-   │
-   ▼
-Backend (handlers/summary.go::Get):
-   │
-   ├─ store.GetSummary(id)
-   │     ├─ Valkey HIT  (fast path, ~1 ms)
-   │     └─ Valkey MISS → Postgres SELECT, refill Valkey (rare)
-   │
-   ├─ Compute current ETag from (etag_epoch, etag_counter)
-   │
-   ├─ If header matches current ETag:
-   │     └─ 304 Not Modified, empty body, no Cache-Control change
-   │
-   └─ Else:
-         └─ 200 OK + summary JSON + new ETag
+```mermaid
+flowchart TD
+  A([Client · every 30 s]) --> B["GET /v1/journeys/{id}/summary\nIf-None-Match: etag"]
+  B --> C["store.GetSummary(id)"]
+  C --> D{Valkey hit?}
+  D -->|hit ~1 ms| E["Compute ETag\netag_epoch:etag_counter"]
+  D -->|miss| F["Postgres SELECT\nrefill Valkey"]
+  F --> E
+  E --> G{ETag matches\nIf-None-Match?}
+  G -->|yes| G1["304 Not Modified\nempty body"]
+  G -->|no| G2["200 OK + summary JSON\n+ new ETag"]
 ```
 
 Concurrently, the poller goroutine (independent of the client) ticks every 30 s:
 
-```
-poller.tick():
-   │
-   ├─ Lock(journey.id) in Valkey (TTL 25 s)
-   │
-   ├─ Read current state from Valkey
-   │
-   ├─ For each leg, submit a HAFAS tripUpdate task to the worker pool
-   │     └─ Tasks coalesced by trip ID across all journeys
-   │
-   ├─ Apply realtime arrival/departure deltas to legs
-   │
-   ├─ Compute new summary (ETA, status, nextStep)
-   │
-   ├─ Run BFS, get fresh alternatives list
-   │
-   ├─ Diff old vs. new
-   │     ├─ Unchanged → release lock, exit
-   │     └─ Changed   → bump etag_counter
-   │                     persist (Valkey SET + Postgres UPDATE)
-   │                     emit metrics
-   │
-   └─ Unlock
+```mermaid
+flowchart TD
+  A([poller.tick]) --> B["Lock journey.id in Valkey\nTTL 25 s"]
+  B --> C["Read current state from Valkey"]
+  C --> D["Submit HAFAS tripUpdate tasks\nto WorkerPool · coalesced by tripId"]
+  D --> E["ApplyTripUpdates\nrealtime deltas → leg timestamps"]
+  E --> F["ComputeSummary\nETA · status · nextStep"]
+  F --> G["routing.BFS\nfresh alternatives"]
+  G --> H{Changed?}
+  H -->|no| H1["Release lock · exit"]
+  H -->|yes| I["Bump etag_counter\nValkey SET + Postgres UPDATE\nemit metrics"]
+  I --> H1
 ```
 
 Client and poller never interact directly. They share state via Valkey. The 30-second client polls are *almost always* 304 in steady state; the **content of the journey changes** is driven by the poller alone.
 
 ## Flow 3 — Switch to an alternative
 
-```
-User taps an alternative card
-   │
-   ▼
-Frontend: useSwitchAlternative() → POST /v1/journeys/{id}/switch
-   { alternativeId }
-   │
-   ▼
-Backend:
-   │
-   ├─ Validate alternativeId is in the current alternatives set
-   │     └─ stale → 409 problem+json (urn:verspbegl:error:alternative-expired)
-   │
-   ├─ poller-manager.Switch(id, newRoute)
-   │     ├─ Replace journey.legs with the chosen alternative
-   │     ├─ Bump etag_counter
-   │     └─ Persist
-   │
-   └─ 200 OK { summary, legs }
+```mermaid
+flowchart TD
+  A([User taps alternative card]) --> B["POST /v1/journeys/{id}/switch\n{alternativeId}"]
+  B --> C{alternativeId\nin current set?}
+  C -->|stale| C1["409 alternative-expired"]
+  C -->|valid| D["PollerManager.Switch()\nReplace legs · bump etag_counter · persist"]
+  D --> E["200 OK {summary, legs}"]
+  E --> F["React Query invalidates journey cache\nimmediate refetch"]
 ```
 
 The next client poll arrives ~30 s later and returns a 200 with the new ETag. From the user's perspective, the timeline switches instantly because the React Query cache for the active journey is invalidated and refetched as part of the success handler.
