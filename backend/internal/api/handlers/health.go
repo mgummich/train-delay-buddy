@@ -10,16 +10,20 @@ import (
 	"github.com/redis/go-redis/v9"
 )
 
+// HealthHandler serves GET /health (liveness) and GET /readyz (readiness).
 type HealthHandler struct {
 	db           *pgxpool.Pool
 	rdb          *redis.Client
 	hafasBaseURL string
 }
 
+// NewHealthHandler creates a HealthHandler that checks the given dependencies on /readyz.
+// Pass nil for db or rdb to skip those checks (useful in tests).
 func NewHealthHandler(db *pgxpool.Pool, rdb *redis.Client, hafasBaseURL string) *HealthHandler {
 	return &HealthHandler{db: db, rdb: rdb, hafasBaseURL: hafasBaseURL}
 }
 
+// Liveness handles GET /health. Always returns 200 while the process is running.
 func (h *HealthHandler) Liveness(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 }
@@ -29,6 +33,8 @@ type readinessResponse struct {
 	Checks map[string]string `json:"checks"`
 }
 
+// Readiness handles GET /readyz. Returns 200 when all dependencies respond within 3 s,
+// 503 when Redis or Postgres is unreachable (HAFAS failure downgrades to "degraded" only).
 func (h *HealthHandler) Readiness(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), 3*time.Second)
 	defer cancel()

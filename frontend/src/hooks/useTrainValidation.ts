@@ -14,6 +14,12 @@ interface UseTrainValidationResult {
   isValidating: boolean
 }
 
+/**
+ * Validates a train number against `GET /trains/{number}` for today's date.
+ *
+ * Uses a monotonic sequence counter to discard stale responses — safe to call
+ * on every keystroke. Call `reset()` when the input is cleared.
+ */
 export function useTrainValidation(): UseTrainValidationResult {
   const [error, setError]               = useState<string | null>(null)
   const [trainData, setTrainData]       = useState<TrainData | null>(null)

@@ -12,6 +12,11 @@ async function fetchAlternatives(journeyId: string) {
   return data!
 }
 
+/**
+ * Returns TanStack Query options for `GET /journeys/{id}/alternatives`.
+ * Export for use in React Router loaders (`qc.ensureQueryData`).
+ * staleTime 0 — alternatives must always refetch (realtime recompute results).
+ */
 export function journeyAlternativesQuery(journeyId: string): UseQueryOptions<AlternativesData> {
   return {
     queryKey: queryKeys.journeyAlternatives(journeyId),
@@ -21,6 +26,7 @@ export function journeyAlternativesQuery(journeyId: string): UseQueryOptions<Alt
   }
 }
 
+/** Fetches the ranked alternatives list for the given journey ID. Always refetches on mount. */
 export function useJourneyAlternatives(journeyId: string) {
   return useQuery(journeyAlternativesQuery(journeyId))
 }

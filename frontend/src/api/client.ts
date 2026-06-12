@@ -11,6 +11,11 @@ async function resolveInstallId(): Promise<string> {
   return installIdCache
 }
 
+/**
+ * Typed openapi-fetch client for all backend calls.
+ * Automatically injects `X-Install-Id` on every request via middleware.
+ * `fetch` is wrapped to allow MSW interception in tests after module init.
+ */
 export const apiClient = createClient<paths>({
   baseUrl: import.meta.env.VITE_API_BASE_URL ?? '',
   // Use a wrapper so tests can patch globalThis.fetch after module init (e.g. MSW).

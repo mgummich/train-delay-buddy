@@ -26,6 +26,7 @@ type JourneysHandler struct {
 	maxActive int
 }
 
+// NewJourneysHandler wires a JourneysHandler with the given store, routing engine, poller, and active-journey cap.
 func NewJourneysHandler(store journey.Store, engine routing.Engine, poller *journey.PollerManager, maxActive int) *JourneysHandler {
 	return &JourneysHandler{store: store, engine: engine, poller: poller, maxActive: maxActive}
 }

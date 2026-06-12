@@ -16,6 +16,7 @@ type TrainsHandler struct {
 	hafas *hafas.Client
 }
 
+// NewTrainsHandler creates a TrainsHandler backed by the given HAFAS client.
 func NewTrainsHandler(h *hafas.Client) *TrainsHandler {
 	return &TrainsHandler{hafas: h}
 }

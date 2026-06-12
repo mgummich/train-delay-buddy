@@ -13,6 +13,10 @@ interface UseStationSearchResult {
   clear:     () => void
 }
 
+/**
+ * Searches stations via `GET /stations` with 200 ms debounce and stale-response guard.
+ * Queries shorter than 2 characters clear the results immediately without a network call.
+ */
 export function useStationSearch(): UseStationSearchResult {
   const [stations, setStations]   = useState<Station[]>([])
   const [isLoading, setIsLoading] = useState(false)

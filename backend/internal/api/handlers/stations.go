@@ -22,6 +22,7 @@ type StationsHandler struct {
 	redis *redis.Client
 }
 
+// NewStationsHandler creates a StationsHandler that proxies station search through HAFAS and Redis.
 func NewStationsHandler(h *hafas.Client, rdb *redis.Client) *StationsHandler {
 	return &StationsHandler{hafas: h, redis: rdb}
 }

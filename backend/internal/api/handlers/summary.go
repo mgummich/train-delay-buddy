@@ -17,6 +17,7 @@ type SummaryHandler struct {
 	store journey.Store
 }
 
+// NewSummaryHandler creates a SummaryHandler backed by the given store.
 func NewSummaryHandler(store journey.Store) *SummaryHandler {
 	return &SummaryHandler{store: store}
 }
