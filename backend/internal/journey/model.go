@@ -1,4 +1,3 @@
-// backend/internal/journey/model.go
 package journey
 
 import (

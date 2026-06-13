@@ -1,4 +1,3 @@
-// backend/internal/api/handlers/journeys.go
 package handlers
 
 import (
@@ -26,7 +25,6 @@ type JourneysHandler struct {
 	maxActive int
 }
 
-// NewJourneysHandler wires a JourneysHandler with the given store, routing engine, poller, and active-journey cap.
 func NewJourneysHandler(store journey.Store, engine routing.Engine, poller *journey.PollerManager, maxActive int) *JourneysHandler {
 	return &JourneysHandler{store: store, engine: engine, poller: poller, maxActive: maxActive}
 }
@@ -81,7 +79,6 @@ func (h *JourneysHandler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Validate required fields
 	var fieldErrors []problem.FieldError
 	if req.TrainNumber == "" {
 		fieldErrors = append(fieldErrors, problem.FieldError{Field: "trainNumber", Message: "required"})
@@ -148,7 +145,6 @@ func (h *JourneysHandler) Create(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// Capacity check
 	count, _ := h.store.CountActive(r.Context())
 	if count >= h.maxActive {
 		problem.Write(w, r, problem.Problem{
@@ -160,11 +156,9 @@ func (h *JourneysHandler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Route
 	result, err := h.engine.Route(r.Context(), routing.RoutingRequest{
-		TrainNumber:    req.TrainNumber,
-		FromStationID:  "", // BFS will determine from trip data
-		ToStationID:    req.Destination,
+		TrainNumber:   req.TrainNumber,
+		ToStationID:   req.Destination,
 		DepartureAfter: time.Now(),
 		Filters:        filters,
 		InstallID:      installID,

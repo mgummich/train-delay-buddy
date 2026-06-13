@@ -1,4 +1,3 @@
-// backend/internal/routing/engine.go
 package routing
 
 import (
@@ -26,8 +25,7 @@ type RoutingResult struct {
 	Plausibility journey.Plausibility
 }
 
-// Engine is the routing interface. BFSEngine is the MVP implementation.
-// Swap for RAPTOR behind this interface when timetable data is available.
+// Engine is the routing interface.
 type Engine interface {
 	Route(ctx context.Context, req RoutingRequest) (*RoutingResult, error)
 }

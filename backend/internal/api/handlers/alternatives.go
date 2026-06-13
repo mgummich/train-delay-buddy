@@ -23,7 +23,6 @@ type AlternativesHandler struct {
 	serverCtx      context.Context
 }
 
-// NewAlternativesHandler creates an AlternativesHandler with a detached-goroutine timeout rooted at serverCtx.
 func NewAlternativesHandler(store journey.Store, engine routing.Engine, triggerTimeout time.Duration, serverCtx context.Context) *AlternativesHandler {
 	return &AlternativesHandler{store: store, engine: engine, triggerTimeout: triggerTimeout, serverCtx: serverCtx}
 }

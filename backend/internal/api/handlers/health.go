@@ -17,8 +17,6 @@ type HealthHandler struct {
 	hafasBaseURL string
 }
 
-// NewHealthHandler creates a HealthHandler that checks the given dependencies on /readyz.
-// Pass nil for db or rdb to skip those checks (useful in tests).
 func NewHealthHandler(db *pgxpool.Pool, rdb *redis.Client, hafasBaseURL string) *HealthHandler {
 	return &HealthHandler{db: db, rdb: rdb, hafasBaseURL: hafasBaseURL}
 }

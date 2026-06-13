@@ -16,7 +16,6 @@ type TrainsHandler struct {
 	hafas *hafas.Client
 }
 
-// NewTrainsHandler creates a TrainsHandler backed by the given HAFAS client.
 func NewTrainsHandler(h *hafas.Client) *TrainsHandler {
 	return &TrainsHandler{hafas: h}
 }
@@ -41,7 +40,6 @@ func (h *TrainsHandler) Get(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// TODO(plan3): coalesce concurrent requests on normalized+date key
 	trips, err := h.hafas.SearchTrips(r.Context(), normalized, 5)
 	if err != nil {
 		problem.Write(w, r, problem.Problem{

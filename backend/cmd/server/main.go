@@ -2,9 +2,7 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"log/slog"
-	"math"
 	"net/http"
 	"os"
 	"os/signal"
@@ -113,15 +111,10 @@ func main() {
 		sig := <-quit
 		logger.Info("shutdown signal received", "signal", sig)
 
-		// 1. Stop accepting new requests; drain in-flight HTTP requests.
 		httpCtx, httpCancel := context.WithTimeout(context.Background(), 15*time.Second)
 		defer httpCancel()
 		srv.Shutdown(httpCtx)
-
-		// 2. Cancel all poller goroutines.
 		serverCancel()
-
-		// 3. Drain worker pool (bounded by HAFAS_REQUEST_TIMEOUT).
 		pool.Shutdown()
 
 		logger.Info("shutdown complete")
@@ -301,12 +294,6 @@ func connectDB(ctx context.Context, cfg config.Config) (*pgxpool.Pool, error) {
 	pcfg, err := pgxpool.ParseConfig(cfg.DatabaseURL)
 	if err != nil {
 		return nil, err
-	}
-	if cfg.DBMaxOpenConns < 0 || cfg.DBMaxOpenConns > math.MaxInt32 {
-		return nil, fmt.Errorf("DB_MAX_OPEN_CONNS out of range: %d", cfg.DBMaxOpenConns)
-	}
-	if cfg.DBMinConns < 0 || cfg.DBMinConns > math.MaxInt32 {
-		return nil, fmt.Errorf("DB_MIN_CONNS out of range: %d", cfg.DBMinConns)
 	}
 	pcfg.MaxConns = int32(cfg.DBMaxOpenConns)
 	pcfg.MinConns = int32(cfg.DBMinConns)

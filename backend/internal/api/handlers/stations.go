@@ -22,7 +22,6 @@ type StationsHandler struct {
 	redis *redis.Client
 }
 
-// NewStationsHandler creates a StationsHandler that proxies station search through HAFAS and Redis.
 func NewStationsHandler(h *hafas.Client, rdb *redis.Client) *StationsHandler {
 	return &StationsHandler{hafas: h, redis: rdb}
 }
@@ -63,7 +62,6 @@ func (h *StationsHandler) Search(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// TODO(plan3): coalesce concurrent requests on query+limit cache key
 	results, err := h.hafas.SearchStations(r.Context(), q, limit)
 	if err != nil {
 		problem.Write(w, r, problem.Problem{
