@@ -17,7 +17,7 @@
     "codegen": "openapi-typescript ../backend/openapi.yaml -o src/api/types.gen.ts",
     "codegen:check": "openapi-typescript ../backend/openapi.yaml --check",
     "size-limit": "size-limit",
-    "prepare": "husky"
+    "prepare": "cd .. && husky"
   },
   "dependencies": {
     "@eslint/js": "^9.39.4",
