@@ -35,7 +35,7 @@ Every layer is automated. Tests that are not run automatically do not exist in p
 |-------|-------|---------|-------------|
 | Frontend unit | ~23 files / ~1,270 lines | Vitest + RTL + MSW | Yes |
 | Backend unit | ~24 files / ~1,970 lines | Go `testing` | Yes |
-| E2E | 6 spec files | Playwright 1.49+ | Yes (see §7) |
+| E2E | 7 spec files | Playwright 1.49+ | Yes (see §7) |
 | Performance | 1 k6 script | k6 | Manual |
 
 ---
@@ -196,9 +196,12 @@ Global test timeout is 50 s. Offline tests assert with `timeout: 35_000` (one 30
 | Spec | Coverage |
 |------|---------|
 | `golden-path.spec.ts` | Start → alternatives → companion, deep link, ETA timezone, plausibility dialog, terminate |
+| `start.spec.ts` | Form validation — submit disabled on load, train not found, destination required |
+| `alternatives.spec.ts` | Filter chip interaction — DB-only toggle, filter count badge |
 | `critical-status.spec.ts` | Critical/failed status banners, aria-live region |
 | `offline.spec.ts` | Stale indicator, auto-recovery, offline navigation |
 | `deep-link.spec.ts` | Direct URL navigation to companion, resume existing journey |
+| `accessibility.spec.ts` | Axe a11y audit (zero critical/serious violations) on all three main screens |
 
 ### Patterns
 
@@ -223,8 +226,7 @@ E2E runs after the frontend job with `needs: [frontend]`. The `continue-on-error
 |-----|----------|
 | Remove `continue-on-error: true` once offline tests pass | High |
 | StartScreen: station search error state (API 503) | Medium |
-| StartScreen: form validation (empty train number, no destination) | Medium |
-| AlternativesScreen: filter toggle interaction (DB-only, maxTransfers) | Medium |
+| AlternativesScreen: filter toggle for maxTransfers | Medium |
 | Companion: "Reise abschließen" error case (DELETE fails) | Medium |
 | Companion: browser back button returns to alternatives | Low |
 | Mobile Safari: runs locally only — add to CI once webkit dep weight acceptable | Low |
@@ -338,10 +340,9 @@ push / PR to master
 
 ## 9. Accessibility Testing
 
-No automated accessibility testing currently exists. Minimum viable approach:
+`accessibility.spec.ts` runs `@axe-core/playwright` against all three main screens (Start, Alternatives, Companion) and asserts zero critical or serious violations. Color-contrast rules are excluded — they require visual review and produce false positives in headless environments.
 
-- Add `@axe-core/playwright` to the E2E suite and assert zero critical/serious violations on the three main screens (Start, Alternatives, Companion)
-- `critical-status.spec.ts` already verifies `aria-live` region is attached — extend to assert announcements
+`critical-status.spec.ts` already verifies the `aria-live` region is attached. Extending it to assert announcements is a remaining gap.
 
 ---
 
@@ -382,9 +383,4 @@ Production data must never be used in any test. CI runs against synthetic data o
 
 ## 12. Debug Files Policy
 
-Temporary debug spec files (`debug-*.spec.ts`) must not be committed. Add them to `.gitignore` or delete after investigation. Currently untracked:
-
-- `tests/e2e/debug-critical.spec.ts`
-- `tests/e2e/debug-route.spec.ts`
-
-These should be deleted.
+Temporary debug spec files (`debug-*.spec.ts`) must not be committed. Add them to `.gitignore` or delete after investigation.

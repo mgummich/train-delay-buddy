@@ -79,7 +79,7 @@ All production containers run with:
 - **`cap_drop: ALL`** — no Linux capabilities unless explicitly added.
 - **`no-new-privileges: true`** — prevents privilege escalation via setuid binaries.
 - **`read_only: true`** on the backend container — root filesystem is read-only; `/tmp` is a `tmpfs` mount.
-- **Pinned image tags** — `nginx:1.27-alpine`, `valkey/valkey:8-alpine`, `postgres:16.4-alpine`. Not digests, but avoids the floating `latest` risk.
+- **Pinned image tags** — `nginx:1.31.1-alpine` (in frontend image), `valkey/valkey:9.1.0-alpine3.23`, `postgres:18.4-alpine3.23`. Not digests, but avoids the floating `latest` risk.
 
 See [Docker Compose layout](./configuration/docker-compose#security-posture-production-stack) for the full table.
 

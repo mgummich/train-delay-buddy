@@ -27,9 +27,12 @@ The test suites live in `tests/e2e/`:
 | Suite | What it covers |
 |-------|----------------|
 | `golden-path.spec.ts` | Happy path — create journey, view alternatives, switch, terminate |
+| `start.spec.ts` | Start screen form validation — submit disabled, train not found, destination required |
+| `alternatives.spec.ts` | Filter chip interaction — DB-only toggle, filter count badge |
 | `critical-status.spec.ts` | Critical transfer and failed-route scenarios |
 | `deep-link.spec.ts` | Direct URL navigation, session restore from `localStorage` |
 | `offline.spec.ts` | PWA offline behaviour — service worker, IndexedDB fallback |
+| `accessibility.spec.ts` | Axe a11y audit — zero critical/serious violations on all three main screens |
 
 ## Architecture — fully mocked, no backend needed
 

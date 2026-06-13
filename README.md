@@ -106,7 +106,7 @@ The fastest path to a running stack. Every service is containerised; nothing nee
 
 ```bash
 # 1. Clone the repository
-git clone <repo-url> verspaetungs-begleiter
+git clone git@github.com:mgummich/train-delay-buddy.git verspaetungs-begleiter
 cd verspaetungs-begleiter
 
 # 2. Create your env file (defaults work out of the box)
