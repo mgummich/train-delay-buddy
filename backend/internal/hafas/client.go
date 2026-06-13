@@ -96,17 +96,6 @@ func (c *Client) CircuitState() int {
 	return int(c.cb.state)
 }
 
-// RecordFailureForTest is exported for use in external test packages (hafas_test).
-// Not part of the production API — do not call from non-test code.
-func (c *Client) RecordFailureForTest() {
-	c.cb.recordFailure()
-}
-
-// ContextWithRequestID stores id in ctx for propagation to outbound HAFAS headers.
-func ContextWithRequestID(ctx context.Context, id string) context.Context {
-	return reqid.Set(ctx, id)
-}
-
 // SearchStations searches db.transport.rest /locations for stops matching query.
 func (c *Client) SearchStations(ctx context.Context, query string, limit int) ([]HAFASLocationResult, error) {
 	params := url.Values{

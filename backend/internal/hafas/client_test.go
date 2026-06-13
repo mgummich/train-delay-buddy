@@ -11,6 +11,7 @@ import (
 
 	"github.com/verspaetungsbegleiter/backend/internal/config"
 	"github.com/verspaetungsbegleiter/backend/internal/hafas"
+	"github.com/verspaetungsbegleiter/backend/internal/reqid"
 )
 
 func newTestClient(t *testing.T, handler http.HandlerFunc) *hafas.Client {
@@ -54,7 +55,7 @@ func TestSearchStations_PropagatesRequestID(t *testing.T) {
 		json.NewEncoder(w).Encode([]hafas.HAFASLocationResult{})
 	})
 
-	ctx := hafas.ContextWithRequestID(context.Background(), "test-request-id-123")
+	ctx := reqid.Set(context.Background(), "test-request-id-123")
 	client.SearchStations(ctx, "Frank", 5)
 
 	if gotHeader != "test-request-id-123" {
