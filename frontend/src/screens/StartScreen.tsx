@@ -12,6 +12,7 @@ import { useTrainValidation } from '@/hooks/useTrainValidation'
 import { useStationSearch } from '@/hooks/useStationSearch'
 import { apiClient } from '@/api/client'
 import { useJourneyStore } from '@/store/journeyStore'
+import { useInstallStore } from '@/store/installStore'
 
 const schema = z.object({
   trainNumber: z.string().min(3, 'Zugnummer eingeben'),
@@ -77,6 +78,7 @@ export function StartScreen() {
   const { t } = useTranslation()
   const navigate = useNavigate()
   const { setJourney } = useJourneyStore()
+  const { filters } = useInstallStore()
   const [plausibilityOpen, setPlausibilityOpen] = useState(false)
   const [pendingJourneyId, setPendingJourneyId] = useState<string | null>(null)
   const trainValidation = useTrainValidation()
@@ -118,9 +120,9 @@ export function StartScreen() {
         destination: values.destination.id,
         iAmOnThisTrain: values.onTrain,
         filters: {
-          dbOnly: true,
-          maxTransfers: null,
-          safetyLevel: 'normal',
+          dbOnly: filters.dbOnly,
+          maxTransfers: filters.maxTransfers,
+          safetyLevel: filters.safetyLevel,
         },
       },
       headers: { 'Idempotency-Key': idempotencyKey },

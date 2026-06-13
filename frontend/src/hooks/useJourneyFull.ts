@@ -12,11 +12,7 @@ async function fetchJourneyFull(journeyId: string) {
   return data!
 }
 
-/**
- * Returns TanStack Query options for `GET /journeys/{id}`.
- * Export for use in React Router loaders (`qc.ensureQueryData`).
- * staleTime 30 s — full journey rarely changes between screens.
- */
+/** Query options for GET /journeys/{id}. Exported for use in router loaders. */
 export function journeyFullQuery(journeyId: string): UseQueryOptions<JourneyFullData> {
   return {
     queryKey: queryKeys.journeyFull(journeyId),

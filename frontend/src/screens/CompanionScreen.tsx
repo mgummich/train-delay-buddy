@@ -311,8 +311,6 @@ export function CompanionScreen() {
                     </div>
                     <LegBlock
                       line={leg.lineName}
-                      direction=""
-                      duration=""
                       current={isCurrent}
                       delayMin={leg.delayMinutes ?? 0}
                     />

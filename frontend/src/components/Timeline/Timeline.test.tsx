@@ -55,23 +55,13 @@ describe('TransferBlock', () => {
 })
 
 describe('LegBlock', () => {
-  it('renders line name and direction', () => {
-    render(
-      <LegBlock
-        line="ICE 1045"
-        direction="Richtung Hamburg-Altona"
-        duration="1:04 h"
-        current={false}
-      />
-    )
+  it('renders line name', () => {
+    render(<LegBlock line="ICE 1045" current={false} />)
     expect(screen.getByText('ICE 1045')).toBeTruthy()
-    expect(screen.getByText('Richtung Hamburg-Altona')).toBeTruthy()
   })
 
   it('shows blinking live badge when current', () => {
-    const { container } = render(
-      <LegBlock line="ICE 1045" direction="Hamburg" duration="1:04 h" current={true} />
-    )
+    const { container } = render(<LegBlock line="ICE 1045" current={true} />)
     expect(container.querySelector('.vb-blink')).toBeTruthy()
     expect(screen.getByText(/Jetzt unterwegs/)).toBeTruthy()
   })
