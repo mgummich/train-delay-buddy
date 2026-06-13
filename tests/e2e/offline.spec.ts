@@ -16,6 +16,7 @@ test.describe("offline degradation", () => {
     expect(etaBefore).toBeTruthy();
 
     await context.setOffline(true);
+    await mocks.setOffline(true);
 
     // 35s: poll cycle is ~30s; allow one full cycle before asserting stale state
     await expect(companionPage.staleIndicator).toBeVisible({ timeout: 35_000 });
@@ -43,10 +44,12 @@ test.describe("offline degradation", () => {
     await expect(companionPage.eta).toBeVisible();
 
     await context.setOffline(true);
+    await mocks.setOffline(true);
     // 35s: poll cycle is ~30s; allow one full cycle before asserting stale state
     await expect(companionPage.staleIndicator).toBeVisible({ timeout: 35_000 });
 
     await context.setOffline(false);
+    await mocks.setOffline(false);
     await expect(companionPage.staleIndicator).not.toBeVisible({ timeout: 35_000 });
   });
 
@@ -56,10 +59,15 @@ test.describe("offline degradation", () => {
     context,
     page,
   }) => {
+    // Navigate online first so the service worker can cache the app shell.
+    await page.goto("/");
+    // Wait for SW to activate and take control before going offline.
+    await page.waitForFunction(() => !!navigator.serviceWorker?.controller, { timeout: 10_000 }).catch(() => {});
     await context.setOffline(true);
     await mocks.abortAllJourneys();
 
-    await companionPage.goto(JOURNEY_ID);
+    // goto() may throw ERR_INTERNET_DISCONNECTED if no service worker caches the shell.
+    await page.goto(`/journey/${JOURNEY_ID}/companion`).catch(() => {});
 
     try {
       await expect(companionPage.companionError).toBeVisible({ timeout: 5_000 });

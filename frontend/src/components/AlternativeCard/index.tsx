@@ -13,6 +13,7 @@ interface AlternativeCardProps {
   minBuffer: number
   badges: BadgeVariant[]
   recommended?: boolean
+  selected?: boolean
   onSelect: (journeyId: string) => void
 }
 
@@ -24,17 +25,20 @@ export const AlternativeCard = memo(function AlternativeCard({
   minBuffer,
   badges,
   recommended = false,
+  selected = false,
   onSelect,
 }: AlternativeCardProps) {
   return (
     <button
+      data-testid="alternative-card"
       type="button"
       onClick={() => onSelect(journeyId)}
+      aria-pressed={selected}
       className={cn(
         'w-full text-left bg-bg-card rounded-card shadow-card p-4',
         'flex flex-col gap-3 border',
         'active:scale-[0.97] transition-transform duration-fast',
-        recommended ? 'border-accent shadow-lift' : 'border-border-subtle'
+        selected ? 'border-accent shadow-lift ring-2 ring-accent' : recommended ? 'border-accent shadow-lift' : 'border-border-subtle'
       )}
       aria-label={`${timeGainMin} Minuten früher, Ankunft ${formatTime(eta)}`}
     >

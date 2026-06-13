@@ -80,4 +80,32 @@ test.describe("golden path — train → alternatives → companion", () => {
     await expect(page).toHaveURL("/");
   });
 
+  test('"Reise abschließen" shows inline error when DELETE fails', async ({
+    startPage,
+    alternativesPage,
+    companionPage,
+    page,
+  }) => {
+    await startPage.goto();
+    await startPage.startJourney();
+    await alternativesPage.expectVisible();
+    await alternativesPage.selectFirst();
+    await companionPage.expectLoaded();
+
+    // Override DELETE to 500 — companion is already loaded so this only affects terminate
+    await page.route("**/journeys/**", async (route) => {
+      if (route.request().method() === "DELETE") {
+        await route.fulfill({ status: 500 });
+        return;
+      }
+      await route.continue();
+    });
+
+    await companionPage.terminate();
+
+    await expect(companionPage.finishError).toBeVisible({ timeout: 5_000 });
+    // User stays on companion — not navigated away
+    await expect(page).toHaveURL(/\/companion/);
+  });
+
 });

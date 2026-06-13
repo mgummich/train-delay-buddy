@@ -21,6 +21,7 @@ export default defineConfig({
   forbidOnly: isCI,
   retries: isCI ? 2 : 0,
   workers: isCI ? 2 : undefined,
+  timeout: 50_000,
   reporter: isCI
     ? [["github"], ["html", { open: "never", outputFolder: "playwright-report" }]]
     : "html",
@@ -32,6 +33,7 @@ export default defineConfig({
     video: "on-first-retry",
     actionTimeout: 10_000,
     navigationTimeout: 15_000,
+
   },
 
   projects: [

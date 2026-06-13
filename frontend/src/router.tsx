@@ -1,9 +1,6 @@
 import { lazy, Suspense } from 'react'
 import { createBrowserRouter, Navigate } from 'react-router-dom'
-import type { QueryClient } from '@tanstack/react-query'
 import { FullPageError, ScreenError, CompanionError } from '@/screens/ErrorScreens'
-import { journeyFullQuery } from '@/hooks/useJourneyFull'
-import { journeyAlternativesQuery } from '@/hooks/useJourneyAlternatives'
 
 // Route-based code splitting — each screen is its own chunk
 const StartScreen = lazy(() =>
@@ -21,7 +18,7 @@ const SettingsScreen = lazy(() =>
 
 const ScreenFallback = () => <div className="min-h-screen bg-bg-app" />
 
-export function createRouter(qc: QueryClient) {
+export function createRouter() {
   return createBrowserRouter(
     [
       {
@@ -41,14 +38,6 @@ export function createRouter(qc: QueryClient) {
           </Suspense>
         ),
         errorElement: <ScreenError message="Verbindungen konnten nicht geladen werden" />,
-        loader: async ({ params }) => {
-          const id = params.journeyId!
-          await Promise.all([
-            qc.ensureQueryData(journeyFullQuery(id)),
-            qc.ensureQueryData(journeyAlternativesQuery(id)),
-          ])
-          return null
-        },
       },
       {
         path: '/journey/:journeyId/companion',
@@ -58,15 +47,6 @@ export function createRouter(qc: QueryClient) {
           </Suspense>
         ),
         errorElement: <CompanionError />,
-        loader: async ({ params }) => {
-          const id = params.journeyId!
-          try {
-            await qc.ensureQueryData(journeyFullQuery(id))
-          } catch {
-            throw new Response('Journey not found', { status: 404 })
-          }
-          return null
-        },
       },
       {
         path: '/settings',

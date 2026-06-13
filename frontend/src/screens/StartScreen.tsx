@@ -298,12 +298,15 @@ export function StartScreen() {
               {showStationDropdown && stationSearch.stations.length > 0 && (
                 <div
                   ref={dropdownRef}
+                  role="listbox"
                   className="absolute top-full left-0 right-0 mt-1 bg-bg-card
                   rounded-card shadow-lift border border-border-subtle z-10 overflow-hidden"
                 >
                   {stationSearch.stations.map((s) => (
                     <button
                       key={s.id}
+                      role="option"
+                      aria-selected={false}
                       type="button"
                       className="w-full text-left px-4 py-3 text-[15px] text-text-primary
                         hover:bg-bg-subtle border-b border-border-subtle last:border-0"

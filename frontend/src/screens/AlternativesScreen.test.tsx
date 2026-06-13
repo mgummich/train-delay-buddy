@@ -96,11 +96,14 @@ describe('AlternativesScreen', () => {
   it('navigates to companion on card select', async () => {
     renderAlternatives()
     await waitFor(() => screen.getByText('+18 Min'))
-    // SubAppBar back + settings buttons come before alt cards, so find first card button
+    // Click the card to select it (shows the sticky "Route wählen" CTA)
     const altCardBtn = screen
       .getAllByRole('button')
       .find((b) => b.closest('[class*="rounded-card"]') !== null)!
     fireEvent.click(altCardBtn)
+    // Then confirm via the CTA — AlternativesScreen uses a two-step select → confirm flow
+    await waitFor(() => screen.getByRole('button', { name: /Route wählen/i }))
+    fireEvent.click(screen.getByRole('button', { name: /Route wählen/i }))
     await waitFor(() => expect(screen.getByTestId('companion')).toBeTruthy())
   })
 

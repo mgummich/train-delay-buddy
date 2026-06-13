@@ -11,6 +11,7 @@ export class CompanionPage {
   readonly liveRegion: Locator;
   readonly staleIndicator: Locator;
   readonly companionError: Locator;
+  readonly finishError: Locator;
   readonly terminateButton: Locator;
   readonly seeAlternativesButton: Locator;
   readonly findNewConnectionButton: Locator;
@@ -26,6 +27,7 @@ export class CompanionPage {
     this.liveRegion = this.screen.locator('[role="alert"], [aria-live="assertive"]');
     this.staleIndicator = page.getByTestId("stale-indicator");
     this.companionError = page.getByTestId("companion-error");
+    this.finishError = page.getByTestId("finish-error");
     this.terminateButton = page.getByRole("button", { name: /Reise abschließen/i });
     this.seeAlternativesButton = page.getByRole("button", {
       name: /Alternative ansehen|Alternativen/i,

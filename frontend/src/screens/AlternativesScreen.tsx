@@ -41,6 +41,7 @@ export function AlternativesScreen() {
   const { setJourney } = useJourneyStore()
   const [filterOpen, setFilterOpen] = useState(false)
   const [isRecalculating, setIsRecalculating] = useState(false)
+  const [selectedAltId, setSelectedAltId] = useState<string | null>(null)
 
   // Journey for header ETA reference
   const { data: journeyData } = useJourneyFull(journeyId!)
@@ -53,13 +54,15 @@ export function AlternativesScreen() {
     [filters.dbOnly]
   )
 
-  const handleSelectRoute = useCallback(
-    (altJourneyId: string) => {
-      setJourney(altJourneyId, null)
-      void navigate(`/journey/${altJourneyId}/companion`)
-    },
-    [navigate, setJourney]
-  )
+  const handleSelectCard = useCallback((altJourneyId: string) => {
+    setSelectedAltId((prev) => (prev === altJourneyId ? null : altJourneyId))
+  }, [])
+
+  const handleConfirmRoute = useCallback(() => {
+    if (!selectedAltId) return
+    setJourney(selectedAltId, null)
+    void navigate(`/journey/${selectedAltId}/companion`)
+  }, [selectedAltId, navigate, setJourney])
 
   async function handleRecalculate() {
     if (!journeyId) return
@@ -232,7 +235,8 @@ export function AlternativesScreen() {
                   ...(i === 0 ? ['schnellste' as const] : []),
                 ]}
                 recommended={i === 0}
-                onSelect={handleSelectRoute}
+                selected={alt.journeyId === selectedAltId}
+                onSelect={handleSelectCard}
               />
             ))}
           </div>
@@ -265,6 +269,19 @@ export function AlternativesScreen() {
           </p>
         )}
       </div>
+
+      {selectedAltId && (
+        <div className="fixed bottom-0 left-0 right-0 p-4 safe-bottom bg-bg-app border-t border-border-subtle">
+          <button
+            type="button"
+            onClick={handleConfirmRoute}
+            className="w-full h-[50px] bg-accent text-accent-ink rounded-btn font-semibold
+              text-[15px] active:scale-[0.97] transition-transform duration-fast"
+          >
+            {t('alternatives.selectRoute')}
+          </button>
+        </div>
+      )}
 
       <FilterSheet
         open={filterOpen}

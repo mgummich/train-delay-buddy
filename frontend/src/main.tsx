@@ -16,11 +16,11 @@ async function prepareApp(): Promise<void> {
   }
 }
 
-const router = createRouter(queryClient)
-
 void prepareApp().then(() => {
   const root = document.getElementById('root')
   if (!root) throw new Error('#root element not found')
+
+  const router = createRouter()
 
   createRoot(root).render(
     <StrictMode>

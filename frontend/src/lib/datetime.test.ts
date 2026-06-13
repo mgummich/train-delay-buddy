@@ -17,7 +17,7 @@ describe('formatTime', () => {
 describe('minutesSince', () => {
   it('returns positive minutes for past timestamps', () => {
     const twoMinutesAgo = new Date(Date.now() - 2 * 60 * 1000).toISOString()
-    expect(minutesSince(twoMinutesAgo)).toBe(2)
+    expect(minutesSince(twoMinutesAgo)).toBeCloseTo(2, 0)
   })
 
   it('returns 0 for current timestamp', () => {

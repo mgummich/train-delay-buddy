@@ -81,7 +81,15 @@ describe('CompanionScreen', () => {
   })
 
   it('shows staleness banner when dataFetchedAt is stale', async () => {
-    const staleTime = new Date(Date.now() - 4 * 60 * 1000).toISOString()
+    // 61s > 30s (0.5 min) threshold → "Möglicherweise veraltet"
+    const staleTime = new Date(Date.now() - 61 * 1000).toISOString()
+    // Override the live-summary poll so useJourney also returns stale dataFetchedAt.
+    // Without this, the default MSW handler returns a fresh timestamp that overrides the seed.
+    server.use(
+      http.get('/v1/journeys/:id/summary', () =>
+        HttpResponse.json({ ...DEFAULT_SUMMARY, dataFetchedAt: staleTime, lastUpdatedAt: staleTime })
+      )
+    )
     const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } })
     qc.setQueryData(['journey', 'full', DEFAULT_JOURNEY_ID], {
       ...FULL_JOURNEY,

@@ -54,5 +54,5 @@ export function formatRelative(isoUtc: string): string {
  *   negative when it is in the future.
  */
 export function minutesSince(isoUtc: string): number {
-  return Math.floor((Date.now() - new Date(isoUtc).getTime()) / 60_000)
+  return (Date.now() - new Date(isoUtc).getTime()) / 60_000
 }

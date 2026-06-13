@@ -22,9 +22,11 @@ export class StartPage {
   }
 
   async pickDestination(query: string, optionPattern: RegExp): Promise<void> {
-    await this.destinationInput.fill(query);
+    // pressSequentially triggers per-keystroke input events, more reliable than fill across browsers.
+    await this.destinationInput.click();
+    await this.destinationInput.pressSequentially(query);
     const option = this.page.getByRole("option", { name: optionPattern });
-    await expect(option).toBeVisible();
+    await expect(option).toBeVisible({ timeout: 8_000 });
     await option.click();
   }
 

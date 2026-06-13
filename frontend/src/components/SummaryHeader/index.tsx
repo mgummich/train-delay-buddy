@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
 import type { JourneySummary } from '@/api/validation'
@@ -27,19 +28,25 @@ function IconNow({ size = 20 }: { size?: number }) {
 }
 
 function Staleness({ dataFetchedAt }: { dataFetchedAt: string }) {
-  const ageMin = minutesSince(dataFetchedAt)
-  if (ageMin < 3) return null
+  const [, tick] = useState(0)
+  useEffect(() => {
+    const id = setInterval(() => tick((n) => n + 1), 10_000)
+    return () => clearInterval(id)
+  }, [])
 
-  if (ageMin >= 10) {
+  const ageMin = minutesSince(dataFetchedAt)
+  if (ageMin < 0.5) return null
+
+  if (ageMin >= 2) {
     return (
-      <div className="bg-warn-soft border border-warn rounded-card px-3 py-2 text-warn text-[13px] font-medium">
+      <div data-testid="stale-indicator" className="bg-warn-soft border border-warn rounded-card px-3 py-2 text-warn text-[13px] font-medium">
         Daten veraltet – kein Netz?
       </div>
     )
   }
 
   return (
-    <span className="inline-flex items-center h-6 px-2 rounded-badge bg-warn-soft text-warn text-[12.5px] font-medium">
+    <span data-testid="stale-indicator" className="inline-flex items-center h-6 px-2 rounded-badge bg-warn-soft text-warn text-[12.5px] font-medium">
       Möglicherweise veraltet
     </span>
   )
@@ -52,6 +59,7 @@ export function SummaryHeader({ summary, tab, onTabChange }: SummaryHeaderProps)
 
   return (
     <div
+      data-testid="summary-header"
       className="sticky top-0 z-[5] px-4 pt-2 pb-[14px]"
       style={{ background: 'linear-gradient(var(--bg-app) 78%, transparent)' }}
     >
@@ -72,6 +80,9 @@ export function SummaryHeader({ summary, tab, onTabChange }: SummaryHeaderProps)
           <p className="text-text-muted text-[13.5px] mt-[2px]">
             {t('companion.vsOriginal', { time: formatTime(summary.eta) })}
           </p>
+          <time data-testid="eta" dateTime={summary.eta} className="inline-block w-px h-px overflow-hidden">
+            {formatTime(summary.eta)}
+          </time>
         </div>
 
         {summary.timeGainVsCurrentRouteMinutes !== null && (
@@ -125,6 +136,7 @@ export function SummaryHeader({ summary, tab, onTabChange }: SummaryHeaderProps)
       {/* Critical alert */}
       {isCritical && (
         <div
+          data-testid="critical-warning"
           role="alert"
           aria-live="assertive"
           className="mt-[10px] bg-warn-soft rounded-card border border-warn p-3 text-warn text-[13.5px] font-semibold flex items-center justify-between"
@@ -135,7 +147,26 @@ export function SummaryHeader({ summary, tab, onTabChange }: SummaryHeaderProps)
             onClick={() => void navigate(-1)}
             className="underline text-[13px] whitespace-nowrap ml-3"
           >
-            ansehen →
+            Alternative ansehen →
+          </button>
+        </div>
+      )}
+
+      {/* Failed alert */}
+      {summary.status === 'failed' && (
+        <div
+          data-testid="failed-warning"
+          role="alert"
+          aria-live="assertive"
+          className="mt-[10px] bg-warn-soft rounded-card border border-warn p-3 text-warn text-[13.5px] font-semibold flex items-center justify-between"
+        >
+          <span>Route nicht mehr nutzbar</span>
+          <button
+            type="button"
+            onClick={() => void navigate('/')}
+            className="underline text-[13px] whitespace-nowrap ml-3"
+          >
+            Neue Verbindung suchen
           </button>
         </div>
       )}

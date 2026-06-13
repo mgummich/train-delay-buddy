@@ -45,6 +45,7 @@ export function FilterRow({ activeFilters, onOpenFilter, onRemoveFilter }: Filte
         {t('alternatives.filterBtn')}
         {activeFilters.length > 0 && (
           <span
+            data-testid="filter-count"
             className="tnum min-w-[18px] h-[18px] px-[5px] rounded-badge
             bg-accent text-accent-ink text-[11.5px] font-bold
             flex items-center justify-center"

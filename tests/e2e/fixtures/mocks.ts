@@ -102,43 +102,72 @@ export class MockServer {
   private etagCounter = 0;
   constructor(private readonly page: Page) {}
 
+  private readonly _apiPredicate = (url: URL) =>
+    /\/(journeys|trains|stations)/.test(url.pathname);
+  private readonly _abortHandler = async (r: Route) => r.abort("failed");
+
+  /** Abort all API traffic so the app sees a network drop.
+   * Call alongside context.setOffline() — Playwright route handlers bypass browser offline. */
+  async setOffline(offline: boolean): Promise<void> {
+    if (offline) {
+      await this.page.route(this._apiPredicate, this._abortHandler);
+    } else {
+      await this.page.unroute(this._apiPredicate, this._abortHandler);
+    }
+  }
+
   /** Install the full default route table. Call once per test. */
   async install(opts: MockOptions = {}): Promise<void> {
     const journeyId = opts.journeyId ?? DEFAULT_JOURNEY_ID;
     const summary = makeSummary(opts.summary);
     const alternatives = opts.alternatives ?? [makeAlternative()];
 
-    await this.page.route("**/v1/trains/**", (r) => r.fulfill({ json: makeTrain() }));
-    await this.page.route("**/v1/stations**", (r) => r.fulfill({ json: makeStations() }));
+    await this.page.route("**/trains/**", async (r) => r.fulfill({ json: makeTrain() }));
+    await this.page.route("**/stations**", async (r) => r.fulfill({ json: makeStations() }));
 
-    await this.page.route("**/v1/journeys", this.routeJourneyCreate(journeyId, opts));
+    await this.page.route("**/journeys", this.routeJourneyCreate(journeyId, opts));
 
-    await this.page.route(`**/v1/journeys/${journeyId}`, (route) => {
+    await this.page.route(`**/journeys/${journeyId}`, async (route) => {
       if (route.request().method() === "DELETE") {
-        route.fulfill({ status: 204 });
+        await route.fulfill({ status: 204 });
         return;
       }
-      route.fulfill({
+      await route.fulfill({
         json: { journeyId, summary, legs: [], stops: [] },
       });
     });
 
-    await this.page.route(`**/v1/journeys/${journeyId}/summary`, (route) =>
+    await this.page.route(`**/journeys/${journeyId}/summary`, (route) =>
       this.fulfillSummary(route, summary, opts.rotatingETag),
     );
 
-    await this.page.route(`**/v1/journeys/${journeyId}/legs`, (r) =>
+    await this.page.route(`**/journeys/${journeyId}/legs`, async (r) =>
       r.fulfill({ json: { legs: [], stops: [] } }),
     );
 
-    await this.page.route(`**/v1/journeys/${journeyId}/alternatives`, (r) =>
+    await this.page.route(`**/journeys/${journeyId}/alternatives`, async (r) =>
       r.fulfill({ json: { data: alternatives, totalCount: alternatives.length } }),
     );
+
+    // Mock routes for each alternative journey so companion loads after selection.
+    for (const alt of alternatives) {
+      const altSummary = alt.summary as Summary;
+      await this.page.route(`**/journeys/${alt.journeyId}`, async (route) => {
+        if (route.request().method() === "DELETE") { await route.fulfill({ status: 204 }); return; }
+        await route.fulfill({ json: { journeyId: alt.journeyId, summary: altSummary, legs: [], stops: [] } });
+      });
+      await this.page.route(`**/journeys/${alt.journeyId}/summary`, (route) =>
+        this.fulfillSummary(route, altSummary, false),
+      );
+      await this.page.route(`**/journeys/${alt.journeyId}/legs`, async (r) =>
+        r.fulfill({ json: { legs: [], stops: [] } }),
+      );
+    }
   }
 
   /** Mock only the summary endpoint with a given override — useful for status-flip tests. */
   async overrideSummary(journeyId: string, summary: Summary): Promise<void> {
-    await this.page.route(`**/v1/journeys/${journeyId}/summary`, (route) =>
+    await this.page.route(`**/journeys/${journeyId}/summary`, async (route) =>
       this.fulfillSummary(route, summary, false),
     );
   }
@@ -146,7 +175,7 @@ export class MockServer {
   /** Replace POST /v1/journeys with a low-confidence plausibility response. */
   async overrideJourneyCreatePlausibilityLow(journeyId: string): Promise<void> {
     await this.page.route(
-      "**/v1/journeys",
+      "**/journeys",
       this.routeJourneyCreate(journeyId, {
         plausibility: { onTrainConfidence: "low", reason: "Train has passed destination" },
       }),
@@ -157,9 +186,9 @@ export class MockServer {
     journeyId: string,
     opts: Pick<MockOptions, "summary" | "plausibility"> = {},
   ) {
-    return (route: Route) => {
-      if (route.request().method() !== "POST") { route.continue(); return; }
-      route.fulfill({
+    return async (route: Route) => {
+      if (route.request().method() !== "POST") { await route.continue(); return; }
+      await route.fulfill({
         status: 201,
         json: makeJourneyCreateResponse({ journeyId, summary: opts.summary, plausibility: opts.plausibility }),
         headers: { Location: `/v1/journeys/${journeyId}` },
@@ -169,7 +198,7 @@ export class MockServer {
 
   /** Force all journey lookups to 404. */
   async setAllJourneysNotFound(): Promise<void> {
-    await this.page.route("**/v1/journeys/**", (r) =>
+    await this.page.route("**/journeys/**", async (r) =>
       r.fulfill({
         status: 404,
         json: { type: "urn:vbb:error:journey-not-found", title: "Not Found", status: 404 },
@@ -179,11 +208,27 @@ export class MockServer {
 
   /** Abort all journey traffic — simulates total network failure. */
   async abortAllJourneys(): Promise<void> {
-    await this.page.route("**/v1/journeys/**", (r) => r.abort("failed"));
+    await this.page.route("**/journeys/**", async (r) => r.abort("failed"));
   }
 
-  private fulfillSummary(route: Route, summary: Summary, rotating?: boolean) {
+  /** Make GET /trains/** return 404 — simulates unknown train number. */
+  async setTrainNotFound(): Promise<void> {
+    await this.page.route("**/trains/**", async (r) =>
+      r.fulfill({ status: 404, json: { type: "urn:vbb:error:not-found", status: 404 } }),
+    );
+  }
+
+  /** Make GET /stations return 503 — simulates upstream station search failure. */
+  async setStationsError(): Promise<void> {
+    await this.page.route("**/stations**", async (r) =>
+      r.fulfill({ status: 503, json: { type: "urn:vbb:error:upstream", status: 503 } }),
+    );
+  }
+
+  private async fulfillSummary(route: Route, summary: Summary, rotating?: boolean) {
     const tag = rotating ? `"jrn:epoch:${++this.etagCounter}"` : `"jrn:epoch:1"`;
-    route.fulfill({ json: summary, headers: { ETag: tag } });
+    // Always return current dataFetchedAt so fresh polls look fresh (stale indicator disappears when online).
+    const now = new Date().toISOString();
+    await route.fulfill({ json: { ...summary, dataFetchedAt: now, lastUpdatedAt: now }, headers: { ETag: tag } });
   }
 }

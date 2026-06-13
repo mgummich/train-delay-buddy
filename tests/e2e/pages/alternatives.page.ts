@@ -4,11 +4,26 @@ export class AlternativesPage {
   readonly alternativeCards: Locator;
   readonly chooseRouteButton: Locator;
   readonly timeGainHint: Locator;
+  readonly filterButton: Locator;
 
   constructor(readonly page: Page) {
     this.alternativeCards = page.getByTestId("alternative-card");
     this.chooseRouteButton = page.getByRole("button", { name: /Route wählen/i });
     this.timeGainHint = page.getByText(/früher am Ziel|früher ankommen/i);
+    this.filterButton = page.getByRole("button", { name: /^Filter/ });
+  }
+
+  filterChip(label: string): Locator {
+    return this.page.getByRole("button", { name: `${label} Filter entfernen` });
+  }
+
+  async openFilterSheet(): Promise<void> {
+    await this.filterButton.click();
+    await expect(this.page.getByRole("dialog")).toBeVisible();
+  }
+
+  async closeFilterSheet(): Promise<void> {
+    await this.page.getByRole("button", { name: /Verbindungen anzeigen|Keine Treffer/i }).click();
   }
 
   async expectVisible(): Promise<void> {
@@ -18,6 +33,9 @@ export class AlternativesPage {
 
   async selectFirst(): Promise<void> {
     await this.alternativeCards.first().click();
-    await this.chooseRouteButton.click();
+    await Promise.all([
+      this.page.waitForURL(/\/journey\/.*\/companion/),
+      this.chooseRouteButton.click(),
+    ]);
   }
 }
