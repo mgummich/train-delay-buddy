@@ -18,15 +18,9 @@ func RequestID(next http.Handler) http.Handler {
 	})
 }
 
-// GetRequestID retrieves the request ID from ctx. Delegates to reqid.Get.
+// GetRequestID retrieves the request ID from ctx.
 func GetRequestID(ctx context.Context) string {
 	return reqid.Get(ctx)
-}
-
-// WithRequestID injects id into ctx. Used by the poller when making HAFAS calls
-// without an inbound HTTP request (Plan 4).
-func WithRequestID(ctx context.Context, id string) context.Context {
-	return reqid.Set(ctx, id)
 }
 
 func newRequestID() string {

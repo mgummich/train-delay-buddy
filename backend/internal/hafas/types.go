@@ -67,7 +67,7 @@ type HAFASStopover struct {
 	Cancelled                bool       `json:"cancelled"`
 }
 
-// HAFASJourneysResponse wraps GET /journeys — used in Plan 3.
+// HAFASJourneysResponse wraps GET /journeys.
 type HAFASJourneysResponse struct {
 	Journeys []HAFASJourney `json:"journeys"`
 }

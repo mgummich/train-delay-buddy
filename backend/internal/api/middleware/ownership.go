@@ -1,4 +1,3 @@
-// backend/internal/api/middleware/ownership.go
 package middleware
 
 import (

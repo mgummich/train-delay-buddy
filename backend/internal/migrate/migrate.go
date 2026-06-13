@@ -1,4 +1,3 @@
-// backend/internal/migrate/migrate.go
 package migrate
 
 import (

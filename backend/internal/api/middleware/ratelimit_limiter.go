@@ -1,4 +1,3 @@
-// backend/internal/api/middleware/ratelimit_limiter.go
 package middleware
 
 import (
@@ -18,13 +17,6 @@ type Limiter interface {
 	// Cleanup is a no-op for backends that auto-expire (Redis); the in-memory
 	// limiter uses it to evict idle entries.
 	Cleanup(olderThan time.Duration)
-}
-
-// MemoryLimiter wraps the existing in-memory RateLimiter to satisfy the Limiter interface.
-// Allow ignores ctx — the in-memory bucket is purely process-local.
-func (rl *RateLimiter) AllowCtx(_ context.Context, key string) (bool, int) {
-	allowed := rl.Allow(key)
-	return allowed, rl.Remaining(key)
 }
 
 // Compile-time check that *RateLimiter satisfies Limiter via a wrapper.

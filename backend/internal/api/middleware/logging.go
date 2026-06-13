@@ -1,4 +1,3 @@
-// backend/internal/api/middleware/logging.go
 package middleware
 
 import (

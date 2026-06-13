@@ -1,4 +1,3 @@
-// backend/internal/api/middleware/cors.go
 package middleware
 
 import "net/http"
@@ -14,7 +13,8 @@ func CORS(origins []string) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			origin := r.Header.Get("Origin")
-			if allowed[origin] {
+			originAllowed := allowed[origin]
+			if originAllowed {
 				w.Header().Add("Vary", "Origin")
 				w.Header().Set("Access-Control-Allow-Origin", origin)
 				w.Header().Set("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS")
@@ -24,7 +24,7 @@ func CORS(origins []string) func(http.Handler) http.Handler {
 					"ETag, X-Request-Id, X-RateLimit-Limit, X-RateLimit-Remaining, X-RateLimit-Reset, Location")
 			}
 			if r.Method == http.MethodOptions {
-				if allowed[origin] {
+				if originAllowed {
 					w.WriteHeader(http.StatusNoContent)
 				} else {
 					w.WriteHeader(http.StatusForbidden)
