@@ -109,9 +109,6 @@ func ContextWithRequestID(ctx context.Context, id string) context.Context {
 
 // SearchStations searches db.transport.rest /locations for stops matching query.
 func (c *Client) SearchStations(ctx context.Context, query string, limit int) ([]HAFASLocationResult, error) {
-	if !c.cb.allow() {
-		return nil, ErrCircuitOpen
-	}
 	params := url.Values{
 		"query":     {query},
 		"results":   {fmt.Sprintf("%d", limit)},
@@ -121,19 +118,11 @@ func (c *Client) SearchStations(ctx context.Context, query string, limit int) ([
 		"language":  {"de"},
 	}
 	var result []HAFASLocationResult
-	if err := c.get(ctx, "/locations", params, &result); err != nil {
-		c.cb.recordFailure()
-		return nil, err
-	}
-	c.cb.recordSuccess()
-	return result, nil
+	return result, c.withCB(ctx, "/locations", params, &result)
 }
 
 // SearchTrips searches db.transport.rest /trips for trips matching trainName (e.g. "ICE 123").
 func (c *Client) SearchTrips(ctx context.Context, trainName string, results int) ([]HAFASTrip, error) {
-	if !c.cb.allow() {
-		return nil, ErrCircuitOpen
-	}
 	params := url.Values{
 		"query":     {trainName},
 		"results":   {fmt.Sprintf("%d", results)},
@@ -141,19 +130,11 @@ func (c *Client) SearchTrips(ctx context.Context, trainName string, results int)
 		"polyline":  {"false"},
 	}
 	var resp HAFASTripsResponse
-	if err := c.get(ctx, "/trips", params, &resp); err != nil {
-		c.cb.recordFailure()
-		return nil, err
-	}
-	c.cb.recordSuccess()
-	return resp.Trips, nil
+	return resp.Trips, c.withCB(ctx, "/trips", params, &resp)
 }
 
 // SearchJourneys searches for connections from→to departing after departureAfter.
 func (c *Client) SearchJourneys(ctx context.Context, fromID, toID string, departureAfter time.Time, results int) ([]HAFASJourney, error) {
-	if !c.cb.allow() {
-		return nil, ErrCircuitOpen
-	}
 	params := url.Values{
 		"from":      {fromID},
 		"to":        {toID},
@@ -163,19 +144,11 @@ func (c *Client) SearchJourneys(ctx context.Context, fromID, toID string, depart
 		"polyline":  {"false"},
 	}
 	var resp HAFASJourneysResponse
-	if err := c.get(ctx, "/journeys", params, &resp); err != nil {
-		c.cb.recordFailure()
-		return nil, err
-	}
-	c.cb.recordSuccess()
-	return resp.Journeys, nil
+	return resp.Journeys, c.withCB(ctx, "/journeys", params, &resp)
 }
 
 // GetTrip fetches realtime data for a specific trip ID.
 func (c *Client) GetTrip(ctx context.Context, tripID string) (*HAFASTrip, error) {
-	if !c.cb.allow() {
-		return nil, ErrCircuitOpen
-	}
 	params := url.Values{
 		"stopovers": {"true"},
 		"polyline":  {"false"},
@@ -183,12 +156,22 @@ func (c *Client) GetTrip(ctx context.Context, tripID string) (*HAFASTrip, error)
 	var resp struct {
 		Trip HAFASTrip `json:"trip"`
 	}
-	if err := c.get(ctx, "/trips/"+url.PathEscape(tripID), params, &resp); err != nil {
-		c.cb.recordFailure()
+	if err := c.withCB(ctx, "/trips/"+url.PathEscape(tripID), params, &resp); err != nil {
 		return nil, err
 	}
-	c.cb.recordSuccess()
 	return &resp.Trip, nil
+}
+
+func (c *Client) withCB(ctx context.Context, path string, params url.Values, out any) error {
+	if !c.cb.allow() {
+		return ErrCircuitOpen
+	}
+	if err := c.get(ctx, path, params, out); err != nil {
+		c.cb.recordFailure()
+		return err
+	}
+	c.cb.recordSuccess()
+	return nil
 }
 
 
