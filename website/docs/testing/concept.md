@@ -43,7 +43,7 @@ Every layer is automated. Tests that are not run automatically do not exist in p
 ## 3. Frontend Unit Tests
 
 ### Tooling
-- **Runner:** Vitest 3.2 (jsdom environment)
+- **Runner:** Vitest 4.x (jsdom environment)
 - **Component rendering:** React Testing Library 16
 - **API mocking:** MSW 2 (`setupServer` in Node mode)
 - **Async state:** `@tanstack/react-query` with `retry: false`
@@ -218,13 +218,12 @@ Global test timeout is 50 s. Offline tests assert with `timeout: 35_000` (one 30
 
 ### CI Blocking
 
-E2E runs after the frontend job with `needs: [frontend]`. The `continue-on-error: true` flag is a **temporary workaround** while offline tests are stabilised. Once `offline.spec.ts` is consistently green, remove `continue-on-error` to make E2E a hard gate.
+E2E runs after the frontend job with `needs: [frontend]` and is a **hard gate** — a failing E2E job blocks the merge. All API calls are mocked so no backend infrastructure is needed in CI.
 
 ### Gaps (to be filled)
 
 | Gap | Priority |
 |-----|----------|
-| Remove `continue-on-error: true` once offline tests pass | High |
 | StartScreen: station search error state (API 503) | Medium |
 | AlternativesScreen: filter toggle for maxTransfers | Medium |
 | Companion: "Reise abschließen" error case (DELETE fails) | Medium |
@@ -310,30 +309,25 @@ push / PR to master
 │
 ├── backend (Go)
 │   └── go mod verify → go vet → go build → go test -race -count=1 -timeout=5m ./...
+│   └── coverage check (≥ 55%) → govulncheck
 │
 ├── frontend (Node)
-│   └── npm ci → codegen:check → lint → typecheck → vitest run
+│   └── npm ci → codegen:check → lint → typecheck → npm audit → vitest run
 │
 ├── e2e (Playwright)          needs: [frontend]
-│   └── build → install browsers → typecheck → playwright test
-│   └── ⚠️ continue-on-error: true — remove once offline tests are stable
+│   └── build → install browsers → typecheck → playwright test (hard gate)
 │
 ├── sast
 │   └── gitleaks → gosec → semgrep
 │
-└── docker
-    needs: [backend, frontend]
-    └── build backend + frontend images
+└── docker                    needs: [backend, frontend]
+    └── compose validate → build backend + frontend images
 ```
 
 ### Missing CI Steps
 
 | Step | Priority | Notes |
 |------|----------|-------|
-| Backend coverage report | High | Add `-coverprofile`, fail below 70% |
-| `govulncheck ./...` | High | Go CVE scanner |
-| `npm audit --audit-level=high` | High | Frontend CVE scanner |
-| E2E made blocking | High | Remove `continue-on-error` |
 | Weekly k6 run against staging | Low | Scheduled workflow |
 
 ---

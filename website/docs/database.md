@@ -5,7 +5,7 @@ title: Database
 
 # Database
 
-PostgreSQL 18. A single table. A single migration file.
+PostgreSQL 18. A single table. Two migration files.
 
 ## Schema
 
@@ -30,9 +30,6 @@ CREATE TABLE journeys (
 CREATE INDEX journeys_active_idx
   ON journeys (last_polled_at)
   WHERE terminated_at IS NULL;
-
-CREATE INDEX journeys_install_id_idx
-  ON journeys (install_id);
 ```
 
 ## Column-by-column
@@ -56,8 +53,9 @@ CREATE INDEX journeys_install_id_idx
 
 ## Indexes
 
-- **`journeys_active_idx`** is a partial index — covers only active journeys. The janitor scans this index for `last_polled_at < now() - JOURNEY_TTL_HOURS` to find candidates for GC.
-- **`journeys_install_id_idx`** is used by future-thinking endpoints that may list "my journeys" for a given install. Currently consulted only by rate-limit lookups.
+- **`journeys_active_idx`** is a partial index covering only active journeys. The janitor scans it for `last_polled_at < now() - JOURNEY_TTL_HOURS` to find GC candidates. Migration 002 clusters the heap on this index and sets `fillfactor=70` so poll-tick `UPDATE`s qualify for Postgres HOT (Heap-Only Tuple) chains — skipping index maintenance on every tick.
+
+`journeys_install_id_idx` was created in migration 001 but removed in migration 002. Ownership is enforced in Go after a primary-key lookup, so the index added write overhead without being used by any query.
 
 ## Migrations
 
@@ -69,6 +67,13 @@ The migration runner is at `backend/internal/migrate`. Behaviour:
 - Applies remaining files **one per transaction**, recording each one in `schema_migrations` before commit.
 
 This runs **on every server start**. There is no separate `migrate up` command. Failure during a migration aborts startup; no half-applied schema is ever committed.
+
+### Existing migrations
+
+| File | What it does |
+|------|-------------|
+| `001_initial.sql` | Creates the `journeys` table and initial indexes |
+| `002_optimize_journeys.sql` | Drops the unused `journeys_install_id_idx`, sets `fillfactor=70`, clusters the heap, and tunes autovacuum for poll-heavy workloads |
 
 ### Adding a migration
 

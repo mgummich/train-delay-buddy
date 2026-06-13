@@ -6,7 +6,7 @@ sidebar_position: 3
 
 # Frontend internals
 
-The frontend is a React 19 + TypeScript SPA built with Vite 6, packaged as an installable PWA via `vite-plugin-pwa` (Workbox). Production builds are served as static files by Nginx; the API is reverse-proxied to the Go backend on the same origin.
+The frontend is a React 19 + TypeScript SPA built with Vite 8, packaged as an installable PWA via `vite-plugin-pwa` (Workbox). Production builds are served as static files by Nginx; the API is reverse-proxied to the Go backend on the same origin.
 
 ## Folder map
 

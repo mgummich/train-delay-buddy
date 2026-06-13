@@ -117,7 +117,6 @@ These are stable across visual redesigns and double as accessibility assertions.
 ```yaml
 e2e:
   needs: [frontend]            # waits for frontend unit tests first
-  continue-on-error: true      # non-blocking: failures reported but don't block merges
   timeout-minutes: 20
   steps:
     - build frontend            # npm run build
@@ -129,7 +128,7 @@ e2e:
     - upload test-results/      # traces on failure
 ```
 
-`continue-on-error: true` means failures surface in the summary but don't block merges. On CI, `playwright.config.ts` drops Mobile Safari (heavy webkit deps) and runs 2 workers with 2 retries. Failures upload the HTML report and trace zips as GitHub Actions artifacts.
+E2E is a **hard gate** — failures block merges. On CI, `playwright.config.ts` drops Mobile Safari (heavy webkit deps) and runs 2 workers with 2 retries. Failures upload the HTML report and trace zips as GitHub Actions artifacts.
 
 ## Debugging a flake
 

@@ -27,10 +27,14 @@ Four jobs run; `backend` and `frontend` run in parallel, `docker` and `e2e` wait
 - go mod verify
 - go vet ./...
 - go build ./...
-- go test -race -count=1 -timeout=5m ./...
+- go test -race -count=1 -timeout=5m -coverprofile=coverage.out ./...
+- coverage check: fail if total < 55%
+- govulncheck ./...
 ```
 
-The `-race` detector adds ~30 % runtime but catches concurrency bugs that would otherwise reach production. `-count=1` defeats Go's test result cache on every CI run.
+The `-race` detector adds ~30 % runtime but catches concurrency bugs that would otherwise reach production. `-count=1` defeats Go's test result cache on every CI run. `CGO_ENABLED=1` is required for the race detector (gcc is available on `ubuntu-latest`).
+
+`govulncheck` scans Go modules against the Go vulnerability database. `coverage.out` is checked immediately after tests; the job fails if coverage falls below 55%.
 
 ### Job: `frontend`
 
@@ -41,16 +45,16 @@ The `-race` detector adds ~30 % runtime but catches concurrency bugs that would 
 - npm run codegen:check    # fails if types.gen.ts is out of date
 - npm run lint
 - npm run typecheck
+- npm audit --audit-level=high
 - npm run test -- --reporter=default
 ```
 
-The `codegen:check` step is critical — it guarantees the committed TypeScript types match the OpenAPI spec.
+`codegen:check` guarantees the committed TypeScript types match the OpenAPI spec. `npm audit` fails the job on any HIGH or CRITICAL CVE in the dependency tree.
 
 ### Job: `e2e`
 
 ```yaml
 needs: [frontend]
-continue-on-error: true    # non-blocking — failures reported but don't block merges
 timeout-minutes: 20
 - actions/checkout@v6
 - actions/setup-node@v6 (node 22, npm cache for both frontend and tests/e2e)
@@ -64,7 +68,7 @@ timeout-minutes: 20
 - actions/upload-artifact@v7 (traces, on failure)
 ```
 
-`continue-on-error: true` means E2E failures are visible in the summary but do not block PRs from merging. Remove that flag once all screens are fully implemented.
+E2E is a **hard gate** — failures block merges. The job uploads the Playwright HTML report and trace zips as artifacts so you can inspect failures without re-running locally.
 
 ### Job: `sast`
 
@@ -172,7 +176,7 @@ Before pushing, you can run the same checks locally:
 
 ```bash
 # Backend
-(cd backend && go mod verify && go vet ./... && go test -race -count=1 ./...)
+(cd backend && go mod verify && go vet ./... && CGO_ENABLED=1 go test -race -count=1 ./...)
 
 # Frontend
 (cd frontend && npm ci && npm run codegen:check && npm run lint && npm run typecheck && npm run test)
@@ -222,7 +226,9 @@ To publish images to GitHub Container Registry on `master`:
 
 Add `packages: write` to the workflow `permissions:`.
 
-## Vulnerability scanning (optional)
+## Vulnerability scanning
+
+Go dependencies are scanned by `govulncheck` in the `backend` job (part of the standard pipeline). Frontend dependencies are scanned by `npm audit --audit-level=high` in the `frontend` job.
 
 To add Trivy scanning of the built images:
 

@@ -46,7 +46,7 @@ This site is the **single source of truth** for everything about the project:
 | Layer | Technology |
 |-------|------------|
 | **Backend** | Go 1.25 — chi router, pgx/v5, go-redis, Prometheus metrics |
-| **Frontend** | React 19, TypeScript, Vite 6, TanStack Query, Zustand, Tailwind CSS, shadcn/ui |
+| **Frontend** | React 19, TypeScript, Vite 8, TanStack Query, Zustand, Tailwind CSS, shadcn/ui |
 | **Database** | PostgreSQL 18 |
 | **Cache** | Valkey 9.1 (BSD Redis fork, volatile-LRU, 256 MB cap) |
 | **Reverse proxy** | Nginx (production) |

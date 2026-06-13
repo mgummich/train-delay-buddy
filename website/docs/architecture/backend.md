@@ -32,7 +32,8 @@ backend/
 │   ├── problem/                    # RFC 7807 application/problem+json helpers
 │   ├── reqid/                      # X-Request-Id middleware + slog context value
 │   └── routing/                    # BFS + ETA-based alternative scoring
-├── migrations/001_initial.sql      # sole migration — journeys table + indexes
+├── migrations/001_initial.sql      # creates journeys table + indexes
+├── migrations/002_optimize_journeys.sql  # HOT-update tuning, drops unused index
 └── openapi.yaml                    # OpenAPI 3.1 source of truth
 ```
 
@@ -132,7 +133,7 @@ Routes are filtered by `dbOnly` (excludes non-DB operators) and `safetyLevel` (r
 
 ## Database schema
 
-A single table, populated by a single migration:
+A single table, created by migration 001 and optimised by migration 002:
 
 ```sql
 CREATE TABLE journeys (
@@ -155,9 +156,6 @@ CREATE TABLE journeys (
 CREATE INDEX journeys_active_idx
   ON journeys (last_polled_at)
   WHERE terminated_at IS NULL;
-
-CREATE INDEX journeys_install_id_idx
-  ON journeys (install_id);
 ```
 
 See [Database](../database) for full schema, indexes, and direct-access tips.

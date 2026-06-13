@@ -127,8 +127,12 @@ go tool cover -html=cover.out
 ```yaml
 - name: Test
   env:
-    CGO_ENABLED: "0"
-  run: go test -race -count=1 -timeout=5m ./...
+    CGO_ENABLED: "1"   # required for -race (uses gcc on ubuntu-latest)
+  run: go test -race -count=1 -timeout=5m -coverprofile=coverage.out ./...
+- name: Coverage check
+  run: |
+    go tool cover -func=coverage.out | tail -1
+    # fails the job if total coverage < 55%
 ```
 
-`-count=1` prevents test-cache reuse on a fresh CI run (Go caches by source + flags). `-race` is mandatory — concurrency bugs found at PR time are cheap; the same bug in production is expensive.
+`-count=1` prevents test-cache reuse on a fresh CI run. `-race` is mandatory — concurrency bugs found at PR time are cheap; the same bug in production is expensive. The coverage check enforces a 55% floor; the threshold will rise as the test suite matures.
