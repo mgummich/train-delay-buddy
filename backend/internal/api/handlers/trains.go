@@ -40,7 +40,7 @@ func (h *TrainsHandler) Get(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	trips, err := h.hafas.SearchTrips(r.Context(), normalized, 5)
+	trip, err := h.hafas.SearchTripByLineName(r.Context(), normalized, date)
 	if err != nil {
 		problem.Write(w, r, problem.Problem{
 			Type:   "urn:verspbegl:error:upstream-unavailable",
@@ -51,8 +51,7 @@ func (h *TrainsHandler) Get(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	filtered := hafas.FilterTripsByDate(trips, date)
-	if len(filtered) == 0 {
+	if trip == nil {
 		problem.Write(w, r, problem.Problem{
 			Type:   "urn:verspbegl:error:train-not-found",
 			Title:  "Train Not Found",
@@ -62,6 +61,6 @@ func (h *TrainsHandler) Get(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	resp := hafas.MapTripToTrainResponse(filtered[0], date, time.Now())
+	resp := hafas.MapTripToTrainResponse(*trip, date, time.Now())
 	writeJSON(w, http.StatusOK, resp)
 }

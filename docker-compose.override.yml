@@ -1,16 +1,37 @@
 # docker-compose.override.yml
 services:
+  hafas-proxy:
+    image: ghcr.io/public-transport/db-vendo-client:latest
+    platform: linux/amd64
+    environment:
+      - USER_AGENT=verspaetungs-begleiter/dev
+      - DB_PROFILE=dbnav
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
   backend:
     build:
       context: ./backend
       target: dev
     read_only: false
+    tmpfs:
+      - /tmp:size=512m
     volumes:
       - ./backend:/app:cached
+      - go-build-cache:/home/app/.cache/go-build
     ports: ["127.0.0.1:8080:8080"]
     environment:
       - LOG_LEVEL=DEBUG
       - CORS_ALLOWED_ORIGINS=http://localhost:5173
+      - HAFAS_BASE_URL=http://hafas-proxy:3000
+    depends_on:
+      - hafas-proxy
     deploy:
       resources: {}
 
@@ -37,3 +58,6 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
+
+volumes:
+  go-build-cache:

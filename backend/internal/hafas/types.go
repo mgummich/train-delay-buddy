@@ -9,9 +9,25 @@ type HAFASLocationResult struct {
 	Name string `json:"name"`
 }
 
-// HAFASTripsResponse wraps GET /trips?query=...
+// HAFASTripsResponse wraps GET /trips?query=... (legacy, kept for test compatibility).
 type HAFASTripsResponse struct {
 	Trips []HAFASTrip `json:"trips"`
+}
+
+// HAFASDeparturesResponse wraps GET /stops/{id}/departures.
+type HAFASDeparturesResponse struct {
+	Departures []HAFASDeparture `json:"departures"`
+}
+
+// HAFASDeparture is one entry in a departure board.
+type HAFASDeparture struct {
+	TripId      string     `json:"tripId"`
+	Stop        HAFASPlace `json:"stop"`
+	When        *time.Time `json:"when"`
+	PlannedWhen *time.Time `json:"plannedWhen"`
+	Line        *HAFASLine `json:"line"`
+	Direction   string     `json:"direction"`
+	Cancelled   bool       `json:"cancelled"`
 }
 
 // HAFASTrip is one run of a scheduled service.

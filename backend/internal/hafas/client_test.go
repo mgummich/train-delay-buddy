@@ -6,6 +6,7 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -23,7 +24,7 @@ func newTestClient(t *testing.T, handler http.HandlerFunc) *hafas.Client {
 		HAFASRequestTimeout:  5 * time.Second,
 		HAFASCBThreshold:     3,
 		HAFASCBProbeInterval: 30 * time.Second,
-	})
+	}, nil)
 }
 
 func TestSearchStations_ReturnsStations(t *testing.T) {
@@ -56,7 +57,7 @@ func TestSearchStations_PropagatesRequestID(t *testing.T) {
 	})
 
 	ctx := reqid.Set(context.Background(), "test-request-id-123")
-	client.SearchStations(ctx, "Frank", 5)
+	client.SearchStations(ctx, "Frank", 5) //nolint:errcheck
 
 	if gotHeader != "test-request-id-123" {
 		t.Errorf("X-Request-Id not propagated: got %q", gotHeader)
@@ -69,10 +70,10 @@ func TestCircuitBreaker_OpensAfterThreshold(t *testing.T) {
 		HAFASRequestTimeout:  50 * time.Millisecond,
 		HAFASCBThreshold:     2,
 		HAFASCBProbeInterval: 10 * time.Second,
-	})
+	}, nil)
 
 	for range 2 {
-		client.SearchStations(context.Background(), "test", 1)
+		client.SearchStations(context.Background(), "test", 1) //nolint:errcheck
 	}
 
 	_, err := client.SearchStations(context.Background(), "test", 1)
@@ -94,7 +95,7 @@ func TestCircuitBreaker_ClosesAfterProbeSuccess(t *testing.T) {
 		HAFASRequestTimeout:  5 * time.Second,
 		HAFASCBThreshold:     1,
 		HAFASCBProbeInterval: 0,
-	})
+	}, nil)
 
 	client.RecordFailureForTest()
 
@@ -108,38 +109,58 @@ func TestCircuitBreaker_ClosesAfterProbeSuccess(t *testing.T) {
 	}
 }
 
-func TestSearchTrips_ReturnsTrips(t *testing.T) {
-	trip := hafas.HAFASTrip{
-		ID: "trip-1",
-		Line:   hafas.HAFASLine{Name: "ICE 100"},
-	}
+func TestSearchTripByLineName_FindsTrip(t *testing.T) {
+	dep, _ := time.Parse(time.RFC3339, "2026-06-14T10:00:00Z")
+
 	client := newTestClient(t, func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != "/trips" {
+		switch {
+		case strings.HasSuffix(r.URL.Path, "/departures"):
+			json.NewEncoder(w).Encode(hafas.HAFASDeparturesResponse{
+				Departures: []hafas.HAFASDeparture{{
+					TripId: "trip-1",
+					Line:   &hafas.HAFASLine{Name: "ICE 100"},
+				}},
+			})
+		case strings.HasPrefix(r.URL.Path, "/trips/"):
+			json.NewEncoder(w).Encode(struct {
+				Trip hafas.HAFASTrip `json:"trip"`
+			}{Trip: hafas.HAFASTrip{
+				ID:   "trip-1",
+				Line: hafas.HAFASLine{Name: "ICE 100"},
+				Stopovers: []hafas.HAFASStopover{
+					{Stop: hafas.HAFASPlace{ID: "8000261"}, PlannedDeparture: &dep},
+				},
+			}})
+		default:
 			http.NotFound(w, r)
-			return
 		}
-		json.NewEncoder(w).Encode(hafas.HAFASTripsResponse{Trips: []hafas.HAFASTrip{trip}})
 	})
-	trips, err := client.SearchTrips(context.Background(), "ICE 100", 5)
+
+	trip, err := client.SearchTripByLineName(context.Background(), "ICE 100", "2026-06-14")
 	if err != nil {
-		t.Fatalf("SearchTrips: %v", err)
+		t.Fatalf("SearchTripByLineName: %v", err)
 	}
-	if len(trips) != 1 || trips[0].ID != "trip-1" {
-		t.Errorf("unexpected trips: %v", trips)
+	if trip == nil {
+		t.Fatal("expected trip, got nil")
+	}
+	if trip.ID != "trip-1" {
+		t.Errorf("TripID = %q, want trip-1", trip.ID)
 	}
 }
 
-func TestSearchTrips_CircuitOpen(t *testing.T) {
+func TestSearchTripByLineName_NotFound(t *testing.T) {
 	client := newTestClient(t, func(w http.ResponseWriter, r *http.Request) {
-		http.Error(w, "server error", http.StatusInternalServerError)
+		if strings.HasSuffix(r.URL.Path, "/departures") {
+			json.NewEncoder(w).Encode(hafas.HAFASDeparturesResponse{Departures: []hafas.HAFASDeparture{}})
+		}
 	})
-	// Trip the circuit breaker.
-	for range 3 {
-		client.SearchTrips(context.Background(), "ICE 1", 1) //nolint:errcheck
+
+	trip, err := client.SearchTripByLineName(context.Background(), "ICE 999", "2026-06-14")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
 	}
-	_, err := client.SearchTrips(context.Background(), "ICE 1", 1)
-	if !errors.Is(err, hafas.ErrCircuitOpen) {
-		t.Errorf("expected ErrCircuitOpen, got %v", err)
+	if trip != nil {
+		t.Errorf("expected nil, got trip %q", trip.ID)
 	}
 }
 

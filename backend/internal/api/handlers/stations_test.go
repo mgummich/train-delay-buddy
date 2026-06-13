@@ -22,14 +22,14 @@ func newTestHAFASClient(t *testing.T, h http.HandlerFunc) *hafas.Client {
 		HAFASRequestTimeout:  5 * time.Second,
 		HAFASCBThreshold:     5,
 		HAFASCBProbeInterval: 30 * time.Second,
-	})
+	}, nil)
 }
 
 func TestStations_ShortQuery_Returns400(t *testing.T) {
 	h := handlers.NewStationsHandler(newTestHAFASClient(t, func(w http.ResponseWriter, r *http.Request) {}), nil)
 	req := httptest.NewRequest(http.MethodGet, "/v1/stations?q=x", nil)
 	rr := httptest.NewRecorder()
-	h.Search(rr, req)
+	validateResp(t, h.Search, rr, req)
 
 	if rr.Code != http.StatusBadRequest {
 		t.Errorf("expected 400, got %d", rr.Code)
@@ -50,7 +50,7 @@ func TestStations_ValidQuery_ReturnsStations(t *testing.T) {
 
 	req := httptest.NewRequest(http.MethodGet, "/v1/stations?q=Frank", nil)
 	rr := httptest.NewRecorder()
-	h.Search(rr, req)
+	validate(t, h.Search, rr, req)
 
 	if rr.Code != http.StatusOK {
 		t.Fatalf("expected 200, got %d: %s", rr.Code, rr.Body.String())
@@ -74,7 +74,7 @@ func TestStations_EmptyResult_ReturnsEmptyArray(t *testing.T) {
 
 	req := httptest.NewRequest(http.MethodGet, "/v1/stations?q=xyz", nil)
 	rr := httptest.NewRecorder()
-	h.Search(rr, req)
+	validate(t, h.Search, rr, req)
 
 	if rr.Code != http.StatusOK {
 		t.Fatalf("expected 200, got %d", rr.Code)

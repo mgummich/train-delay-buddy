@@ -55,7 +55,7 @@ func main() {
 	}
 	logger.Info("migrations complete")
 
-	hafasClient := hafas.NewClient(cfg)
+	hafasClient := hafas.NewClient(cfg, rdb)
 	coalescer := &hafas.Coalescer{}
 	store := journey.NewStore(db, rdb, cfg.JourneyTTLHours, cfg.DBWriteTimeout, logger)
 	engine := routing.NewBFSEngine(hafasClient)

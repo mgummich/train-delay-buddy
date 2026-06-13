@@ -3,6 +3,7 @@ package routing
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/verspaetungsbegleiter/backend/internal/hafas"
 	"github.com/verspaetungsbegleiter/backend/internal/journey"
@@ -19,16 +20,21 @@ func NewBFSEngine(h *hafas.Client) *BFSEngine {
 }
 
 func (e *BFSEngine) Route(ctx context.Context, req RoutingRequest) (*RoutingResult, error) {
-	trips, err := e.hafas.SearchTrips(ctx, req.TrainNumber, 3)
+	loc, err := time.LoadLocation("Europe/Berlin")
 	if err != nil {
-		return nil, err
+		loc = time.UTC
 	}
-	plausibility := computePlausibility(trips, req.TrainNumber, req.ToStationID)
+	date := req.DepartureAfter.In(loc).Format("2006-01-02")
+
+	// Non-fatal: fromID falls back to req.FromStationID when trip is not found.
+	trip, _ := e.hafas.SearchTripByLineName(ctx, req.TrainNumber, date)
 
 	fromID := req.FromStationID
-	if len(trips) > 0 && trips[0].Origin.ID != "" {
-		fromID = trips[0].Origin.ID
+	if trip != nil && trip.Origin.ID != "" {
+		fromID = trip.Origin.ID
 	}
+
+	plausibility := computePlausibility(trip, req.TrainNumber, req.ToStationID)
 
 	hafasJourneys, err := e.hafas.SearchJourneys(ctx, fromID, req.ToStationID, req.DepartureAfter, 10)
 	if err != nil {
@@ -42,15 +48,10 @@ func (e *BFSEngine) Route(ctx context.Context, req RoutingRequest) (*RoutingResu
 	}
 
 	toStationName := req.ToStationName
-	if toStationName == "" {
-		for _, trip := range trips {
-			for _, s := range trip.Stopovers {
-				if s.Stop.ID == req.ToStationID && s.Stop.Name != "" {
-					toStationName = s.Stop.Name
-					break
-				}
-			}
-			if toStationName != "" {
+	if toStationName == "" && trip != nil {
+		for _, s := range trip.Stopovers {
+			if s.Stop.ID == req.ToStationID && s.Stop.Name != "" {
+				toStationName = s.Stop.Name
 				break
 			}
 		}
@@ -63,7 +64,6 @@ func (e *BFSEngine) Route(ctx context.Context, req RoutingRequest) (*RoutingResu
 					toStationName = leg.Destination.Name
 					break
 				}
-				// Also check origin in case destination is an intermediate stop
 				if leg.Origin.ID == req.ToStationID && leg.Origin.Name != "" {
 					toStationName = leg.Origin.Name
 					break
@@ -87,7 +87,7 @@ func (e *BFSEngine) Route(ctx context.Context, req RoutingRequest) (*RoutingResu
 	var candidates []journey.Journey
 	for i, hj := range hafasJourneys {
 		if i == origIdx {
-			continue // skip the original
+			continue
 		}
 		if req.Filters.DBOnly && !hafas.IsDBOnlyJourney(hj.Legs) {
 			continue
@@ -159,32 +159,20 @@ func countTransfers(legs []hafas.HAFASLeg) int {
 	return 0
 }
 
-func computePlausibility(trips []hafas.HAFASTrip, trainNumber, toStationID string) journey.Plausibility {
-	norm := hafas.NormalizeTrainNumber(trainNumber)
-	for _, t := range trips {
-		if hafas.NormalizeTrainNumber(t.Line.Name) != norm {
-			continue
-		}
-		for _, s := range t.Stopovers {
-			if s.Stop.ID == toStationID {
-				confidence := "high"
-				reason := (*string)(nil)
-				if s.Cancelled {
-					confidence = "low"
-					r := "destination stop is cancelled"
-					reason = &r
-				}
-				return journey.Plausibility{OnTrainConfidence: confidence, Reason: reason}
-			}
-		}
-		// Train found but destination not in stops
-		r := "destination is not a stop on this train"
-		return journey.Plausibility{OnTrainConfidence: "low", Reason: &r}
-	}
-	if len(trips) == 0 {
+func computePlausibility(trip *hafas.HAFASTrip, trainNumber, toStationID string) journey.Plausibility {
+	if trip == nil {
 		r := "train not found in HAFAS"
 		return journey.Plausibility{OnTrainConfidence: "unknown", Reason: &r}
 	}
-	r := "train found but destination not matched"
+	for _, s := range trip.Stopovers {
+		if s.Stop.ID == toStationID {
+			if s.Cancelled {
+				r := "destination stop is cancelled"
+				return journey.Plausibility{OnTrainConfidence: "low", Reason: &r}
+			}
+			return journey.Plausibility{OnTrainConfidence: "high"}
+		}
+	}
+	r := "destination is not a stop on this train"
 	return journey.Plausibility{OnTrainConfidence: "low", Reason: &r}
 }
