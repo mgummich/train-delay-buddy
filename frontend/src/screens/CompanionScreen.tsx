@@ -91,7 +91,10 @@ export function CompanionScreen() {
   const [finishError, setFinishError] = useState<string | null>(null)
   const currentNodeRef = useRef<HTMLDivElement>(null)
 
-  const { data: journey, isError: journeyError } = useQuery({ ...journeyFullQuery(journeyId!), enabled: !!journeyId })
+  const { data: journey, isError: journeyError } = useQuery({
+    ...journeyFullQuery(journeyId!),
+    enabled: !!journeyId,
+  })
   const { data: liveSummary } = useJourney(journeyId!)
 
   useEffect(() => {
@@ -167,7 +170,12 @@ export function CompanionScreen() {
       {tab === 'karte' && <MapView stations={mapStations} traveledTo={currentStopIndex} />}
 
       {tab === 'timeline' && (
-        <div data-testid="timeline" role="list" aria-label="Reisestationen" className="px-4 pt-[6px] pb-[70px]">
+        <div
+          data-testid="timeline"
+          role="list"
+          aria-label="Reisestationen"
+          className="px-4 pt-[6px] pb-[70px]"
+        >
           {stops.map((stop, i) => {
             const isCurrent = i === currentStopIndex
             const isPast = i < currentStopIndex
@@ -320,7 +328,11 @@ export function CompanionScreen() {
 
       {/* Finish journey */}
       <div className="fixed bottom-0 left-0 right-0 p-4 safe-bottom bg-bg-app border-t border-border-subtle">
-        {finishError && <p data-testid="finish-error" className="text-warn text-[13px] text-center mb-2">{finishError}</p>}
+        {finishError && (
+          <p data-testid="finish-error" className="text-warn text-[13px] text-center mb-2">
+            {finishError}
+          </p>
+        )}
         <button
           type="button"
           onClick={() => void handleFinish()}

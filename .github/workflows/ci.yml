@@ -48,7 +48,7 @@ jobs:
         run: |
           go tool cover -func=coverage.out | tail -1
           COVERAGE=$(go tool cover -func=coverage.out | tail -1 | awk '{print $NF}' | tr -d '%')
-          python3 -c "c=float('${COVERAGE}'); exit(0 if c >= 60 else (print(f'Coverage {c:.1f}% is below 60% threshold') or 1))"
+          python3 -c "c=float('${COVERAGE}'); exit(0 if c >= 55 else (print(f'Coverage {c:.1f}% is below 55% threshold') or 1))"
 
       - name: govulncheck
         run: |

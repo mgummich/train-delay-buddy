@@ -87,7 +87,11 @@ describe('CompanionScreen', () => {
     // Without this, the default MSW handler returns a fresh timestamp that overrides the seed.
     server.use(
       http.get('/v1/journeys/:id/summary', () =>
-        HttpResponse.json({ ...DEFAULT_SUMMARY, dataFetchedAt: staleTime, lastUpdatedAt: staleTime })
+        HttpResponse.json({
+          ...DEFAULT_SUMMARY,
+          dataFetchedAt: staleTime,
+          lastUpdatedAt: staleTime,
+        })
       )
     )
     const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } })

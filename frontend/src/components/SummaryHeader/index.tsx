@@ -39,14 +39,20 @@ function Staleness({ dataFetchedAt }: { dataFetchedAt: string }) {
 
   if (ageMin >= 2) {
     return (
-      <div data-testid="stale-indicator" className="bg-warn-soft border border-warn rounded-card px-3 py-2 text-warn text-[13px] font-medium">
+      <div
+        data-testid="stale-indicator"
+        className="bg-warn-soft border border-warn rounded-card px-3 py-2 text-warn text-[13px] font-medium"
+      >
         Daten veraltet – kein Netz?
       </div>
     )
   }
 
   return (
-    <span data-testid="stale-indicator" className="inline-flex items-center h-6 px-2 rounded-badge bg-warn-soft text-warn text-[12.5px] font-medium">
+    <span
+      data-testid="stale-indicator"
+      className="inline-flex items-center h-6 px-2 rounded-badge bg-warn-soft text-warn text-[12.5px] font-medium"
+    >
       Möglicherweise veraltet
     </span>
   )
@@ -80,7 +86,11 @@ export function SummaryHeader({ summary, tab, onTabChange }: SummaryHeaderProps)
           <p className="text-text-muted text-[13.5px] mt-[2px]">
             {t('companion.vsOriginal', { time: formatTime(summary.eta) })}
           </p>
-          <time data-testid="eta" dateTime={summary.eta} className="inline-block w-px h-px overflow-hidden">
+          <time
+            data-testid="eta"
+            dateTime={summary.eta}
+            className="inline-block w-px h-px overflow-hidden"
+          >
             {formatTime(summary.eta)}
           </time>
         </div>

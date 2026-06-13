@@ -106,3 +106,72 @@ func TestCircuitBreaker_ClosesAfterProbeSuccess(t *testing.T) {
 		t.Errorf("expected circuit closed (0), got %d", client.CircuitState())
 	}
 }
+
+func TestSearchTrips_ReturnsTrips(t *testing.T) {
+	trip := hafas.HAFASTrip{
+		ID: "trip-1",
+		Line:   hafas.HAFASLine{Name: "ICE 100"},
+	}
+	client := newTestClient(t, func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/trips" {
+			http.NotFound(w, r)
+			return
+		}
+		json.NewEncoder(w).Encode(hafas.HAFASTripsResponse{Trips: []hafas.HAFASTrip{trip}})
+	})
+	trips, err := client.SearchTrips(context.Background(), "ICE 100", 5)
+	if err != nil {
+		t.Fatalf("SearchTrips: %v", err)
+	}
+	if len(trips) != 1 || trips[0].ID != "trip-1" {
+		t.Errorf("unexpected trips: %v", trips)
+	}
+}
+
+func TestSearchTrips_CircuitOpen(t *testing.T) {
+	client := newTestClient(t, func(w http.ResponseWriter, r *http.Request) {
+		http.Error(w, "server error", http.StatusInternalServerError)
+	})
+	// Trip the circuit breaker.
+	for range 3 {
+		client.SearchTrips(context.Background(), "ICE 1", 1) //nolint:errcheck
+	}
+	_, err := client.SearchTrips(context.Background(), "ICE 1", 1)
+	if !errors.Is(err, hafas.ErrCircuitOpen) {
+		t.Errorf("expected ErrCircuitOpen, got %v", err)
+	}
+}
+
+func TestSearchJourneys_ReturnsJourneys(t *testing.T) {
+	journey := hafas.HAFASJourney{Legs: []hafas.HAFASLeg{}}
+	client := newTestClient(t, func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/journeys" {
+			http.NotFound(w, r)
+			return
+		}
+		json.NewEncoder(w).Encode(hafas.HAFASJourneysResponse{Journeys: []hafas.HAFASJourney{journey}})
+	})
+	journeys, err := client.SearchJourneys(context.Background(), "8000261", "8011160", time.Now(), 3)
+	if err != nil {
+		t.Fatalf("SearchJourneys: %v", err)
+	}
+	if len(journeys) != 1 {
+		t.Errorf("expected 1 journey, got %d", len(journeys))
+	}
+}
+
+func TestGetTrip_ReturnsTrip(t *testing.T) {
+	trip := hafas.HAFASTrip{ID: "trip-42", Line: hafas.HAFASLine{Name: "RE 5"}}
+	client := newTestClient(t, func(w http.ResponseWriter, r *http.Request) {
+		json.NewEncoder(w).Encode(struct {
+			Trip hafas.HAFASTrip `json:"trip"`
+		}{Trip: trip})
+	})
+	got, err := client.GetTrip(context.Background(), "trip-42")
+	if err != nil {
+		t.Fatalf("GetTrip: %v", err)
+	}
+	if got.ID != "trip-42" {
+		t.Errorf("TripID = %q, want trip-42", got.ID)
+	}
+}
