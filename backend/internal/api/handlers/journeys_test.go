@@ -1,4 +1,3 @@
-// backend/internal/api/handlers/journeys_test.go
 package handlers_test
 
 import (

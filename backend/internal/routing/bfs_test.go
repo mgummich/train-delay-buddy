@@ -1,4 +1,3 @@
-// backend/internal/routing/bfs_test.go
 package routing_test
 
 import (

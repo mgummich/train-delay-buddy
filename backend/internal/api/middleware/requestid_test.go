@@ -1,4 +1,3 @@
-// backend/internal/api/middleware/requestid_test.go
 package middleware_test
 
 import (
