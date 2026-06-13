@@ -15,7 +15,7 @@ graph TD
   end
 
   subgraph BE["Backend — Go + chi"]
-    MW["Middleware chain\nRequest-Id · CORS · Logging · Rate-limit"]
+    MW["Middleware\nRequest-Id · CORS · Logging · Rate-limit"]
     Handlers["HTTP handlers\nPOST /v1/journeys\nGET  /v1/journeys/{id}/summary\nGET  /v1/journeys/{id}/legs\nGET  /v1/journeys/{id}/alternatives\nDELETE /v1/journeys/{id}"]
     Poller["PollerManager\ngoroutine / journey · 30 s tick"]
     Pool["WorkerPool\n50 goroutines · 200-deep queue"]
@@ -37,39 +37,39 @@ graph TD
   Valkey  -->|miss fallback| Postgres
 ```
 
-## Layered design
+## Layers
 
 | Layer | Responsibility | Lives in |
 |-------|----------------|----------|
-| **HTTP** | Routing, content negotiation, RFC 7807 error mapping | `internal/api/handlers`, `internal/api/middleware` |
-| **Domain** | Journey / Leg / Summary types, status derivation, filter rules | `internal/journey/model.go`, `internal/journey/compute.go` |
-| **Routing** | BFS over HAFAS legs, ETA scoring | `internal/routing` |
-| **HAFAS adapter** | REST client, response mapping, circuit breaker, worker pool | `internal/hafas` |
-| **Persistence** | Valkey L1 (full journey JSON, ETag counter), Postgres L2 (canonical store) | `internal/journey/store.go` |
-| **Observability** | Prometheus metrics, structured logging, health probes | `internal/metrics`, `internal/api/handlers/health.go` |
+| HTTP | Routing, content negotiation, RFC 7807 errors | `internal/api/{handlers,middleware}` |
+| Domain | Journey / Leg / Summary types, status derivation, filters | `internal/journey/{model,compute}.go` |
+| Routing | BFS over HAFAS legs, ETA scoring | `internal/routing` |
+| HAFAS adapter | REST client, mapper, breaker, worker pool | `internal/hafas` |
+| Persistence | Valkey L1 (JSON + ETag counter), Postgres L2 (canonical) | `internal/journey/store.go` |
+| Observability | Prometheus, structured logs, health probes | `internal/metrics`, `internal/api/handlers/health.go` |
 
 ## Why this shape
 
-- **Per-journey goroutines**: each active journey owns a single goroutine with a 30-second ticker. State is read from / written to Valkey under a per-journey lock. This keeps the model simple — no fan-out, no work-stealing — and bounded by `MAX_ACTIVE_JOURNEYS` (default 2000).
-- **Bounded HAFAS concurrency**: a global `WorkerPool` (default 50 goroutines, 200-deep queue) serialises requests to the public HAFAS proxy. When the queue is full, `Submit()` returns `false` and the caller backs off — preventing thundering-herd failures during DB nationwide incidents.
-- **Circuit breaker**: 5 consecutive HAFAS failures opens the breaker. A probe every 30 s closes it again. While open, all callers fail fast with `urn:verspbegl:error:hafas-unavailable`.
-- **ETag-based polling**: the frontend re-polls `/summary` every 30 s with `If-None-Match`. The backend short-circuits with **304** when nothing changed, which is the dominant case — minimising bandwidth and CPU.
-- **Two-tier cache**: Valkey serves the polling traffic at sub-millisecond latency. Postgres is the durable source of truth — used on cold misses, server restart, or replica recovery.
+- **Per-journey goroutines.** Each active journey owns one goroutine with a 30 s ticker; state under per-journey Valkey lock. No fan-out, no work-stealing. Bounded by `MAX_ACTIVE_JOURNEYS` (default 2000).
+- **Bounded HAFAS concurrency.** Global `WorkerPool` (default 50 goroutines, 200-deep queue). Full queue → `Submit()` returns `false`, caller backs off. Prevents thundering herd during DB nationwide incidents.
+- **Circuit breaker.** 5 consecutive HAFAS failures → open. Probe every 30 s closes. While open: fail fast with `urn:verspbegl:error:hafas-unavailable`.
+- **ETag polling.** Frontend re-polls `/summary` every 30 s with `If-None-Match`. Backend → 304 when unchanged (dominant case) — minimal bandwidth + CPU.
+- **Two-tier cache.** Valkey serves polls at sub-ms; Postgres is durable truth on cold miss / restart / replica recovery.
 
 ## Why not …
 
 | Question | Answer |
 |----------|--------|
-| **Why not WebSockets / SSE for updates?** | Per-journey poll is already 30 s; ETag makes the cost trivial. WebSockets add infra complexity (load-balancer stickiness, lifecycle management) for marginal gain. |
-| **Why not a job queue (NATS / Kafka)?** | The natural unit of work is *one journey, one ticker*. A queue would re-marshal the same goroutine pattern with extra hops. |
-| **Why not GraphQL?** | Three flat endpoints map cleanly to three UI surfaces. GraphQL would add 80 KB to the client bundle for no expressivity gain. |
-| **Why Go for the backend?** | Bounded-concurrency goroutines, tiny static binaries, mature HTTP ecosystem, and zero GC pauses in the polling hot path. |
-| **Why React 19 + Vite, not Next.js?** | This is a single-user PWA, not a content site. SSR/edge rendering buys nothing. Vite cold start is ~400 ms; HMR is instant. |
+| WebSockets / SSE? | 30 s poll + ETag is cheap. WS adds infra complexity (LB stickiness, lifecycle) for marginal gain. |
+| Job queue (NATS/Kafka)? | Natural unit of work is *one journey, one ticker*. Queue would re-marshal that pattern with hops. |
+| GraphQL? | Three flat endpoints → three UI surfaces. GraphQL = 80 KB client overhead with no expressivity win. |
+| Why Go? | Bounded-concurrency goroutines, tiny static binaries, mature HTTP, zero GC pauses in polling hot path. |
+| Why React + Vite, not Next.js? | Single-user PWA, not content site. SSR/edge buys nothing. Vite cold start ~400 ms, HMR instant. |
 
 ## Module boundaries
 
-The backend follows strict layering: `internal/api` → `internal/journey` → `internal/hafas`. Lower layers must not import upper layers. The compiler enforces this via Go's standard package visibility.
+Backend: strict `internal/api` → `internal/journey` → `internal/hafas`. Lower must not import upper. Enforced by Go package visibility.
 
-The frontend mirrors the same idea via folder convention: `screens/` may import `hooks/`, `hooks/` may import `api/` and `lib/`, but never the reverse.
+Frontend mirrors via folder convention: `screens/` → `hooks/` → `api/`+`lib/`. Never reverse.
 
-Continue with the [Backend deep-dive](./backend), [Frontend deep-dive](./frontend), or [Data flow](./data-flow).
+Continue with [Backend deep-dive](./backend), [Frontend deep-dive](./frontend), or [Data flow](./data-flow).

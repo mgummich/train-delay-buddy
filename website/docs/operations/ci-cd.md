@@ -6,126 +6,107 @@ sidebar_position: 4
 
 # CI/CD pipelines
 
-Two GitHub Actions workflows live under `.github/workflows/`:
+Two workflows in `.github/workflows/`:
 
 | Workflow | Trigger | Purpose |
 |----------|---------|---------|
-| `ci.yml` | push to `master`, PRs to `master` | Verify code builds, tests pass, images build |
-| `docs.yml` | push to `master` (paths: `website/**`, `README.md`) | Build this Docusaurus site and deploy to GitHub Pages |
+| `ci.yml` | push/PR to `master` | Build, test, image build |
+| `docs.yml` | push to `master` (`website/**`, `README.md`) | Build Docusaurus, deploy to Pages |
 
-Both run on `ubuntu-latest` only — no matrix.
+Both run on `ubuntu-latest`.
 
-## `ci.yml` — Code verification
+## `ci.yml`
 
-Four jobs run; `backend` and `frontend` run in parallel, `docker` and `e2e` wait on them:
+Jobs: `backend` + `frontend` + `sast` run in parallel; `docker` and `e2e` wait on them.
 
-### Job: `backend`
+### `backend`
 
 ```yaml
-- actions/checkout@v6
-- actions/setup-go@v6 (with cache, go.mod-based)
+- checkout@v6
+- setup-go@v6 (cache, go.mod-based)
 - go mod verify
 - go vet ./...
 - go build ./...
 - go test -race -count=1 -timeout=5m -coverprofile=coverage.out ./...
-- coverage check: fail if total < 55%
+- coverage check: fail if < 55%
 - govulncheck ./...
 ```
 
-The `-race` detector adds ~30 % runtime but catches concurrency bugs that would otherwise reach production. `-count=1` defeats Go's test result cache on every CI run. `CGO_ENABLED=1` is required for the race detector (gcc is available on `ubuntu-latest`).
+`-race` adds ~30% runtime but catches concurrency bugs. `-count=1` defeats test cache. `CGO_ENABLED=1` required for the race detector. `govulncheck` scans against the Go vuln DB.
 
-`govulncheck` scans Go modules against the Go vulnerability database. `coverage.out` is checked immediately after tests; the job fails if coverage falls below 55%.
-
-### Job: `frontend`
+### `frontend`
 
 ```yaml
-- actions/checkout@v6
-- actions/setup-node@v6 (node 22, npm cache)
+- checkout@v6
+- setup-node@v6 (node 22, npm cache)
 - npm ci
-- npm run codegen:check    # fails if types.gen.ts is out of date
+- npm run codegen:check     # fails if types.gen.ts is stale
 - npm run lint
 - npm run typecheck
 - npm audit --audit-level=high
 - npm run test -- --reporter=default
 ```
 
-`codegen:check` guarantees the committed TypeScript types match the OpenAPI spec. `npm audit` fails the job on any HIGH or CRITICAL CVE in the dependency tree.
-
-### Job: `e2e`
+### `e2e` (`needs: [frontend]`, `timeout-minutes: 20`)
 
 ```yaml
-needs: [frontend]
-timeout-minutes: 20
-- actions/checkout@v6
-- actions/setup-node@v6 (node 22, npm cache for both frontend and tests/e2e)
-- npm ci (frontend)
-- npm run build (frontend)
+- checkout@v6
+- setup-node@v6 (node 22, npm cache for frontend + tests/e2e)
+- npm ci && npm run build (frontend)
 - npm install --no-audit --no-fund (tests/e2e)
 - npm run typecheck (tests/e2e)
 - npx playwright install --with-deps chromium
 - npx playwright test
-- actions/upload-artifact@v7 (playwright-report, 7-day retention, on failure)
-- actions/upload-artifact@v7 (traces, on failure)
+- upload-artifact@v7 (playwright-report + traces, on failure, 7-day retention)
 ```
 
-E2E is a **hard gate** — failures block merges. The job uploads the Playwright HTML report and trace zips as artifacts so you can inspect failures without re-running locally.
+**Hard gate** — failures block merges. HTML report + traces uploaded for offline inspection.
 
-### Job: `sast`
-
-Runs in parallel with `backend` and `frontend`:
+### `sast` (parallel)
 
 ```yaml
 permissions:
   contents: read
   security-events: write
-- gitleaks/gitleaks-action@v3      # secret scanning across full history
-- securego/gosec@master            # Go SAST, HIGH severity, SARIF output
-- github/codeql-action/upload-sarif@v4  # uploads gosec.sarif
-- pip install semgrep              # multi-language SAST via semgrep CLI
+- gitleaks/gitleaks-action@v3        # secrets, full history
+- securego/gosec@master              # Go SAST, HIGH severity, SARIF
+- github/codeql-action/upload-sarif@v4
+- pip install semgrep
   semgrep scan \
-    --config p/default \
-    --config p/security-audit \
-    --config p/owasp-top-ten \
-    --config p/dockerfile \
-    --config p/secrets \
+    --config p/default --config p/security-audit \
+    --config p/owasp-top-ten --config p/dockerfile --config p/secrets \
     --error
 ```
 
-Semgrep runs as a direct CLI call (not the deprecated `returntocorp/semgrep-action`) to avoid version-lock issues. gosec results appear as code-scanning alerts in the Security tab via the uploaded SARIF.
+Direct semgrep CLI (not the deprecated `returntocorp/semgrep-action`) avoids version lock. gosec SARIF surfaces in the Security tab.
 
-### Job: `docker`
+### `docker` (`needs: [backend, frontend]`)
 
 ```yaml
-needs: [backend, frontend]   # only runs after both pass
-- cp .env.example .env       # required for compose validation
+- cp .env.example .env       # compose validation needs it
 - docker compose config --quiet
 - docker/setup-buildx-action@v4
 - docker/build-push-action@v7 (backend, target=production)
 - docker/build-push-action@v7 (frontend, target=prod)
 ```
 
-`cache-from` and `cache-to: type=gha,mode=max` reuse layer cache across runs. A warm build takes ~30 seconds; a cold build takes ~3 minutes.
+`cache-from` / `cache-to: type=gha,mode=max` reuse layers. Warm ~30 s, cold ~3 min. Images built, **not pushed** — see "Publishing images" below.
 
-Images are built but **not pushed**. To enable image publication, add `push: true` and configure registry credentials (see "Publishing images" below).
-
-### Concurrency and permissions
+### Concurrency
 
 ```yaml
 permissions:
   contents: read
-
 concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 ```
 
-`contents: read` is the minimum needed. `concurrency.cancel-in-progress` saves CI minutes by killing superseded runs when you push twice in a row.
+`contents: read` is the minimum. `cancel-in-progress` kills superseded runs.
 
-## `docs.yml` — Docs deployment
+## `docs.yml`
 
-Builds the Docusaurus site under `website/` and publishes the static output to the `gh-pages` branch (and thus to GitHub Pages).
-
-### Trigger paths
+Builds `website/` and publishes to `gh-pages` / GitHub Pages.
 
 ```yaml
 on:
@@ -139,20 +120,14 @@ on:
   workflow_dispatch:
 ```
 
-`workflow_dispatch` lets you trigger a deploy manually from the GitHub UI.
-
-### Pipeline shape
-
 ```yaml
-- actions/checkout@v6
-- actions/setup-node@v6 (node 22, npm cache scoped to website/package-lock.json)
-- npm ci (in website/)
+- checkout@v6
+- setup-node@v6 (node 22, npm cache scoped to website/package-lock.json)
+- npm ci (website/)
 - npm run build
-- actions/upload-pages-artifact@v5 (path: website/build)
-- actions/deploy-pages@v5
+- upload-pages-artifact@v5 (path: website/build)
+- deploy-pages@v5
 ```
-
-### Permissions
 
 ```yaml
 permissions:
@@ -161,18 +136,9 @@ permissions:
   id-token: write   # required by deploy-pages@v5
 ```
 
-These match GitHub's standard Pages-deploy template. No other secrets are needed; the OIDC token signed by `id-token: write` authorises the deploy.
-
-### One-time setup in the repo
-
-1. In the repo's **Settings → Pages**, set the source to **GitHub Actions** (not "Deploy from branch").
-2. After the first successful deploy, the docs will be available at `https://<owner>.github.io/<repo>/`. For this repo: `https://mgummich.github.io/train-delay-buddy/`.
-
-The `baseUrl` in `website/docusaurus.config.ts` is set to `/train-delay-buddy/` to match.
+**One-time setup:** Settings → Pages → source: **GitHub Actions**. Site lands at `https://mgummich.github.io/train-delay-buddy/`. `baseUrl` in `website/docusaurus.config.ts` matches.
 
 ## Local CI simulation
-
-Before pushing, you can run the same checks locally:
 
 ```bash
 # Backend
@@ -181,38 +147,32 @@ Before pushing, you can run the same checks locally:
 # Frontend
 (cd frontend && npm ci && npm run codegen:check && npm run lint && npm run typecheck && npm run test)
 
-# E2E (build frontend first)
+# E2E
 (cd frontend && npm run build)
 (cd tests/e2e && npm install && npx playwright install chromium && npx playwright test)
 
-# Security (requires Python for semgrep)
+# Security
 pip install semgrep && semgrep scan --config p/default --config p/security-audit --config p/owasp-top-ten --config p/dockerfile --config p/secrets --error
 
 # Docker
-cp .env.example .env
-docker compose config --quiet
-docker compose -f docker-compose.yml build
+cp .env.example .env && docker compose config --quiet && docker compose -f docker-compose.yml build
 
 # Docs
 (cd website && npm ci && npm run build)
 ```
 
-If all blocks pass, your CI run will pass.
-
 ## Publishing images (optional)
 
-To publish images to GitHub Container Registry on `master`:
+Add to the `docker` job, plus `packages: write` permission:
 
 ```yaml
-- name: Login to GHCR
-  uses: docker/login-action@v3
+- uses: docker/login-action@v3
   with:
     registry: ghcr.io
     username: ${{ github.actor }}
     password: ${{ secrets.GITHUB_TOKEN }}
 
-- name: Build and push backend
-  uses: docker/build-push-action@v7
+- uses: docker/build-push-action@v7
   with:
     context: ./backend
     target: production
@@ -224,13 +184,11 @@ To publish images to GitHub Container Registry on `master`:
     cache-to: type=gha,scope=backend,mode=max
 ```
 
-Add `packages: write` to the workflow `permissions:`.
-
 ## Vulnerability scanning
 
-Go dependencies are scanned by `govulncheck` in the `backend` job (part of the standard pipeline). Frontend dependencies are scanned by `npm audit --audit-level=high` in the `frontend` job.
+Go: `govulncheck` (in `backend`). Frontend: `npm audit --audit-level=high` (in `frontend`).
 
-To add Trivy scanning of the built images:
+Trivy for built images:
 
 ```yaml
 - uses: aquasecurity/trivy-action@master
@@ -241,4 +199,4 @@ To add Trivy scanning of the built images:
     ignore-unfixed: true
 ```
 
-Place this after each `docker build` step. The workflow will fail on any unfixed `HIGH` or `CRITICAL` CVE.
+Place after each `docker build`. Fails on unfixed `HIGH` / `CRITICAL` CVEs.

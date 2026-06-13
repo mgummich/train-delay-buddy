@@ -6,9 +6,9 @@ sidebar_position: 3
 
 # Codegen — OpenAPI → TypeScript
 
-The frontend's TypeScript types are generated from `backend/openapi.yaml`. The generator is [`openapi-typescript`](https://openapi-ts.dev), invoked via `npm run codegen` in `frontend/`.
+Frontend types generated from `backend/openapi.yaml` via [`openapi-typescript`](https://openapi-ts.dev) (`npm run codegen` in `frontend/`).
 
-## How it works
+## Flow
 
 ```
 backend/openapi.yaml            (committed)
@@ -18,68 +18,56 @@ backend/openapi.yaml            (committed)
 frontend/src/api/types.gen.ts   (committed)
    │
    ▼
-frontend/src/api/client.ts      (uses the generated types via openapi-fetch)
+frontend/src/api/client.ts      (uses generated types via openapi-fetch)
 ```
 
-`types.gen.ts` is a single file containing every operation, parameter, request body, and response shape from the spec. It is **fully overwritten** on every codegen run. Never edit it by hand — your changes will be lost.
+`types.gen.ts` is one file with every operation, param, request body, response. **Fully overwritten** each run — never hand-edit.
 
-## The two scripts
+## Scripts
 
-| Script | What it does |
-|--------|--------------|
-| `npm run codegen` | Regenerate `types.gen.ts` from `openapi.yaml`. Use after any spec change. |
-| `npm run codegen:check` | Regenerate to a temp file and diff against the committed version. Fails non-zero if they differ. This is what CI runs. |
+| Script | What |
+|--------|------|
+| `npm run codegen` | Regenerate `types.gen.ts`. Use after any spec change. |
+| `npm run codegen:check` | Regenerate to temp + diff against committed. Non-zero on diff. CI runs this. |
 
 ## When to regenerate
 
-Any of these changes to `openapi.yaml` requires a codegen run:
+Any of these in `openapi.yaml`:
 
-- New endpoint added.
-- Existing endpoint signature changed (path, method, params, request/response).
-- Schema change (renamed field, type change, new required field).
+- New endpoint.
+- Endpoint signature change (path, method, params, request/response).
+- Schema change (rename, type, new required field).
 - New enum value.
-- New shared component schema.
+- New shared component.
 
-A pure documentation tweak (e.g. updating an example string) still works without regen but it's cheap, so just run it anyway.
+Pure doc tweaks (example strings) work without regen — cheap to run anyway.
 
 ## Workflow
 
 ```bash
-# 1. Edit the spec
-$EDITOR backend/openapi.yaml
-
-# 2. Regenerate types
-cd frontend
-npm run codegen
-
-# 3. Verify the generated diff is sane
-git diff src/api/types.gen.ts
-
-# 4. Update call sites (TypeScript will tell you what broke)
-npm run typecheck
-
-# 5. Commit the spec and the generated file together
+$EDITOR backend/openapi.yaml          # 1. Edit spec
+cd frontend && npm run codegen        # 2. Regenerate
+git diff src/api/types.gen.ts         # 3. Verify diff
+npm run typecheck                     # 4. Update call sites (tsc tells you what broke)
 git add ../backend/openapi.yaml src/api/types.gen.ts
 git commit -m "feat(api): add Idempotency-Key support to POST /v1/journeys"
 ```
 
-:::warning Keep the spec and the generated file in lockstep
-Always commit `openapi.yaml` and `types.gen.ts` in the same commit. Splitting them produces a window where the build is broken on bisect.
+:::warning Lockstep
+Always commit `openapi.yaml` + `types.gen.ts` in the same commit. Splitting produces a broken-build window on bisect.
 :::
 
 ## CI enforcement
 
-The `frontend` job in `.github/workflows/ci.yml` runs `npm run codegen:check` before lint and typecheck. The job fails with a clear diff if `types.gen.ts` is out of date.
+`frontend` job runs `npm run codegen:check` before lint/typecheck. Fails with clear diff if `types.gen.ts` is stale.
 
-## Using the typed client
+## Typed client
 
 `src/api/client.ts` wraps `openapi-fetch` with:
 
-- `X-Install-Id` injection on every request.
-- A custom error mapper that turns RFC 7807 problem responses into typed `ApiError` exceptions.
+- `X-Install-Id` injection per request.
+- Custom error mapper: RFC 7807 problem → typed `ApiError` exceptions.
 - Optional `Idempotency-Key` injection on selected mutations.
-
-Calling an endpoint:
 
 ```ts
 const { data, error } = await client.POST("/v1/journeys", {
@@ -88,36 +76,34 @@ const { data, error } = await client.POST("/v1/journeys", {
     destinationId: "8000105",
     filters: { dbOnly: true, safetyLevel: "medium", maxTransfers: 3 },
   },
-  headers: {
-    "Idempotency-Key": idemKey,
-  },
+  headers: { "Idempotency-Key": idemKey },
 });
 
 if (error) throw new ApiError(error);
-// data is fully typed — IDE autocomplete walks the response schema
+// data fully typed — IDE walks the response schema
 ```
 
-Path strings (`"/v1/journeys"`) are type-safe — the client refuses to compile if you reference an endpoint that does not exist in `types.gen.ts`.
+Path strings type-safe — refuses to compile for endpoints not in `types.gen.ts`.
 
 ## Runtime validation
 
-Static types describe the *shape* of a response. They do not guarantee the server actually returned that shape. `src/api/validation.ts` defines Zod schemas for every endpoint that flows into UI logic. Each typed hook calls `schema.parse(data)` before returning, which catches:
+Static types describe shape, not what the server actually returned. `src/api/validation.ts` has Zod schemas per UI-bound endpoint. Hooks `schema.parse(data)` before return — catches:
 
-- A backend regression that shipped without an OpenAPI update.
-- A Service Worker serving a corrupted cached payload.
-- A reverse proxy stripping a required field.
+- Backend regression shipped without OpenAPI update.
+- SW serving corrupted cache.
+- Reverse proxy stripping a required field.
 
-Failures become `ZodError` exceptions — easily debuggable, single failure mode, surfaced cleanly in the React error boundary.
+Failures → `ZodError` (single failure mode, debuggable, clean in React error boundary).
 
 ## Updating the generator
 
-`openapi-typescript` is a versioned devDependency. Bumping it can change generated output (new union forms, narrower types). After a bump:
+`openapi-typescript` is a versioned devDep. Bumps can change output (new unions, narrower types):
 
 ```bash
 cd frontend
 npm run codegen
-git diff src/api/types.gen.ts   # review the delta
+git diff src/api/types.gen.ts   # review delta
 npm run typecheck               # catch breakages
 ```
 
-If TypeScript yells in many places, you may need adapter changes in `client.ts`.
+Many TS errors → adapter changes in `client.ts` may be needed.

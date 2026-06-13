@@ -11,20 +11,20 @@ cd frontend
 npm run test
 ```
 
-**Vitest** + **MSW** (Mock Service Worker). MSW intercepts all `fetch` calls at the network layer, so tests run against a fake backend that lives in the same process. No real HTTP server is involved. The full suite runs in under 5 seconds.
+**Vitest** + **MSW.** MSW intercepts all `fetch` at the network layer — fake backend in the same process. Full suite < 5 s.
 
-## Coverage areas
+## Coverage
 
-- **Hooks** (`src/hooks/*.test.tsx`) — every TanStack Query hook is tested in isolation: cache key shape, refetch policy, error mapping, optimistic updates.
-- **Screens** (`src/screens/*.test.tsx`) — full mount via the shared `render()` helper, asserts user-visible output.
-- **Lib utilities** (`src/lib/*.test.ts`) — pure functions: datetime formatting, install ID generation, IndexedDB helpers, query client setup.
-- **Validation schemas** (`src/api/validation.test.ts`) — Zod schemas tested against both compliant and adversarial inputs.
+- **Hooks** (`src/hooks/*.test.tsx`) — each TanStack Query hook in isolation: cache key, refetch policy, error mapping, optimistic updates.
+- **Screens** (`src/screens/*.test.tsx`) — full mount via shared `render()`, asserts user-visible output.
+- **Lib** (`src/lib/*.test.ts`) — pure functions: datetime, install ID, IndexedDB, query client.
+- **Validation** (`src/api/validation.test.ts`) — Zod against compliant + adversarial inputs.
 
 ## Conventions
 
-### MSW handlers
+### MSW
 
-`src/mocks/handlers.ts` defines the default set of responses. Tests can override specific endpoints using `server.use(...)`:
+Defaults in `src/mocks/handlers.ts`. Override per test:
 
 ```ts
 test("renders error banner when journey 404s", async () => {
@@ -44,13 +44,11 @@ test("renders error banner when journey 404s", async () => {
 
 ### `render()` helper
 
-`src/test/render.tsx` wraps RTL's `render` with the providers every screen expects:
+`src/test/render.tsx` wraps RTL with providers:
 
-- `QueryClientProvider` with a fresh `QueryClient` per test (no inter-test leakage).
-- `MemoryRouter` configured to a given initial route.
-- `I18nextProvider` with the German bundle.
-
-Use it for every screen-level test:
+- `QueryClientProvider` — fresh client per test (no leakage).
+- `MemoryRouter` — initial route.
+- `I18nextProvider` — German bundle.
 
 ```ts
 render(<StartScreen />, { route: "/" });
@@ -58,7 +56,7 @@ render(<StartScreen />, { route: "/" });
 
 ### Factories
 
-`src/test/factories.ts` exports small builder functions for the common domain types:
+`src/test/factories.ts`:
 
 ```ts
 import { makeJourney, makeAlternative } from "../test/factories";
@@ -67,50 +65,35 @@ const j = makeJourney({ summary: { status: "DELAYED" } });
 const alt = makeAlternative({ timeGainMinutes: 12 });
 ```
 
-Factories use sensible defaults; overrides are deep-merged.
+Defaults + deep-merged overrides.
 
-### TanStack Query specifics
+### Polling hooks
 
-For hooks that poll, freeze time with Vitest fake timers and advance manually:
+Vitest fake timers, advance manually:
 
 ```ts
 vi.useFakeTimers();
-
 const { result } = renderHook(() => useJourneyFull("jrn_123"), { wrapper });
-
 await waitFor(() => expect(result.current.data).toBeDefined());
-
-vi.advanceTimersByTime(30_000);   // triggers next poll
+vi.advanceTimersByTime(30_000);
 await waitFor(() => expect(result.current.dataUpdatedAt).toBeGreaterThan(0));
-
 vi.useRealTimers();
 ```
 
-## Useful invocations
+## Invocations
 
 ```bash
-# Whole suite, single run
-npm run test
-
-# Watch mode (re-runs on save)
-npm run test:watch
-
-# Coverage report → coverage/
-npm run test:coverage
-
-# Run a single file
-npm run test -- src/hooks/useJourneyFull.test.tsx
-
-# Run by test name
-npm run test -- -t "renders error banner"
-
-# Update snapshots (if any are used)
-npm run test -- -u
+npm run test                                       # single run
+npm run test:watch                                 # watch
+npm run test:coverage                              # coverage → coverage/
+npm run test -- src/hooks/useJourneyFull.test.tsx  # one file
+npm run test -- -t "renders error banner"          # by name
+npm run test -- -u                                 # update snapshots
 ```
 
-## Continuous integration
+## CI
 
-`.github/workflows/ci.yml` job `frontend`:
+`frontend` job:
 
 ```yaml
 - run: npm ci
@@ -120,11 +103,11 @@ npm run test -- -u
 - run: npm run test -- --reporter=default
 ```
 
-A red test, a lint failure, or any `tsc` error fails the PR.
+Red test, lint failure, or `tsc` error fails the PR.
 
 ## Anti-patterns
 
-- **Do not mock TanStack Query directly.** Mock at the network layer with MSW. This keeps the test focused on user-visible behaviour and avoids depending on Query internals.
-- **Do not test implementation details.** Assert on what the user sees (`screen.getByText`, `getByRole`), not on which props were passed to which child component.
-- **Do not rely on `data-testid` for everything.** Prefer semantic queries (`getByRole("button", { name: "Start" })`). Reach for `data-testid` only when no role or text is appropriate.
-- **Do not share state between tests.** Every test gets a fresh `QueryClient`. Every test resets MSW. Every test runs in isolation.
+- ❌ **Don't mock TanStack Query.** Mock at network with MSW.
+- ❌ **Don't test implementation details.** Assert what the user sees (`screen.getByText`, `getByRole`), not which props were passed.
+- ❌ **Don't lean on `data-testid`.** Prefer semantic queries. Reach for testid only when no role/text fits.
+- ❌ **Don't share state across tests.** Fresh `QueryClient`, MSW reset, full isolation.

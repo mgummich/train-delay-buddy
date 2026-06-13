@@ -6,9 +6,7 @@ sidebar_position: 1
 
 # Environment variables
 
-Backend variables are read from the process environment or, when using Docker Compose, from the `.env` file at the repo root. When running locally without Compose, `export` what you need or use [`direnv`](https://direnv.net/).
-
-`.env.example` is the canonical template. Copy it: `cp .env.example .env`.
+Backend reads from process env or, with Compose, `.env` at repo root. Without Compose: `export` or use [`direnv`](https://direnv.net/). `.env.example` is the template — `cp .env.example .env`.
 
 ## Backend
 
@@ -16,74 +14,74 @@ Backend variables are read from the process environment or, when using Docker Co
 
 | Variable | Description |
 |----------|-------------|
-| `POSTGRES_PASSWORD` | Postgres user password. Required by Docker Compose (`POSTGRES_PASSWORD:?required`). Required by the backend via `DATABASE_URL`. |
+| `POSTGRES_PASSWORD` | Postgres password. Required by Compose (`POSTGRES_PASSWORD:?required`) + backend via `DATABASE_URL`. |
 
-### HTTP and CORS
+### HTTP / CORS
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `PORT` | `8080` | HTTP listen port. |
-| `CORS_ALLOWED_ORIGINS` | _(empty)_ | Comma-separated allowed origins, e.g. `https://app.example.com,https://staging.example.com`. Required when the frontend is on a different origin than the backend. Leave empty when serving from one origin via Nginx. |
+| `PORT` | `8080` | Listen port |
+| `CORS_ALLOWED_ORIGINS` | _(empty)_ | Comma-separated. Required when frontend is on a different origin. Empty when same-origin via Nginx. |
 
 ### Database
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `DATABASE_URL` | `postgres://vbb:${POSTGRES_PASSWORD}@postgres:5432/vbb` | Postgres connection string. |
-| `DB_MAX_OPEN_CONNS` | `20` | pgxpool maximum connections. |
-| `DB_MIN_CONNS` | `5` | pgxpool minimum idle connections. |
-| `DB_WRITE_TIMEOUT` | `5s` | Deadline applied to every Postgres write call. |
-| `MIGRATIONS_DIR` | `./migrations` (dev) / `/app/migrations` (prod) | Path to SQL migration files. Auto-applied at startup. |
+| `DATABASE_URL` | `postgres://vbb:${POSTGRES_PASSWORD}@postgres:5432/vbb` | Conn string |
+| `DB_MAX_OPEN_CONNS` | `20` | pgxpool max |
+| `DB_MIN_CONNS` | `5` | pgxpool min idle |
+| `DB_WRITE_TIMEOUT` | `5s` | Per-write deadline |
+| `MIGRATIONS_DIR` | `./migrations` (dev) / `/app/migrations` (prod) | SQL migrations path. Auto-applied at startup. |
 
 ### Valkey
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `VALKEY_URL` | `redis://valkey:6379` | Valkey connection URL (Valkey is a BSD-licensed, wire-compatible Redis fork). The `redis://` scheme is reused for protocol compatibility with the `go-redis` client. |
-| `REDIS_URL` | _(none)_ | Deprecated alias for `VALKEY_URL` — read only when `VALKEY_URL` is unset, to ease migration from a Redis-only deployment. |
+| `VALKEY_URL` | `redis://valkey:6379` | Valkey URL. `redis://` scheme reused for `go-redis` compat. |
+| `REDIS_URL` | _(none)_ | Deprecated alias — only read when `VALKEY_URL` unset. |
 
 ### HAFAS
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `HAFAS_BASE_URL` | `https://v6.db.transport.rest` | HAFAS REST base URL. Swap for a self-hosted proxy to reduce rate-limit exposure. |
-| `HAFAS_REQUEST_TIMEOUT` | `8s` | Per-request deadline. |
-| `HAFAS_WORKER_POOL_SIZE` | `50` | Maximum concurrent HAFAS goroutines. |
-| `HAFAS_QUEUE_DEPTH` | `200` | Backpressure queue depth. `Submit()` returns `false` when full. |
-| `HAFAS_CB_THRESHOLD` | `5` | Consecutive HAFAS failures before the circuit breaker opens. |
-| `HAFAS_CB_PROBE_INTERVAL` | `30s` | How often an open breaker probes HAFAS to recover. |
+| `HAFAS_BASE_URL` | `https://v6.db.transport.rest` | REST base. Swap for self-hosted to dodge rate limits. |
+| `HAFAS_REQUEST_TIMEOUT` | `8s` | Per-request deadline |
+| `HAFAS_WORKER_POOL_SIZE` | `50` | Max concurrent goroutines |
+| `HAFAS_QUEUE_DEPTH` | `200` | Backpressure queue; `Submit()` returns `false` when full |
+| `HAFAS_CB_THRESHOLD` | `5` | Consecutive failures → breaker opens |
+| `HAFAS_CB_PROBE_INTERVAL` | `30s` | Probe cadence for open breaker |
 
-### Capacity and TTLs
-
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `MAX_ACTIVE_JOURNEYS` | `2000` | Capacity cap. `POST /v1/journeys` returns 503 once exceeded. |
-| `JOURNEY_TTL_HOURS` | `2` | Journeys inactive longer than this are GCed by the janitor. |
-
-### Rate limiting
+### Capacity / TTL
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `RATE_LIMIT_PER_INSTALL` | `60` | Max requests per minute per `X-Install-Id` UUID. |
-| `RATE_LIMIT_PER_IP` | `30` | Max requests per minute per remote IP. Falls back when the install header is absent. |
+| `MAX_ACTIVE_JOURNEYS` | `2000` | Cap. `POST /v1/journeys` → 503 once hit. |
+| `JOURNEY_TTL_HOURS` | `2` | Inactive longer → GCed by janitor |
+
+### Rate limit
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `RATE_LIMIT_PER_INSTALL` | `60` | req/min per `X-Install-Id` |
+| `RATE_LIMIT_PER_IP` | `30` | req/min per IP. Fallback when install header absent. |
 
 ### Logging
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `LOG_LEVEL` | `INFO` | One of `DEBUG`, `INFO`, `WARN`, `ERROR`. |
+| `LOG_LEVEL` | `INFO` | `DEBUG` / `INFO` / `WARN` / `ERROR` |
 
 ## Frontend
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `VITE_API_BASE_URL` | _(empty)_ | Backend base URL. Empty = relative URLs, correct for the Vite dev proxy and same-origin production (Nginx). Set to `https://api.example.com` only when frontend and backend are on different domains. |
+| `VITE_API_BASE_URL` | _(empty)_ | Empty = relative URLs (Vite proxy + same-origin Nginx). Set only when frontend + backend are on different domains. |
 
-`VITE_*` variables are inlined at build time by Vite. Changes require a rebuild — they are not read at runtime.
+`VITE_*` are inlined at build. Changes require rebuild.
 
-## Tuning guide
+## Tuning
 
-### High-volume production
+### High-volume
 
 ```env
 HAFAS_WORKER_POOL_SIZE=100
@@ -96,7 +94,7 @@ JOURNEY_TTL_HOURS=4
 LOG_LEVEL=WARN
 ```
 
-### Low-resource environment (Raspberry Pi, free-tier VM)
+### Low-resource (Raspberry Pi, free-tier VM)
 
 ```env
 HAFAS_WORKER_POOL_SIZE=10
@@ -106,19 +104,19 @@ DB_MAX_OPEN_CONNS=5
 DB_MIN_CONNS=2
 ```
 
-### Local development
+### Local dev
 
 ```env
 LOG_LEVEL=DEBUG
-HAFAS_REQUEST_TIMEOUT=15s   # public HAFAS proxy is slow on cold cache
+HAFAS_REQUEST_TIMEOUT=15s   # public proxy slow on cold cache
 CORS_ALLOWED_ORIGINS=http://localhost:5173
 ```
 
-## Validation at startup
+## Startup validation
 
-`internal/config.Load()` validates all parsed values. Invalid combinations fail fast:
+`internal/config.Load()` validates all values. Invalid → fail fast:
 
-- `DB_MAX_OPEN_CONNS < DB_MIN_CONNS` — refuse to start.
-- `HAFAS_QUEUE_DEPTH < HAFAS_WORKER_POOL_SIZE` — warning logged (not fatal).
-- Empty `POSTGRES_PASSWORD` (via empty `DATABASE_URL`) — refuse to start.
-- Invalid `LOG_LEVEL` — refuse to start with the list of valid values.
+- `DB_MAX_OPEN_CONNS < DB_MIN_CONNS` → refuse.
+- `HAFAS_QUEUE_DEPTH < HAFAS_WORKER_POOL_SIZE` → warning (not fatal).
+- Empty `POSTGRES_PASSWORD` → refuse.
+- Invalid `LOG_LEVEL` → refuse + list valid values.

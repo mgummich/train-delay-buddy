@@ -6,62 +6,58 @@ sidebar_position: 3
 
 # Frontend internals
 
-The frontend is a React 19 + TypeScript SPA built with Vite 8, packaged as an installable PWA via `vite-plugin-pwa` (Workbox). Production builds are served as static files by Nginx; the API is reverse-proxied to the Go backend on the same origin.
+React 19 + TypeScript SPA, Vite 8, installable PWA via `vite-plugin-pwa` (Workbox). Prod served as static files by Nginx; API reverse-proxied same-origin.
 
 ## Folder map
 
 ```
 frontend/src/
 ├── api/
-│   ├── client.ts          # openapi-fetch client with X-Install-Id middleware
+│   ├── client.ts          # openapi-fetch + X-Install-Id middleware
 │   ├── types.gen.ts       # generated from backend/openapi.yaml (DO NOT EDIT)
-│   └── validation.ts      # Zod runtime guards over response payloads
-├── components/            # UI primitives: AlternativeCard, FilterSheet, RiskBadge,
-│                          # AppBar, Skeleton, ErrorBanner, ...
-├── hooks/                 # TanStack Query hooks per resource:
-│                          # useJourneyFull, useJourneyAlternatives,
-│                          # useTrainValidation, useStationSearch, useOfflineState
-├── i18n/                  # i18next configuration + de.json translations
+│   └── validation.ts      # Zod runtime guards
+├── components/            # UI primitives
+├── hooks/                 # TanStack Query hooks per resource
+├── i18n/                  # i18next + de.json
 ├── lib/
-│   ├── datetime.ts        # UTC ISO -> Europe/Berlin formatting
+│   ├── datetime.ts        # UTC ISO → Europe/Berlin
 │   ├── indexeddb.ts       # offline persistence (idb wrapper)
-│   ├── installId.ts       # persistent device UUID (IDB primary, localStorage fallback)
+│   ├── installId.ts       # device UUID (IDB primary, localStorage fallback)
 │   └── queryClient.ts     # TanStack Query client + key factories
-├── mocks/                 # MSW handlers — used in tests AND dev (?mock=1 query param)
-├── router.tsx             # React Router 6.4 — loader-based TanStack Query priming
+├── mocks/                 # MSW handlers — tests AND dev (?mock=1)
+├── router.tsx             # React Router 6.4 + loader-based priming
 ├── screens/               # full-page components (one per route)
-├── store/                 # Zustand stores: journeyStore, installStore, uiStore
-└── test/                  # shared test setup, MSW handlers, factories, render()
+├── store/                 # Zustand stores
+└── test/                  # shared test setup
 ```
 
 ## State management
 
-Three orthogonal layers, each with a clear responsibility:
+Three orthogonal layers:
 
 | Layer | Tool | Owns |
 |-------|------|------|
-| **Server state** | TanStack Query 5 | Everything fetched from the backend. Caching, deduplication, background refetch, retries, polling. |
-| **Persistent client state** | Zustand + `persist` middleware | `journeyId` of the current journey, filters, theme. Survives reloads via `localStorage`. |
-| **UI ephemeral state** | `useState` / `useReducer` | Sheet open/closed, focused field, in-progress form input. Lost on reload (correct behaviour). |
+| Server state | TanStack Query 5 | Backend data — cache, dedup, refetch, retry, poll |
+| Persistent client state | Zustand + `persist` | `journeyId`, filters, theme. Survives via `localStorage` |
+| UI ephemeral | `useState` / `useReducer` | Sheets, focus, in-progress input. Lost on reload (correct) |
 
-Crucially, **journey data is never written to Zustand**. The journey itself is server state — only the *pointer* to it lives in the persistent store.
+**Journey data is never written to Zustand** — it is server state. Only the *pointer* is persisted.
 
-## Polling and ETag
+## Polling + ETag
 
-The active-journey screens use a TanStack Query hook with `refetchInterval: 30_000`. The `openapi-fetch` client automatically attaches the previously seen `ETag` value as `If-None-Match` on every subsequent request.
+Active-journey screens use `refetchInterval: 30_000`. `openapi-fetch` auto-attaches the last seen `ETag` as `If-None-Match`.
 
-When the backend replies `304 Not Modified`, openapi-fetch surfaces the cached body, TanStack Query's `data` reference does not change, and React skips re-rendering. The polling cost is dominated by the round-trip — payload-wise, a 304 is ~150 bytes.
-
-When the backend replies `200 OK` with a new ETag, the client cache and `query.data` update; React re-renders the affected components. The poll interval continues uninterrupted.
+- `304`: cached body surfaced, `data` ref unchanged, React skips re-render. Wire cost ~150 bytes per poll.
+- `200`: cache + `query.data` update, components re-render. Interval continues.
 
 ## React Router 6.4 loaders
 
-Each screen has a `loader` that primes the TanStack Query cache *before* the route renders. This eliminates the "loading spinner immediately after navigation" flash:
+Each screen `loader` primes the TanStack Query cache *before* render — eliminates post-navigation spinner flash:
 
 ```ts
 const journeyRoute = {
   path: "/journey/:id",
-  loader: async ({ params, request }) => {
+  loader: async ({ params }) => {
     await queryClient.prefetchQuery({
       queryKey: journeyKeys.full(params.id!),
       queryFn: ({ signal }) => api.getJourney(params.id!, signal),
@@ -72,77 +68,75 @@ const journeyRoute = {
 };
 ```
 
-By the time `<CompanionScreen>` mounts, the data is already in the cache and renders synchronously.
+When `<CompanionScreen>` mounts, data is cached and renders synchronously.
 
-## Type safety end-to-end
+## End-to-end type safety
 
 ```
-backend/openapi.yaml   <—— source of truth (committed alongside any handler change)
-   │
+backend/openapi.yaml   ← source of truth
    │  npm run codegen  (openapi-typescript)
    ▼
-frontend/src/api/types.gen.ts   <—— auto-generated, do not edit
+frontend/src/api/types.gen.ts   ← auto-generated, do not edit
    │
    ▼
-api/client.ts   <—— openapi-fetch typed client; every path + method is statically checked
+api/client.ts   ← openapi-fetch typed client; all paths statically checked
    │
    ▼
-hooks/useJourneyFull.ts   <—— TanStack Query hook; data is fully typed
+hooks/useJourneyFull.ts   ← TanStack Query, fully typed
    │
    ▼
-screens/CompanionScreen.tsx   <—— consumes typed data
+screens/CompanionScreen.tsx
 ```
 
-The CI pipeline runs `npm run codegen:check` which regenerates `types.gen.ts` and fails if it diverges from the committed version. There is no way to ship a frontend whose types do not match the OpenAPI spec.
+CI `npm run codegen:check` fails on drift. Cannot ship a frontend whose types diverge from the spec.
 
-## Validation at the boundary
+## Boundary validation
 
-OpenAPI's static types describe the *shape* of the response, not its runtime correctness. `src/api/validation.ts` defines Zod schemas for every endpoint that flow into UI logic. The hook calls `schema.parse(data)` before returning, which:
+OpenAPI types describe shape, not runtime correctness. `src/api/validation.ts` has Zod schemas per endpoint that flow into UI logic. Hooks `schema.parse(data)` before returning to catch:
 
-- Catches a backend regression that shipped without an OpenAPI update.
-- Catches a Service Worker serving a corrupted cached payload.
-- Provides a single, easily debuggable failure mode (`ZodError`) rather than a cryptic `undefined.map` deep in a render.
+- Backend regressions shipped without OpenAPI update.
+- Service Worker serving corrupted cache.
+- Single debuggable failure mode (`ZodError`) instead of cryptic `undefined.map` deep in render.
 
 ## Install ID
 
-The `X-Install-Id` header identifies the device for rate-limit and ownership purposes. `lib/installId.ts`:
+`X-Install-Id` identifies the device for rate-limit + ownership. `lib/installId.ts`:
 
-1. Reads from IndexedDB store `install`.
-2. If missing, reads from `localStorage` (legacy or Safari Private Browsing fallback).
-3. If still missing, generates a `crypto.randomUUID()`, writes it to both IDB and localStorage.
+1. Read IDB store `install`.
+2. Fall back to `localStorage` (legacy or Safari Private Browsing).
+3. Else generate `crypto.randomUUID()`, write both.
 
-This survives Safari's "clear website data" *most* of the time and is good enough for abuse-shaping; it is not a security identity.
+Survives Safari's "clear website data" most of the time — abuse-shaping, not security identity.
 
 ## i18next
 
-Currently bundled languages: `de` (default) and `en` (fallback). `src/i18n/de.json` is the working copy. Strings are keyed by feature path (`screens.start.title`, `components.alternativeCard.transferBuffer`). Translations are loaded synchronously at boot — no Suspense fallback needed.
+Bundled: `de` (default), `en` (fallback). `src/i18n/de.json` working copy. Keys by feature path (`screens.start.title`). Synchronous load — no Suspense needed.
 
 ## PWA layer
 
-`vite.config.ts` registers `VitePWA` with:
+`vite.config.ts` registers `VitePWA`:
 
-- `registerType: "autoUpdate"` — Workbox updates the service worker as soon as a new build is detected.
-- Pre-cache list: `index.html`, all hashed JS / CSS / fonts, every icon.
-- Runtime cache rules: see [PWA installation](../usage/pwa-installation) for the full table.
+- `registerType: "autoUpdate"` — Workbox updates SW on new build.
+- Pre-cache: `index.html`, hashed JS/CSS/fonts, all icons.
+- Runtime cache: see [PWA installation](../usage/pwa-installation).
 
-## Build pipeline
+## Build
 
 ```
 npm run build
-  ├─ tsc -b           (full project references, strict mode, no emit)
-  └─ vite build       (esbuild, Rollup, Workbox plugin emits sw.js + workbox-*.js)
-       └─ output: dist/
+  ├─ tsc -b           (project references, strict, no emit)
+  └─ vite build       (esbuild, Rollup, Workbox → sw.js + workbox-*.js)
+       └─ dist/
             ├─ index.html
-            ├─ assets/*.[hash].js
-            ├─ assets/*.[hash].css
+            ├─ assets/*.[hash].{js,css}
             ├─ icons/...
             ├─ manifest.json
             └─ sw.js
 ```
 
-`dist/` is then copied into the Nginx image at `/usr/share/nginx/html`.
+`dist/` copied into Nginx image at `/usr/share/nginx/html`.
 
 ## Testing surface
 
-- **Unit**: Vitest, runs in jsdom. MSW intercepts every `fetch` so no backend is needed. See [Testing → Frontend unit](../testing/frontend-unit).
-- **E2E**: Playwright drives a real browser against the full Docker Compose stack. See [Testing → End-to-end](../testing/end-to-end).
+- **Unit:** Vitest + jsdom + MSW. See [Testing → Frontend unit](../testing/frontend-unit).
+- **E2E:** Playwright against full stack. See [Testing → End-to-end](../testing/end-to-end).

@@ -6,345 +6,204 @@ sidebar_position: 1
 
 # Test Concept — Verspätungsbegleiter
 
-**Status:** Active  
-**Last updated:** 2026-06-13
+Tests validate observable behaviour from the outside in. Every layer is automated — tests not run automatically do not exist.
 
----
-
-## 1. Philosophy
-
-Tests validate observable behaviour from the outside in. Implementation details are not tested. The testing pyramid governs investment: many fast unit tests, fewer integration tests, fewer still E2E tests, one performance suite.
-
-Every layer is automated. Tests that are not run automatically do not exist in practice.
-
----
-
-## 2. Test Pyramid
+## Pyramid
 
 ```
           ┌─────────────┐
-          │ Performance │   Manual trigger (k6)
+          │ Performance │   Manual (k6)
          ┌┴─────────────┴┐
-         │  E2E (Playwright) │  Blocking on CI
+         │  E2E (Playwright) │  CI blocking
         ┌┴───────────────────┴┐
-        │   Unit + Integration  │  Blocking on CI
+        │   Unit + Integration  │  CI blocking
        └───────────────────────┘
 ```
 
-| Layer | Count | Tooling | CI Blocking |
-|-------|-------|---------|-------------|
-| Frontend unit | ~23 files / ~1,270 lines | Vitest + RTL + MSW | Yes |
-| Backend unit | ~24 files / ~1,970 lines | Go `testing` | Yes |
-| E2E | 7 spec files | Playwright 1.49+ | Yes (see §7) |
+| Layer | Count | Tooling | CI |
+|-------|-------|---------|----|
+| Frontend unit | ~23 files / ~1,270 lines | Vitest + RTL + MSW | Blocks |
+| Backend unit | ~24 files / ~1,970 lines | Go `testing` | Blocks |
+| E2E | 7 spec files | Playwright 1.49+ | Blocks |
 | Performance | 1 k6 script | k6 | Manual |
 
----
+## Frontend Unit
 
-## 3. Frontend Unit Tests
+**Stack:** Vitest 4.x (jsdom), RTL 16, MSW 2, `@tanstack/react-query` (`retry: false`), `fake-indexeddb/auto`.
 
-### Tooling
-- **Runner:** Vitest 4.x (jsdom environment)
-- **Component rendering:** React Testing Library 16
-- **API mocking:** MSW 2 (`setupServer` in Node mode)
-- **Async state:** `@tanstack/react-query` with `retry: false`
-- **IndexedDB:** `fake-indexeddb/auto`
-
-### Test Infrastructure
-
+**Infrastructure (`frontend/src/test/`):**
 ```
-frontend/src/test/
-  setup.ts          — MSW server lifecycle, jsdom patches (matchMedia, connection, ResizeObserver)
-  render.tsx        — RTL wrapper: QueryClientProvider + MemoryRouter
-  msw-handlers.ts   — Default API mocks + MSW_ERRORS factory
-  factories.ts      — Test data builders (makeSummary, makeJourney, …)
-  polyfills.ts      — Node-side polyfills
+setup.ts          — MSW lifecycle, jsdom patches (matchMedia, connection, ResizeObserver)
+render.tsx        — RTL wrapper: QueryClientProvider + MemoryRouter
+msw-handlers.ts   — Default mocks + MSW_ERRORS factory
+factories.ts      — Test data builders
+polyfills.ts      — Node polyfills
 ```
 
-### Coverage Thresholds
-
-Enforced via `vitest.config.ts`; CI fails if any threshold is breached.
+**Coverage thresholds** (enforced via `vitest.config.ts`):
 
 | Metric | Threshold |
 |--------|-----------|
-| Lines | 80% |
-| Functions | 80% |
+| Lines / Functions | 80% |
 | Branches | 75% |
 
-Excluded from coverage: `src/api/types.gen.ts` (generated), `src/test/**`, `src/main.tsx`, `src/router.tsx`.
+Excluded: `src/api/types.gen.ts`, `src/test/**`, `src/main.tsx`, `src/router.tsx`.
 
-### Patterns
+**Patterns:**
+- ✅ Test components via public props + rendered output; `waitFor` / `findBy*` for async; override MSW per test via `server.use(http.get(...))`; prefer `getByRole` / `getByText` over `getByTestId`; seed `QueryClient` cache (`qc.setQueryData`) to skip network round-trips.
+- ❌ Test internal hook state, assert CSS class names, leave `screen.debug()` in commits.
 
-**Do:**
-- Test each component in isolation through its public props and rendered output
-- Use `waitFor` or `findBy*` for async state
-- Override MSW handlers per test with `server.use(http.get(...))` to test error paths
-- Prefer `getByRole` / `getByText` over `getByTestId` — role-based selectors are resilient
-- Seed `QueryClient` cache directly (`qc.setQueryData`) to avoid network round-trips in rendering tests
+**Scope:**
 
-**Don't:**
-- Test internal hook state — test the component that uses the hook
-- Assert CSS class names — assert visible text, roles, attributes
-- Use `screen.debug()` in committed tests
-
-### What Is Tested
-
-| Area | Files | Key Scenarios |
-|------|-------|---------------|
+| Area | Files | Scenarios |
+|------|-------|-----------|
 | API validation | `api/validation.test.ts` | Schema parsing, malformed payloads |
 | DateTime | `lib/datetime.test.ts` | `formatTime`, timezone conversion |
-| IndexedDB | `lib/indexeddb.test.ts` | save/load journey, offline read |
-| Hooks | `hooks/use*.test.tsx` | Happy path, error states, polling |
+| IndexedDB | `lib/indexeddb.test.ts` | save/load, offline read |
+| Hooks | `hooks/use*.test.tsx` | Happy/error/polling |
 | Components | `components/*/*.test.tsx` | Render, interactions, edge states |
-| Screens | `screens/*.test.tsx` | Navigation, error states, empty states |
+| Screens | `screens/*.test.tsx` | Navigation, error, empty states |
 | Stores | `store/stores.test.ts` | State transitions |
 
-### Gaps (to be filled)
+**Gaps:** `SummaryHeader` stale indicator boundary tests at `minutesSince = 0.5` / `2.0`; `useJourney` 90 s polling throttle; `router.tsx` navigation guards (currently excluded from coverage).
 
-- `SummaryHeader` stale indicator: no unit test for time-boundary transitions at `minutesSince = 0.5` and `2.0`
-- `useJourney`: no test for `saveData: true` polling throttle (90 s path)
-- `router.tsx` excluded from coverage — navigation guards deserve dedicated tests
+## Backend Unit
 
----
+**Stack:** Go `testing`, `net/http/httptest`, `-race` always on, table-driven.
 
-## 4. Backend Unit Tests
+CI does not yet enforce a coverage threshold. Add `-coverprofile=coverage.out`; target 70%.
 
-### Tooling
-- **Runner:** Go `testing` standard library
-- **HTTP handler testing:** `net/http/httptest`
-- **Race detection:** `-race` flag on every CI run
-- **Pattern:** Table-driven tests
+**Scope:**
 
-### Coverage Reporting
-
-CI currently does not enforce a backend coverage threshold. Add `-coverprofile=coverage.out` to the CI test command and enforce a minimum threshold once the baseline is established (target: 70%).
-
-### What Is Tested
-
-| Package | Key Scenarios |
-|---------|---------------|
-| `api/handlers` | HTTP status codes, request parsing, response shape |
-| `api/middleware` | Auth, CORS, rate limiting, ownership check, request-ID injection |
+| Package | Scenarios |
+|---------|-----------|
+| `api/handlers` | Status codes, parsing, response shape |
+| `api/middleware` | Auth, CORS, rate limit, ownership, request-ID |
 | `hafas` | Client, coalescer, filter, mapper |
 | `journey` | ID generation, poller lifecycle, worker pool |
 | `routing` | BFS pathfinding, scorer |
 | `config` | Env var parsing, defaults |
-| `migrate` | Schema migration idempotency |
+| `migrate` | Migration idempotency |
 
-### Patterns
+**Patterns:**
+- ✅ Table-driven I/O; `httptest.NewRecorder` + `httptest.NewServer`; boundary inputs (empty, max, zero).
+- ❌ Hit real HAFAS, share mutable state across subtests, disable `-race`.
 
-**Do:**
-- Table-driven tests for input/output variation
-- `httptest.NewRecorder` + `httptest.NewServer` for handler tests
-- Test boundary conditions: empty lists, max values, zero values
+**Gaps:** no CI coverage threshold; HAFAS retry/transient-error tests missing; rate-limit Redis sliding-window tests thin (28 lines).
 
-**Don't:**
-- Hit real HAFAS or external services — use test doubles
-- Share mutable state between subtests in a `TestXxx` function
-- Skip the race detector (`-race` is always on)
+## E2E
 
-### Gaps (to be filled)
+**Stack:** Playwright 1.49+. Backend not required — all API calls mocked via `page.route()`. Vite preview auto-started by `playwright.config.ts`. Projects: Desktop Chrome, Mobile Chrome (Pixel 5), Mobile Safari (iPhone 13, local only).
 
-- No coverage threshold enforced in CI
-- HAFAS client: no test for transient network errors / retry logic
-- Rate limit Redis tests are very thin (28 lines) — more coverage needed for sliding window semantics
-
----
-
-## 5. E2E Tests
-
-### Tooling
-- **Runner:** Playwright 1.49+
-- **Backend:** Not required — all API calls mocked via `page.route()`
-- **Frontend:** Vite preview auto-started by `playwright.config.ts`
-- **Projects:** Desktop Chrome, Mobile Chrome (Pixel 5), Mobile Safari (iPhone 13, local only)
-
-### Infrastructure
-
+**Infrastructure (`tests/e2e/`):**
 ```
-tests/e2e/
-  playwright.config.ts     — config (timeout: 50s, retries: 2 on CI)
-  fixtures/
-    test.ts                — base fixture extending Playwright test with POM instances
-    mocks.ts               — MockServer: install(), overrideSummary(), setOffline(), abortAllJourneys()
-  pages/
-    start.page.ts          — StartPage POM
-    alternatives.page.ts   — AlternativesPage POM
-    companion.page.ts      — CompanionPage POM
+playwright.config.ts     — timeout 50s, retries 2 on CI
+fixtures/test.ts         — base fixture, POM instances
+fixtures/mocks.ts        — MockServer
+pages/{start,alternatives,companion}.page.ts
 ```
 
-### Mock Server Design
-
-`MockServer` intercepts all API traffic via `page.route()`. Tests call `mocks.install(opts)` once per test to register the full route table. Override methods allow per-test variation without re-installing:
+**MockServer API:**
 
 | Method | Purpose |
 |--------|---------|
 | `install(opts)` | Register full route table with defaults |
-| `overrideSummary(id, summary)` | Replace summary response mid-test |
+| `overrideSummary(id, summary)` | Replace summary mid-test |
 | `overrideJourneyCreatePlausibilityLow(id)` | Trigger low-confidence dialog |
 | `setOffline(offline)` | Abort all API routes (pair with `context.setOffline`) |
 | `abortAllJourneys()` | Force journey lookups to network failure |
 | `setAllJourneysNotFound()` | Force all journey lookups to 404 |
 
-**Why `setOffline` is necessary:** `context.setOffline(true)` emulates browser offline but Playwright route handlers run at the protocol layer and bypass it. `mocks.setOffline(true)` registers a high-priority abort handler so mock routes also stop responding, matching real-world offline behaviour.
+**Why `mocks.setOffline` exists:** `context.setOffline(true)` emulates browser offline; route handlers run at protocol layer and bypass it. `mocks.setOffline` registers a high-priority abort handler so mocks also stop responding.
 
-### Test Timeout
+**Timeout:** global 50 s. Offline tests assert with 35 s (one 30 s poll cycle + buffer); global must exceed 35 s plus setup.
 
-Global test timeout is 50 s. Offline tests assert with `timeout: 35_000` (one 30 s poll cycle + buffer) — this requires the global timeout to exceed 35 s plus setup time.
-
-### Test Specs
+**Specs:**
 
 | Spec | Coverage |
 |------|---------|
 | `golden-path.spec.ts` | Start → alternatives → companion, deep link, ETA timezone, plausibility dialog, terminate |
-| `start.spec.ts` | Form validation — submit disabled on load, train not found, destination required |
-| `alternatives.spec.ts` | Filter chip interaction — DB-only toggle, filter count badge |
-| `critical-status.spec.ts` | Critical/failed status banners, aria-live region |
-| `offline.spec.ts` | Stale indicator, auto-recovery, offline navigation |
-| `deep-link.spec.ts` | Direct URL navigation to companion, resume existing journey |
-| `accessibility.spec.ts` | Axe a11y audit (zero critical/serious violations) on all three main screens |
+| `start.spec.ts` | Form validation: submit disabled, train not found, destination required |
+| `alternatives.spec.ts` | Filter chips: DB-only toggle, count badge |
+| `critical-status.spec.ts` | Critical/failed banners, aria-live region |
+| `offline.spec.ts` | Stale indicator, auto-recovery, offline nav |
+| `deep-link.spec.ts` | Direct URL to companion, resume journey |
+| `accessibility.spec.ts` | Axe audit (zero critical/serious) on three main screens |
 
-### Patterns
+**Patterns:**
+- ✅ Page Object Model (selectors in `pages/`); semantic selectors over `getByTestId`; `mocks.install()` per test/`beforeEach`; `context.setOffline()` + `mocks.setOffline()` paired.
+- ❌ `waitForTimeout()` (use `waitFor`, `toBeVisible({ timeout })`, `waitForURL`); shared journey state across tests; testing implementation details.
 
-**Do:**
-- Use Page Object Model — selectors live in `pages/`, not in spec files
-- Use `getByTestId` only when no semantic selector works
-- Keep tests independent — `mocks.install()` in each test or `beforeEach`
-- Use `context.setOffline()` + `mocks.setOffline()` together for offline simulation
+E2E is a **hard merge gate** (`needs: [frontend]`).
 
-**Don't:**
-- Call `waitForTimeout()` — use `waitFor`, `toBeVisible({ timeout: N })`, or `waitForURL`
-- Share journey state between tests — use separate journey IDs per describe block
-- Test implementation details through the UI — test what the user sees
-
-### CI Blocking
-
-E2E runs after the frontend job with `needs: [frontend]` and is a **hard gate** — a failing E2E job blocks the merge. All API calls are mocked so no backend infrastructure is needed in CI.
-
-### Gaps (to be filled)
+**Gaps:**
 
 | Gap | Priority |
 |-----|----------|
-| StartScreen: station search error state (API 503) | Medium |
-| AlternativesScreen: filter toggle for maxTransfers | Medium |
-| Companion: "Reise abschließen" error case (DELETE fails) | Medium |
-| Companion: browser back button returns to alternatives | Low |
-| Mobile Safari: runs locally only — add to CI once webkit dep weight acceptable | Low |
+| StartScreen station-search 503 | Medium |
+| AlternativesScreen `maxTransfers` toggle | Medium |
+| Companion DELETE failure path | Medium |
+| Companion browser back → alternatives | Low |
+| Mobile Safari in CI | Low |
 
----
+## Performance
 
-## 6. Performance Tests
+**Stack:** k6, `tests/performance/k6/journey-creation.js`, real backend.
 
-### Tooling
-- **Runner:** k6
-- **Location:** `tests/performance/k6/journey-creation.js`
-- **Target:** real backend, not mocked
-
-### SLOs
+**SLOs:**
 
 | Metric | Threshold |
 |--------|-----------|
 | `POST /v1/journeys` p95 | < 10 s |
 | `GET /v1/journeys/{id}/summary` p95 | < 200 ms |
 | HTTP error rate | < 1% |
-| ETag 304 cache hit rate | > 50% |
+| ETag 304 hit rate | > 50% |
 
-### Scenarios
+**Scenarios:** steady (10 VUs / 1 min); spike (ramp 0 → 50 → 50 → 0 over 90 s, starts t+90 s).
 
-| Scenario | Configuration |
-|----------|--------------|
-| Steady load | 10 VUs, 1 minute |
-| Spike | Ramp 0 → 50 → 50 → 0 VUs over 90 s, starting at t+90 s |
+**Lifecycle:** validate train → station autocomplete → create → idempotency replay → poll summary 3× with ETag → verify 304 → delete → second delete 404.
 
-### Lifecycle Tested
-
-1. Validate train number (`GET /v1/trains/{number}`)
-2. Station autocomplete (`GET /v1/stations?q=…`)
-3. Create journey (`POST /v1/journeys`)
-4. Idempotency replay (same key → 200 with replay header)
-5. Poll summary 3× with ETag conditional requests
-6. Verify 304 on unchanged ETag
-7. Delete journey, verify second delete → 404
-
-### Trigger
-
-Performance tests are **not in CI** — they require a real backend with HAFAS connectivity. Run manually against staging before significant backend changes:
+**Trigger:** not in CI (needs real HAFAS). Manual against staging:
 
 ```sh
 k6 run --env BASE_URL=http://staging.example.com tests/performance/k6/journey-creation.js
 ```
 
-### Gaps (to be filled)
+**Gaps:** no alternatives-endpoint test; no soak; no scheduled CI run.
 
-- No performance test for alternatives endpoint (`GET /v1/journeys/{id}/alternatives`)
-- No soak test (extended steady load to detect memory leaks)
-- No CI integration — add a weekly scheduled run against staging
+## Security Testing
 
----
+SAST on every push:
 
-## 7. Security Testing
+| Tool | Scope | Config |
+|------|-------|--------|
+| Gitleaks | Secrets in git history | `continue-on-error: false` |
+| gosec | Go code, severity ≥ high, confidence ≥ medium | SARIF → GitHub Security |
+| Semgrep | All langs, OWASP Top 10 + secrets | `--error` |
 
-### Static Analysis (SAST) — runs on every CI push
+**Gaps:** no DAST, no rate-limit bypass test, no body fuzzing on `POST /v1/journeys`, dependency scans (`govulncheck`, `npm audit`) not yet in CI.
 
-| Tool | Scope | Configuration |
-|------|-------|---------------|
-| **Gitleaks** | Secrets in git history | `continue-on-error: false` |
-| **gosec** | Go code, severity ≥ high, confidence ≥ medium | SARIF uploaded to GitHub Security |
-| **Semgrep** | All languages, OWASP Top 10 + secrets | `--error` on findings |
-
-### Gaps (to be filled)
-
-| Gap | Priority |
-|-----|----------|
-| No DAST (dynamic API security testing) | Medium |
-| No rate-limit bypass test (brute-force X-Install-Id rotation) | Medium |
-| No input fuzzing on `POST /v1/journeys` body | Low |
-| Dependency vulnerability scanning (`govulncheck`, `npm audit`) not in CI | Medium |
-
----
-
-## 8. CI/CD Integration
+## CI/CD Integration
 
 ```
 push / PR to master
 │
-├── backend (Go)
-│   └── go mod verify → go vet → go build → go test -race -count=1 -timeout=5m ./...
-│   └── coverage check (≥ 55%) → govulncheck
-│
-├── frontend (Node)
-│   └── npm ci → codegen:check → lint → typecheck → npm audit → vitest run
-│
-├── e2e (Playwright)          needs: [frontend]
-│   └── build → install browsers → typecheck → playwright test (hard gate)
-│
-├── sast
-│   └── gitleaks → gosec → semgrep
-│
-└── docker                    needs: [backend, frontend]
-    └── compose validate → build backend + frontend images
+├── backend  → go mod verify → vet → build → test -race (coverage ≥ 55%) → govulncheck
+├── frontend → npm ci → codegen:check → lint → typecheck → npm audit → vitest run
+├── e2e (needs: frontend) → build → install browsers → typecheck → playwright test (hard gate)
+├── sast → gitleaks → gosec → semgrep
+└── docker (needs: backend, frontend) → compose validate → build images
 ```
 
-### Missing CI Steps
+Missing: weekly k6 run against staging.
 
-| Step | Priority | Notes |
-|------|----------|-------|
-| Weekly k6 run against staging | Low | Scheduled workflow |
+## Accessibility
 
----
+`accessibility.spec.ts` runs `@axe-core/playwright` on Start, Alternatives, Companion — zero critical/serious violations. Color-contrast rules excluded (require visual review). `critical-status.spec.ts` verifies aria-live attachment; asserting announcements is a remaining gap.
 
-## 9. Accessibility Testing
+## Test Data
 
-`accessibility.spec.ts` runs `@axe-core/playwright` against all three main screens (Start, Alternatives, Companion) and asserts zero critical or serious violations. Color-contrast rules are excluded — they require visual review and produce false positives in headless environments.
-
-`critical-status.spec.ts` already verifies the `aria-live` region is attached. Extending it to assert announcements is a remaining gap.
-
----
-
-## 10. Test Data Strategy
-
-### Frontend (unit + E2E)
-
-All test data is fabricated by factory functions:
+**Frontend:** fabricated by factories.
 
 | Factory | Location | Usage |
 |---------|----------|-------|
@@ -354,27 +213,17 @@ All test data is fabricated by factory functions:
 | `DEFAULT_SUMMARY`, `DEFAULT_JOURNEY_ID` | `frontend/src/test/msw-handlers.ts` | Unit |
 | `makeSummary(overrides)` | `frontend/src/test/factories.ts` | Unit |
 
-Factory functions accept `overrides` for partial customisation, keeping test intent visible.
+**Backend:** inline literals or table-driven; no shared fixtures.
 
-### Backend
+**Production data is never used** — CI runs against synthetic data only.
 
-Tests use inline literals or table-driven fixtures. No shared fixtures file — each test file owns its data.
+## Flakiness Policy
 
-### No Production Data
+1. A test failing >1 in 5 runs is flaky — fix, do not retry.
+2. Quarantine with `test.skip` + tracking issue link.
+3. Playwright `retries: 2` catches transient browser issues, not logic flaws.
+4. Offline tests (35 s window) are load-sensitive — keep as smoke tests; for finer control use `vi.useFakeTimers` in unit tests.
 
-Production data must never be used in any test. CI runs against synthetic data only.
+## Debug Files
 
----
-
-## 11. Flakiness Policy
-
-1. A test that fails more than once in 5 runs is **flaky** and must be fixed, not re-run.
-2. Quarantine flaky tests with `test.skip` + a link to the tracking issue — do not silently retry.
-3. On CI, `retries: 2` (Playwright) catches legitimate transient browser issues, not test logic flaws.
-4. Offline tests (35 s assertion window) are sensitive to machine load — if they fail on CI regularly, increase `timeout` in the test or decouple staleness from wall-clock time (e.g. use `vi.useFakeTimers` in unit tests and keep E2E offline tests as smoke tests only).
-
----
-
-## 12. Debug Files Policy
-
-Temporary debug spec files (`debug-*.spec.ts`) must not be committed. Add them to `.gitignore` or delete after investigation.
+`debug-*.spec.ts` must not be committed — `.gitignore` or delete.

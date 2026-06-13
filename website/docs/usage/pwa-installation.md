@@ -6,69 +6,66 @@ sidebar_position: 2
 
 # PWA installation
 
-The frontend is a fully installable Progressive Web App. The service worker pre-caches all static assets so previously visited screens render offline.
+Frontend is a fully installable PWA. Service worker pre-caches static assets so previously visited screens render offline.
 
-## Install on iOS (Safari)
+## iOS (Safari)
 
-1. Open the app URL (e.g. `http://localhost` in dev, or your production URL) in **Safari** — iOS does *not* support PWA install from third-party browsers.
-2. Tap the **Share** button.
-3. Tap **"Add to Home Screen"**.
-4. Tap **"Add"**.
+1. Open URL in **Safari** — iOS does *not* support PWA install from third-party browsers.
+2. Tap **Share** → **Add to Home Screen** → **Add**.
 
-The app now launches in stand-alone mode (no Safari chrome) and obtains its own switcher card.
+Launches stand-alone (no Safari chrome), own switcher card.
 
-## Install on Android (Chrome)
+## Android (Chrome)
 
-1. Open the app in Chrome.
-2. Either tap the **"Install app"** prompt that appears in the address bar, or open the browser menu → **"Add to Home Screen"** → **"Install"**.
+1. Open in Chrome.
+2. Tap **Install app** in address bar, or menu → **Add to Home Screen** → **Install**.
 
-The app behaves like a native app with its own launcher icon.
+Behaves native, own launcher icon.
 
-## Install on desktop (Chrome / Edge / Brave)
+## Desktop (Chrome / Edge / Brave)
 
-1. Open the app in the browser.
-2. Click the **install** icon in the right-hand side of the address bar (a download-style icon).
-3. Confirm.
+1. Open in browser.
+2. Click **install** icon (download-style) in address bar → confirm.
 
-The app opens in its own window without browser chrome.
+Opens in its own window, no browser chrome.
 
-## Service worker behaviour
+## Service worker
 
 | Asset class | Strategy | Reason |
 |-------------|----------|--------|
-| `index.html` | **Stale-while-revalidate** | Fast first paint, eventual consistency on new releases |
-| `*.js`, `*.css`, `*.woff2`, `*.png`, `*.svg`, `*.ico` (Vite-hashed) | **Cache-first, 1-year** | Hashed filenames make them immutable |
-| `GET /v1/journeys/*/summary` | **Network-only** | Realtime data must be fresh — staleness breaks the use case |
-| `GET /v1/stations` | **Network-only** | Autocomplete already cached server-side in Valkey |
-| `GET /v1/trains/{number}` | **Network-only** | Same reason |
-| Everything else | **Network-first with 5 s timeout** | Safe default — falls back to cache for resilience |
+| `index.html` | Stale-while-revalidate | Fast first paint, eventual consistency on releases |
+| `*.js`, `*.css`, `*.woff2`, `*.png`, `*.svg`, `*.ico` (Vite-hashed) | Cache-first, 1 yr | Hashed names = immutable |
+| `GET /v1/journeys/*/summary` | Network-only | Realtime must be fresh |
+| `GET /v1/stations` | Network-only | Cached server-side in Valkey |
+| `GET /v1/trains/{number}` | Network-only | Same |
+| Everything else | Network-first, 5 s timeout | Safe default — cache fallback |
 
 ## Offline state loader
 
-When the network is unavailable, the `OfflineStateLoader` component reads the last-known journey snapshot from IndexedDB and renders it with a clear "offline" banner. Polling stops; a "retry" button forces a fresh fetch.
+When offline, `OfflineStateLoader` reads last-known snapshot from IndexedDB + renders with clear "offline" banner. Polling stops; retry button forces fresh fetch.
 
-The offline cache is invalidated whenever:
+Offline cache invalidates on:
 
-- The user terminates the journey (`DELETE /v1/journeys/{id}`).
-- The journey TTL expires (default 2 h).
-- A new journey is created.
+- Journey termination (`DELETE /v1/journeys/{id}`).
+- TTL expiry (default 2 h).
+- New journey created.
 
-## Updating an installed PWA
+## Updates
 
-The service worker checks for updates every time the app is launched. When a new bundle is detected, a non-blocking toast appears at the bottom:
+SW checks for updates each launch. New bundle → non-blocking toast:
 
 > A new version is available. Reload to update.
 
-Tapping reloads with the fresh assets. Users on slow networks can dismiss and continue using the old version; the update will be applied on the next launch.
+Tap reloads with fresh assets. Slow-network users can dismiss + continue; applied on next launch.
 
-## Verifying the PWA in DevTools
+## Verify in DevTools
 
-Open Chrome DevTools → **Application** → **Manifest** and **Service Workers**. The manifest should match `frontend/public/manifest.json`:
+Chrome DevTools → **Application** → **Manifest** + **Service Workers**. Manifest should match `frontend/public/manifest.json`:
 
 - `name: "Verspätungs-Begleiter"`
 - `short_name: "VB"`
 - `start_url: "/"`
 - `display: "standalone"`
-- `theme_color`, `background_color`, full icon set down to 192×192 and 512×512.
+- `theme_color`, `background_color`, full icon set incl. 192×192 and 512×512.
 
-Run **Lighthouse → PWA audit** to verify all PWA criteria pass.
+Run **Lighthouse → PWA audit** to verify all criteria.

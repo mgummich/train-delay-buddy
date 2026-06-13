@@ -6,20 +6,18 @@ sidebar_position: 3
 
 # Local development — without Docker
 
-Use this path when you want native IDE debugging (breakpoints, profiling, live race detection) or the fastest possible Go build cycles. Postgres and Valkey still run in Docker because the cost of installing them natively is not worth the marginal gain.
+Use for native IDE debugging (breakpoints, profiling, live race detection) or fastest Go build cycles. Postgres + Valkey still in Docker — not worth installing natively.
 
-## Step 1 — Start infrastructure only
+## 1. Infra only
 
 ```bash
 docker compose up -d postgres valkey
 ```
 
-This starts only the two stateful services and leaves the application services for you to run on the host:
+- Postgres on `127.0.0.1:5432` (dev override exposes).
+- Valkey on `127.0.0.1:6379` (in-docker by default; expose with `--service-ports` if needed).
 
-- Postgres on `127.0.0.1:5432` (dev override exposes the port).
-- Valkey on `127.0.0.1:6379` (only inside Docker network by default; expose with `--service-ports` if needed).
-
-## Step 2 — Run the backend on the host
+## 2. Backend on host
 
 ```bash
 cd backend
@@ -35,16 +33,16 @@ export MIGRATIONS_DIR=./migrations
 go run ./cmd/server
 ```
 
-The server starts on `http://localhost:8080`. Migrations apply automatically on every start — there is no separate `migrate up` step.
+Migrations apply on every start. No separate `migrate up`.
 
-:::tip Use `air` for hot reload
-Install [`air`](https://github.com/cosmtrek/air) and create a `.air.toml` in `backend/`. `air` watches for `.go` changes and rebuilds the binary on save.
+:::tip Hot reload with `air`
+Install [`air`](https://github.com/cosmtrek/air), drop `.air.toml` in `backend/`. Watches `.go`, rebuilds on save.
 :::
 
 ### IDE debugging
 
-- **GoLand** — create a Run Configuration of type *Go Build*; entry point `./cmd/server`; environment variables from above.
-- **VS Code** — `.vscode/launch.json`:
+- **GoLand:** Run Configuration *Go Build* → entry `./cmd/server` → env vars above.
+- **VS Code** `.vscode/launch.json`:
 
 ```json
 {
@@ -68,7 +66,7 @@ Install [`air`](https://github.com/cosmtrek/air) and create a `.air.toml` in `ba
 }
 ```
 
-## Step 3 — Run the frontend on the host
+## 3. Frontend on host
 
 ```bash
 cd frontend
@@ -76,31 +74,28 @@ npm install
 npm run dev
 ```
 
-Vite serves on `http://localhost:5173` and proxies `/v1/*`, `/health`, and `/readyz` to `http://localhost:8080`. The proxy is configured in `vite.config.ts`, so the frontend code only ever sees same-origin URLs and CORS is not required during development.
+Vite on `http://localhost:5173`, proxies `/v1/*`, `/health`, `/readyz` → `http://localhost:8080`. Same-origin via Vite — no CORS needed in dev.
 
-## Verifying the full chain
+## Verify
 
 ```bash
-# 1. Backend liveness
 curl http://localhost:8080/health
 # {"status":"ok"}
 
-# 2. Backend readiness (checks Valkey + Postgres + HAFAS)
 curl http://localhost:8080/readyz | jq
 # {"status":"ok","checks":{"valkey":"ok","postgres":"ok","hafas":"ok"}}
 
-# 3. End-to-end via the proxy
 curl -i http://localhost:5173/health
 # HTTP/1.1 200 OK
 ```
 
-If `/readyz` reports any subsystem as `degraded` or `down`, jump to [Troubleshooting](../troubleshooting).
+`/readyz` `degraded`/`down` → [Troubleshooting](../troubleshooting).
 
-## Common pitfalls
+## Pitfalls
 
-| Symptom | Likely cause | Fix |
-|---------|--------------|-----|
-| `dial tcp 127.0.0.1:5432: connect: connection refused` | Postgres container is not up yet | Wait for `docker compose ps` to report `healthy`, then re-run |
-| `valkey: connection refused` | Valkey port not exposed | `docker compose up -d valkey` and ensure `VALKEY_URL=redis://localhost:6379` (not `redis://valkey:6379`) |
-| `CORS policy: No 'Access-Control-Allow-Origin'` | You opened `:8080` directly in the browser | Open `:5173` instead — the Vite proxy makes requests same-origin |
+| Symptom | Cause | Fix |
+|---------|-------|-----|
+| `dial tcp 127.0.0.1:5432: connect: connection refused` | Postgres not up | Wait for `docker compose ps` `healthy`, retry |
+| `valkey: connection refused` | Port not exposed | `docker compose up -d valkey`; use `VALKEY_URL=redis://localhost:6379` (not `redis://valkey:6379`) |
+| `CORS policy: No 'Access-Control-Allow-Origin'` | Opened `:8080` directly | Use `:5173` — Vite proxy makes requests same-origin |
 | `migrations table does not exist` | Wrong `MIGRATIONS_DIR` | Set `MIGRATIONS_DIR=./migrations` from inside `backend/` |
