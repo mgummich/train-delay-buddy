@@ -56,6 +56,7 @@ const sidebars: SidebarsConfig = {
       type: "category",
       label: "Testing",
       items: [
+        "testing/concept",
         "testing/backend-unit",
         "testing/frontend-unit",
         "testing/end-to-end",
