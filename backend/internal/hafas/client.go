@@ -173,6 +173,12 @@ func (c *Client) SearchTripByLineName(ctx context.Context, lineName, date string
 
 // findTripByNameAtHubs searches hubs sequentially and returns on first match.
 // Sequential queries avoid overwhelming the upstream Vendo API's concurrency limit.
+//
+// The upstream Vendo API caps departure-board responses at ~85 entries regardless
+// of the requested results/duration — covering only ~1 hour at major hubs. To
+// search the full day we paginate: after each page we advance the window start to
+// just after the last returned departure and repeat until the train is found or
+// the full day is exhausted.
 func (c *Client) findTripByNameAtHubs(ctx context.Context, normalizedLineName, date string) (*HAFASTrip, error) {
 	loc, err := time.LoadLocation("Europe/Berlin")
 	if err != nil {
@@ -182,30 +188,57 @@ func (c *Client) findTripByNameAtHubs(ctx context.Context, normalizedLineName, d
 	if err != nil {
 		return nil, fmt.Errorf("invalid date %q: %w", date, err)
 	}
+	endOfDay := startOfDay.Add(24 * time.Hour)
 
 	var lastErr error
 	for _, hubID := range germanyHubs {
 		if ctx.Err() != nil {
 			return nil, ctx.Err()
 		}
-		deps, fetchErr := c.fetchDepartures(ctx, hubID, startOfDay, 1440, 300)
-		if fetchErr != nil {
-			lastErr = fetchErr
-			continue
-		}
-		for i := range deps {
-			d := &deps[i]
-			if d.Line != nil && NormalizeTrainNumber(d.Line.Name) == normalizedLineName {
-				// Fetch full stopovers for the matched trip.
-				params := url.Values{"stopovers": {"true"}, "polyline": {"false"}}
-				var resp struct {
-					Trip HAFASTrip `json:"trip"`
-				}
-				if err := c.withCB(ctx, "/trips/"+url.PathEscape(d.TripId), params, &resp); err != nil {
-					return nil, err
-				}
-				return &resp.Trip, nil
+
+		windowStart := startOfDay
+		for windowStart.Before(endOfDay) {
+			if ctx.Err() != nil {
+				return nil, ctx.Err()
 			}
+			deps, fetchErr := c.fetchDepartures(ctx, hubID, windowStart, 120, 300)
+			if fetchErr != nil {
+				lastErr = fetchErr
+				break
+			}
+			if len(deps) == 0 {
+				break
+			}
+
+			for i := range deps {
+				d := &deps[i]
+				if d.Line != nil && NormalizeTrainNumber(d.Line.Name) == normalizedLineName {
+					params := url.Values{"stopovers": {"true"}, "polyline": {"false"}}
+					var resp struct {
+						Trip HAFASTrip `json:"trip"`
+					}
+					if err := c.withCB(ctx, "/trips/"+url.PathEscape(d.TripId), params, &resp); err != nil {
+						return nil, err
+					}
+					return &resp.Trip, nil
+				}
+			}
+
+			// Advance to just after the last returned departure to paginate forward.
+			var latest time.Time
+			for _, d := range deps {
+				t := d.PlannedWhen
+				if t == nil {
+					t = d.When
+				}
+				if t != nil && t.After(latest) {
+					latest = *t
+				}
+			}
+			if latest.IsZero() || !latest.After(windowStart) {
+				break
+			}
+			windowStart = latest.Add(time.Minute)
 		}
 	}
 
