@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/verspaetungsbegleiter/backend/internal/api/handlers"
+	"github.com/verspaetungsbegleiter/backend/internal/api/openapitest"
 )
 
 func TestLiveness_Returns200(t *testing.T) {
@@ -14,7 +15,8 @@ func TestLiveness_Returns200(t *testing.T) {
 	req := httptest.NewRequest(http.MethodGet, "/health", nil)
 	rr := httptest.NewRecorder()
 
-	h.Liveness(rr, req)
+	v := openapitest.New(t)
+	v.Wrap(http.HandlerFunc(h.Liveness)).ServeHTTP(rr, req)
 
 	if rr.Code != http.StatusOK {
 		t.Fatalf("status: got %d, want 200", rr.Code)

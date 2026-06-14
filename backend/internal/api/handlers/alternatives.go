@@ -74,6 +74,11 @@ func (h *AlternativesHandler) Get(w http.ResponseWriter, r *http.Request) {
 	if alts == nil {
 		alts = []journey.Alternative{}
 	}
+	for i := range alts {
+		if alts[i].Legs == nil {
+			alts[i].Legs = []journey.Leg{}
+		}
+	}
 
 	w.Header().Set("ETag", etagHeader)
 	writeJSON(w, http.StatusOK, alternativesResponse{Data: alts, TotalCount: total})
