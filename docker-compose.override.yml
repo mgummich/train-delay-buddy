@@ -21,7 +21,7 @@ services:
       target: dev
     read_only: false
     tmpfs:
-      - /tmp:size=512m
+      - /tmp:size=512m,exec
     volumes:
       - ./backend:/app:cached
       - go-build-cache:/home/app/.cache/go-build
