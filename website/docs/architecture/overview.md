@@ -21,7 +21,7 @@ graph TD
     Pool["WorkerPool\n50 goroutines · 200-deep queue"]
   end
 
-  HAFAS["HAFAS API\ndb.transport.rest"]
+  HAFAS["HAFAS sidecar\ndb-vendo-client\n(self-hosted)"]
   Valkey["Valkey L1\nhot cache · ETag counters\nstation search · idempotency"]
   Postgres["PostgreSQL L2\ndurable store\nmigrations on boot"]
 

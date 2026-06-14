@@ -3,7 +3,7 @@ package hafas
 import "strings"
 
 // dbOperators is the allow-list of DB-operated passenger train services.
-// Strings must be verified empirically against live db.transport.rest responses.
+// Strings must be verified empirically against live HAFAS sidecar responses.
 var dbOperators = map[string]bool{
 	"DB Fernverkehr AG":               true, // ICE, IC, EC
 	"DB Regio AG":                     true, // Regional trains

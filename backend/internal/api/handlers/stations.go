@@ -30,7 +30,7 @@ type stationsResponse struct {
 	Stations []journey.StationRef `json:"stations"`
 }
 
-// Search proxies GET /v1/stations?q=...&limit=... to db.transport.rest with Redis caching.
+// Search proxies GET /v1/stations?q=...&limit=... to the HAFAS sidecar with Redis caching.
 func (h *StationsHandler) Search(w http.ResponseWriter, r *http.Request) {
 	q := strings.TrimSpace(r.URL.Query().Get("q"))
 	if len(q) < 2 {

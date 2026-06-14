@@ -61,6 +61,7 @@ $ docker compose ps
 NAME              STATUS                   PORTS
 backend-1         Up 12s (healthy)
 frontend-1        Up 12s                   127.0.0.1:5173->5173/tcp
+hafas-proxy-1     Up 12s                   127.0.0.1:3000->3000/tcp
 nginx-1           Up 8s  (healthy)         127.0.0.1:80->80/tcp
 postgres-1        Up 12s (healthy)         127.0.0.1:5432->5432/tcp
 valkey-1          Up 12s (healthy)

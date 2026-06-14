@@ -31,9 +31,11 @@ Use [`mise`](https://mise.jdx.dev/) or [`asdf`](https://asdf-vm.com/) to pin / s
 
 ## Network
 
-Backend calls public HAFAS at `https://v6.db.transport.rest`. No API key. Needs HTTPS 443 outbound.
+The `db-vendo-client` HAFAS sidecar is bundled in Docker Compose — no external API key or outbound HTTPS to third-party endpoints required for local dev.
 
-Corporate proxy: set Docker daemon proxy + `HTTPS_PROXY`/`HTTP_PROXY` for backend container.
+The sidecar itself reaches DB's upstream; ensure port 443 outbound is open from the Docker network.
+
+Corporate proxy: set Docker daemon proxy + `HTTPS_PROXY`/`HTTP_PROXY` for the `hafas-proxy` container.
 
 ## Disk + memory
 

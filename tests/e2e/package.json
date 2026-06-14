@@ -8,7 +8,12 @@
     "test:headed": "playwright test --headed",
     "test:chromium": "playwright test --project=\"Desktop Chrome\"",
     "report": "playwright show-report",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test:integration": "playwright test --config playwright.integration.config.ts",
+    "test:integration:fast": "INTEGRATION_SKIP_SLOW=1 playwright test --config playwright.integration.config.ts",
+    "test:integration:keep": "INTEGRATION_KEEP_STACK=1 playwright test --config playwright.integration.config.ts",
+    "test:integration:existing": "INTEGRATION_SKIP_SETUP=1 playwright test --config playwright.integration.config.ts",
+    "report:integration": "playwright show-report playwright-report-integration"
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.10.1",

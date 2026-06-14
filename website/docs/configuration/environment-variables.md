@@ -44,7 +44,7 @@ Backend reads from process env or, with Compose, `.env` at repo root. Without Co
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `HAFAS_BASE_URL` | `https://v6.db.transport.rest` | REST base. Swap for self-hosted to dodge rate limits. |
+| `HAFAS_BASE_URL` | `http://hafas-proxy:3000` | REST base. Set by Compose to the bundled `db-vendo-client` sidecar. |
 | `HAFAS_REQUEST_TIMEOUT` | `8s` | Per-request deadline |
 | `HAFAS_WORKER_POOL_SIZE` | `50` | Max concurrent goroutines |
 | `HAFAS_QUEUE_DEPTH` | `200` | Backpressure queue; `Submit()` returns `false` when full |
@@ -108,7 +108,7 @@ DB_MIN_CONNS=2
 
 ```env
 LOG_LEVEL=DEBUG
-HAFAS_REQUEST_TIMEOUT=15s   # public proxy slow on cold cache
+HAFAS_REQUEST_TIMEOUT=15s
 CORS_ALLOWED_ORIGINS=http://localhost:5173
 ```
 

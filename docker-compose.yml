@@ -17,7 +17,7 @@ services:
     build:
       context: ./frontend
       target: prod
-    image: verspaetungs-begleiter-frontend:latest
+    image: verspaetungs-begleiter-nginx:latest
     ports: ["127.0.0.1:80:80"]
     volumes:
       - ./nginx/nginx.conf:/etc/nginx/conf.d/default.conf:ro
@@ -25,7 +25,7 @@ services:
       backend:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://localhost/health"]
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1/health"]
       interval: 30s
       timeout: 5s
       start_period: 10s
@@ -42,6 +42,21 @@ services:
           memory: 128m
           cpus: "0.5"
 
+  hafas-proxy:
+    image: ghcr.io/public-transport/db-vendo-client:latest
+    platform: linux/amd64
+    environment:
+      - USER_AGENT=verspaetungs-begleiter/prod
+      - DB_PROFILE=dbnav
+    restart: unless-stopped
+    <<: *default-security
+    logging: *default-logging
+    deploy:
+      resources:
+        limits:
+          memory: 256m
+          cpus: "0.5"
+
   backend:
     build:
       context: ./backend
@@ -56,11 +71,14 @@ services:
       - VALKEY_URL=redis://valkey:6379
       - DATABASE_URL=postgres://vbb:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD required}@postgres:5432/vbb
       - MIGRATIONS_DIR=/app/migrations
+      - HAFAS_BASE_URL=http://hafas-proxy:3000
     depends_on:
       valkey:
         condition: service_healthy
       postgres:
         condition: service_healthy
+      hafas-proxy:
+        condition: service_started
     healthcheck:
       test: ["CMD", "curl", "-fsS", "http://localhost:8080/health"]
       interval: 10s

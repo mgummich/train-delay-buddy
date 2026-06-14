@@ -69,10 +69,11 @@ Valkey may be cold and HAFAS slow/unavailable:
 
 ```bash
 curl 'http://localhost:8080/v1/stations?q=Berlin'
-curl 'https://v6.db.transport.rest/stations?query=Berlin' | head -c 200
+# Check the sidecar directly (port exposed in dev override):
+curl 'http://localhost:3000/locations?query=Berlin&results=3' | head -c 200
 ```
 
-Upstream issue if the public proxy itself fails.
+Upstream issue if the sidecar itself fails — check `docker compose logs hafas-proxy`.
 
 ### `summary.status: INFEASIBLE`
 
@@ -82,10 +83,10 @@ Real, user-visible state — show it. Causes: destination no longer reachable, f
 
 1. `/readyz` — is the HAFAS circuit breaker open?
 2. Backend logs for `poller_errors_total` increments.
-3. Curl HAFAS direct:
+3. Curl the sidecar directly (port 3000 exposed in dev override):
 
    ```bash
-   curl 'https://v6.db.transport.rest/trips/<tripId>' | jq '.realtime'
+   curl 'http://localhost:3000/trips/<tripId>?stopovers=true' | jq '.trip.stopovers[0].arrival'
    ```
 
    No realtime fields → genuinely unavailable upstream.
@@ -94,7 +95,7 @@ Real, user-visible state — show it. Causes: destination no longer reachable, f
 
 ### `urn:verspbegl:error:hafas-unavailable`
 
-Circuit breaker open (`/readyz` → `hafas.state = circuit-open`). Reads (cached) still work; writes needing fresh data (`POST /v1/journeys`) fail with this URN. Breaker probes every `HAFAS_CB_PROBE_INTERVAL` (default 30 s). If open >few minutes, check `https://v6.db.transport.rest` directly.
+Circuit breaker open (`/readyz` → `hafas.state = circuit-open`). Reads (cached) still work; writes needing fresh data (`POST /v1/journeys`) fail with this URN. Breaker probes every `HAFAS_CB_PROBE_INTERVAL` (default 30 s). If open >few minutes, check `docker compose logs hafas-proxy` and curl `http://localhost:3000/locations?query=Berlin&results=1` directly.
 
 ### HAFAS slow but not down
 
@@ -103,7 +104,7 @@ Symptoms: high `hafas_request_duration_seconds` p99, queue near max, occasional 
 1. `HAFAS_REQUEST_TIMEOUT=15s` — slow > failure.
 2. `HAFAS_WORKER_POOL_SIZE=100` — watch upstream rate limits.
 3. `HAFAS_QUEUE_DEPTH=400`.
-4. Run your own HAFAS proxy (`https://github.com/derhuerst/db-rest`).
+4. The project already bundles `db-vendo-client` as `hafas-proxy` — restart it: `docker compose restart hafas-proxy`.
 
 ## CORS / Networking
 

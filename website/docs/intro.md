@@ -9,10 +9,10 @@ sidebar_position: 1
 
 **Real-time alternative routing for Deutsche Bahn journeys.**
 
-Enter current train + destination station. Backend monitors the connection by polling [HAFAS](https://v6.db.transport.rest) every 30 s. As delays emerge, a BFS routing engine surfaces ranked alternatives that arrive earlier — with transfer buffer, risk badges, confidence indicators.
+Enter current train + destination station. Backend monitors the connection by polling HAFAS every 30 s. As delays emerge, a BFS routing engine surfaces ranked alternatives that arrive earlier — with transfer buffer, risk badges, confidence indicators.
 
 :::info Not affiliated with Deutsche Bahn
-Uses public, community-operated [`v6.db.transport.rest`](https://v6.db.transport.rest) HAFAS proxy. No API key.
+Uses a self-hosted [`db-vendo-client`](https://github.com/public-transport/db-vendo-client) HAFAS sidecar bundled in Docker Compose. No external API key required.
 :::
 
 ## What this site covers
@@ -51,7 +51,7 @@ Single source of truth for the project:
 | Cache | Valkey 9.1 (BSD Redis fork, volatile-LRU, 256 MB cap) |
 | Reverse proxy | Nginx (prod) |
 | Containers | Docker + Compose |
-| External data | `v6.db.transport.rest` — open HAFAS for DB realtime |
+| External data | `db-vendo-client` sidecar — self-hosted HAFAS for DB realtime |
 | PWA | vite-plugin-pwa + Workbox, installable iOS + Android |
 
 ## Five-minute mental model

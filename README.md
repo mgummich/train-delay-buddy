@@ -13,7 +13,7 @@
 **Real-time alternative routing for Deutsche Bahn journeys.**
 Enter train + destination — app monitors the connection live and surfaces faster alternatives as delays emerge.
 
-> **Not affiliated with Deutsche Bahn.** Uses public [`v6.db.transport.rest`](https://v6.db.transport.rest) HAFAS proxy.
+> **Not affiliated with Deutsche Bahn.** Uses a self-hosted [`db-vendo-client`](https://github.com/public-transport/db-vendo-client) HAFAS sidecar for realtime data.
 
 📖 **Full documentation:** [https://mgummich.github.io/train-delay-buddy/](https://mgummich.github.io/train-delay-buddy/)
 
@@ -56,7 +56,7 @@ More screens: [`design_handoff_verspaetungsbegleiter/screenshots/`](design_hando
 | Cache | Valkey 9.1 (BSD Redis fork, volatile-LRU, 256 MB cap) |
 | Reverse proxy | Nginx (prod) |
 | Containers | Docker + Compose |
-| External data | `v6.db.transport.rest` — open HAFAS for DB realtime |
+| External data | `db-vendo-client` sidecar — self-hosted HAFAS for DB realtime |
 | PWA | vite-plugin-pwa + Workbox, installable iOS + Android |
 
 ## Quick start

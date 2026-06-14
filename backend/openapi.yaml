@@ -402,7 +402,7 @@ paths:
   /stations:
     get:
       operationId: searchStations
-      summary: Station name autocomplete (proxied from db.transport.rest, Redis-cached 5min)
+      summary: Station name autocomplete (proxied from HAFAS sidecar, Redis-cached 5min)
       tags: [Stations]
       parameters:
         - $ref: '#/components/parameters/InstallId'
@@ -1044,7 +1044,7 @@ components:
             status: 429
 
     ServiceUnavailable:
-      description: "Backend dependency unavailable (db.transport.rest unreachable or MAX_ACTIVE_JOURNEYS capacity reached)"
+      description: "Backend dependency unavailable (HAFAS sidecar unreachable or MAX_ACTIVE_JOURNEYS capacity reached)"
       headers:
         X-Request-Id:
           $ref: '#/components/headers/RequestId'
