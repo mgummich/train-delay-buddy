@@ -1,3 +1,3 @@
 module.exports = {
-  'src/**/*.{ts,tsx}': ['eslint --max-warnings 0', 'prettier --write'],
+  'src/**/!(*.gen).{ts,tsx}': ['eslint --max-warnings 0', 'prettier --write'],
 }
