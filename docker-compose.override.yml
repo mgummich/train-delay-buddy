@@ -8,6 +8,11 @@ services:
       - DB_PROFILE=dbnav
     ports: ["127.0.0.1:3000:3000"]
     restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 512m
+          cpus: "1.0"
     logging:
       driver: json-file
       options:
@@ -51,6 +56,7 @@ services:
       - "127.0.0.1:5173:5173"
     environment:
       - VITE_API_BASE_URL=
+      - VITE_DEV_PROXY_TARGET=http://backend:8080
     command: npm run dev -- --host 0.0.0.0
     restart: unless-stopped
     security_opt:

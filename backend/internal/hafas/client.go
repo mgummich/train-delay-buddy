@@ -11,6 +11,7 @@ import (
 	"sync"
 	"time"
 
+	"golang.org/x/sync/errgroup"
 	"golang.org/x/sync/singleflight"
 
 	"github.com/redis/go-redis/v9"
@@ -89,6 +90,15 @@ func (cb *circuitBreaker) recordFailure() {
 	}
 }
 
+// maxConcurrentUpstream bounds parallel calls to the HAFAS proxy.
+// Upstream DB Vendo throttles aggressive bursts (HTTP 429/500); keep low.
+const maxConcurrentUpstream = 4
+
+// maxHubWindows bounds the per-hub pagination depth in findTripByNameAtHubs.
+// Smaller pages (results=100) cover ~20 min each at major hubs; allow up to
+// 24 windows so a full 24h day remains reachable without blowing upstream heap.
+const maxHubWindows = 24
+
 // Client wraps the HAFAS REST backend with a circuit breaker, Redis cache,
 // and per-request ID propagation.
 type Client struct {
@@ -97,6 +107,7 @@ type Client struct {
 	cb      *circuitBreaker
 	redis   *redis.Client // nil = no caching
 	sf      singleflight.Group
+	sem     chan struct{}
 }
 
 // NewClient creates a HAFAS client. rdb may be nil to disable Redis caching.
@@ -109,6 +120,7 @@ func NewClient(cfg config.Config, rdb *redis.Client) *Client {
 			probeInterval: cfg.HAFASCBProbeInterval,
 		},
 		redis: rdb,
+		sem:   make(chan struct{}, maxConcurrentUpstream),
 	}
 }
 
@@ -171,14 +183,13 @@ func (c *Client) SearchTripByLineName(ctx context.Context, lineName, date string
 	return trip, nil
 }
 
-// findTripByNameAtHubs searches hubs sequentially and returns on first match.
-// Sequential queries avoid overwhelming the upstream Vendo API's concurrency limit.
+// findTripByNameAtHubs races hub searches in parallel and returns on first match.
+// All siblings are cancelled once a match is found.
 //
 // The upstream Vendo API caps departure-board responses at ~85 entries regardless
-// of the requested results/duration — covering only ~1 hour at major hubs. To
-// search the full day we paginate: after each page we advance the window start to
-// just after the last returned departure and repeat until the train is found or
-// the full day is exhausted.
+// of the requested results/duration — covering only ~1 hour at major hubs. Each
+// hub goroutine paginates forward through the day until a match is found, the
+// day is exhausted, or context is cancelled.
 func (c *Client) findTripByNameAtHubs(ctx context.Context, normalizedLineName, date string) (*HAFASTrip, error) {
 	loc, err := time.LoadLocation("Europe/Berlin")
 	if err != nil {
@@ -190,62 +201,112 @@ func (c *Client) findTripByNameAtHubs(ctx context.Context, normalizedLineName, d
 	}
 	endOfDay := startOfDay.Add(24 * time.Hour)
 
-	var lastErr error
+	searchCtx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
+	type hit struct {
+		tripID string
+	}
+	hits := make(chan hit, 1)
+
+	var (
+		mu          sync.Mutex
+		failedHubs  = make(map[string]error)
+		succeeded   bool
+		totalHubs   = len(germanyHubs)
+	)
+
+	g, gctx := errgroup.WithContext(searchCtx)
+	g.SetLimit(3)
 	for _, hubID := range germanyHubs {
+		hubID := hubID
+		g.Go(func() error {
+			windowStart := startOfDay
+			hubHadSuccess := false
+			windows := 0
+			for windowStart.Before(endOfDay) && windows < maxHubWindows {
+				windows++
+				if gctx.Err() != nil {
+					return nil
+				}
+				deps, fetchErr := c.fetchDepartures(gctx, hubID, windowStart, 120, 100)
+				if fetchErr != nil {
+					if errors.Is(fetchErr, context.Canceled) {
+						return nil
+					}
+					if !hubHadSuccess {
+						mu.Lock()
+						failedHubs[hubID] = fetchErr
+						mu.Unlock()
+					}
+					return nil
+				}
+				hubHadSuccess = true
+				mu.Lock()
+				succeeded = true
+				delete(failedHubs, hubID)
+				mu.Unlock()
+				if len(deps) == 0 {
+					return nil
+				}
+
+				for i := range deps {
+					d := &deps[i]
+					if d.Line != nil && TrainNumberMatches(d.Line.Name, normalizedLineName) {
+						select {
+						case hits <- hit{tripID: d.TripId}:
+							cancel()
+						default:
+						}
+						return nil
+					}
+				}
+
+				var latest time.Time
+				for _, d := range deps {
+					t := d.PlannedWhen
+					if t == nil {
+						t = d.When
+					}
+					if t != nil && t.After(latest) {
+						latest = *t
+					}
+				}
+				if latest.IsZero() || !latest.After(windowStart) {
+					return nil
+				}
+				windowStart = latest.Add(time.Minute)
+			}
+			return nil
+		})
+	}
+
+	_ = g.Wait()
+	close(hits)
+
+	first, ok := <-hits
+	if !ok {
 		if ctx.Err() != nil {
 			return nil, ctx.Err()
 		}
-
-		windowStart := startOfDay
-		for windowStart.Before(endOfDay) {
-			if ctx.Err() != nil {
-				return nil, ctx.Err()
+		if !succeeded && len(failedHubs) == totalHubs {
+			for _, e := range failedHubs {
+				return nil, e
 			}
-			deps, fetchErr := c.fetchDepartures(ctx, hubID, windowStart, 120, 300)
-			if fetchErr != nil {
-				lastErr = fetchErr
-				break
-			}
-			if len(deps) == 0 {
-				break
-			}
-
-			for i := range deps {
-				d := &deps[i]
-				if d.Line != nil && NormalizeTrainNumber(d.Line.Name) == normalizedLineName {
-					params := url.Values{"stopovers": {"true"}, "polyline": {"false"}}
-					var resp struct {
-						Trip HAFASTrip `json:"trip"`
-					}
-					if err := c.withCB(ctx, "/trips/"+url.PathEscape(d.TripId), params, &resp); err != nil {
-						return nil, err
-					}
-					return &resp.Trip, nil
-				}
-			}
-
-			// Advance to just after the last returned departure to paginate forward.
-			var latest time.Time
-			for _, d := range deps {
-				t := d.PlannedWhen
-				if t == nil {
-					t = d.When
-				}
-				if t != nil && t.After(latest) {
-					latest = *t
-				}
-			}
-			if latest.IsZero() || !latest.After(windowStart) {
-				break
-			}
-			windowStart = latest.Add(time.Minute)
 		}
+		return nil, nil
 	}
 
-	if lastErr != nil && lastErr == ctx.Err() {
-		return nil, lastErr
+	// Bypass CB: hub search is best-effort; an upstream 500 on /trips/{id} must not
+	// trip the breaker and break unrelated endpoints.
+	params := url.Values{"stopovers": {"true"}, "polyline": {"false"}}
+	var resp struct {
+		Trip HAFASTrip `json:"trip"`
 	}
-	return nil, nil
+	if err := c.get(ctx, "/trips/"+url.PathEscape(first.tripID), params, &resp); err != nil {
+		return nil, err
+	}
+	return &resp.Trip, nil
 }
 
 // fetchDepartures fetches the departure board at stopID without going through the
@@ -309,6 +370,38 @@ func (c *Client) get(ctx context.Context, path string, params url.Values, out an
 	if len(params) > 0 {
 		u += "?" + params.Encode()
 	}
+
+	// Acquire concurrency slot. Bounded fan-out to prevent upstream rate-limiting.
+	select {
+	case c.sem <- struct{}{}:
+		defer func() { <-c.sem }()
+	case <-ctx.Done():
+		return ctx.Err()
+	}
+
+	// Single retry on transient upstream 5xx — DB Vendo throttles aggressively.
+	var lastErr error
+	for attempt := 0; attempt < 2; attempt++ {
+		if attempt > 0 {
+			select {
+			case <-time.After(500 * time.Millisecond):
+			case <-ctx.Done():
+				return ctx.Err()
+			}
+		}
+		err := c.doOnce(ctx, u, out)
+		if err == nil {
+			return nil
+		}
+		lastErr = err
+		if !errors.Is(err, ErrUpstreamUnavailable) {
+			return err
+		}
+	}
+	return lastErr
+}
+
+func (c *Client) doOnce(ctx context.Context, u string, out any) error {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u, nil)
 	if err != nil {
 		return fmt.Errorf("build request: %w", err)
