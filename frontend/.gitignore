@@ -3,3 +3,5 @@ node_modules/
 *.local
 coverage/
 playwright-report/
+vite.config.js
+*.bak

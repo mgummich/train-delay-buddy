@@ -94,5 +94,10 @@
     "msw@2.14.6": true,
     "fsevents@2.3.2": true,
     "fsevents@2.3.3": true
+  },
+  "msw": {
+    "workerDirectory": [
+      "public"
+    ]
   }
 }

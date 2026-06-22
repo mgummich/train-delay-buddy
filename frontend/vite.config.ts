@@ -29,11 +29,14 @@ export default defineConfig({
   resolve: {
     alias: { '@': resolve(__dirname, './src') },
   },
+  optimizeDeps: {
+    exclude: ['msw/browser'],
+  },
   server: {
     proxy: {
-      '/v1': 'http://localhost:8080',
-      '/health': 'http://localhost:8080',
-      '/readyz': 'http://localhost:8080',
+      '/v1': process.env.VITE_DEV_PROXY_TARGET ?? 'http://localhost:8080',
+      '/health': process.env.VITE_DEV_PROXY_TARGET ?? 'http://localhost:8080',
+      '/readyz': process.env.VITE_DEV_PROXY_TARGET ?? 'http://localhost:8080',
     },
   },
 })

@@ -6,7 +6,8 @@ FROM golang:1.26.4-alpine AS dev
 WORKDIR /app
 RUN apk add --no-cache curl \
     && adduser -D -u 10001 app \
-    && chown -R app:app /app
+    && mkdir -p /home/app/.cache/go-build \
+    && chown -R app:app /app /home/app
 COPY --chown=app:app go.mod go.sum ./
 USER app
 RUN go mod download

@@ -17,7 +17,7 @@ if (!i18n.isInitialized) {
 }
 import { cleanup } from '@testing-library/react'
 import { afterEach, beforeAll, afterAll, vi } from 'vitest'
-import { server } from './msw-handlers'
+import { server } from './msw-server'
 
 // Start MSW service worker before all tests
 beforeAll(() => server.listen({ onUnhandledRequest: 'warn' }))
