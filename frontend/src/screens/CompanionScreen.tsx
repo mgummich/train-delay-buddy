@@ -6,6 +6,7 @@ import { SubAppBar } from '@/components/SubAppBar'
 import { SummaryHeader } from '@/components/SummaryHeader'
 import { MapView } from '@/components/MapView'
 import { Node, type NodeKind } from '@/components/Timeline/Node'
+import { IconClock } from '@/components/icons/IconClock'
 import { LegBlock } from '@/components/Timeline/LegBlock'
 import { TransferBlock } from '@/components/Timeline/TransferBlock'
 import { journeyFullQuery } from '@/hooks/useJourneyFull'
@@ -65,18 +66,7 @@ function FAB({ onPress }: { onPress: () => void }) {
       className="fixed bottom-6 right-4 z-10 h-[44px] px-4 rounded-badge bg-accent text-accent-ink font-semibold text-[14px] flex items-center gap-2 active:scale-[0.97] transition-transform duration-fast"
       style={{ boxShadow: '0 4px 14px color-mix(in srgb, var(--accent) 40%, transparent)' }}
     >
-      <svg
-        width="17"
-        height="17"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.75"
-        strokeLinecap="round"
-      >
-        <circle cx="12" cy="12" r="9" />
-        <path d="M12 8v4l3 3" />
-      </svg>
+      <IconClock size={17} />
       {t('companion.jumpToNow')}
     </button>
   )

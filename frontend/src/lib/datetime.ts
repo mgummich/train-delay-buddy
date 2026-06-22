@@ -16,6 +16,23 @@ const dateTimeFormatter = new Intl.DateTimeFormat(LOCALE, {
 
 const relativeFormatter = new Intl.RelativeTimeFormat(LOCALE, { numeric: 'auto' })
 
+// en-CA yields ISO-style YYYY-MM-DD; timeZone pins it to the Berlin wall-clock day.
+const dateKeyFormatter = new Intl.DateTimeFormat('en-CA', {
+  timeZone: BERLIN_TZ,
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit',
+})
+
+/**
+ * Current date as YYYY-MM-DD in Europe/Berlin (the backend's reference timezone).
+ * Avoids `new Date().toISOString()`, which uses UTC and rolls over a day early
+ * after Berlin midnight.
+ */
+export function todayBerlinDate(): string {
+  return dateKeyFormatter.format(new Date())
+}
+
 /** Formats ISO UTC string as HH:MM in Europe/Berlin. */
 export function formatTime(isoUtc: string): string {
   return timeFormatter.format(new Date(isoUtc))

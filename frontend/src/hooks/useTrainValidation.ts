@@ -1,5 +1,6 @@
 import { useState, useCallback, useRef } from 'react'
 import { apiClient } from '@/api/client'
+import { todayBerlinDate } from '@/lib/datetime'
 
 interface TrainData {
   trainNumber: string
@@ -42,13 +43,17 @@ export function useTrainValidation(): UseTrainValidationResult {
       .GET('/trains/{number}', {
         params: {
           path: { number: normalized.replace(/\s/g, '') },
-          query: { date: new Date().toISOString().split('T')[0]! },
+          query: { date: todayBerlinDate() },
         },
       })
-      .then(({ data, error: apiError }) => {
+      .then(({ data, error: apiError, response }) => {
         if (seq !== seqRef.current) return
         if (apiError) {
-          setError('Zug nicht gefunden für heute')
+          setError(
+            response.status >= 500
+              ? 'Bahn-API gerade nicht erreichbar, bitte später erneut versuchen'
+              : 'Zug nicht gefunden für heute'
+          )
           setTrainData(null)
         } else if (data) {
           setTrainData({
@@ -60,7 +65,7 @@ export function useTrainValidation(): UseTrainValidationResult {
       })
       .catch(() => {
         if (seq !== seqRef.current) return
-        setError('Zug nicht gefunden für heute')
+        setError('Bahn-API gerade nicht erreichbar, bitte später erneut versuchen')
         setTrainData(null)
       })
       .finally(() => {

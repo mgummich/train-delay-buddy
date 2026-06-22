@@ -191,15 +191,13 @@ func (c *Client) SearchTripByLineName(ctx context.Context, lineName, date string
 // hub goroutine paginates forward through the day until a match is found, the
 // day is exhausted, or context is cancelled.
 func (c *Client) findTripByNameAtHubs(ctx context.Context, normalizedLineName, date string) (*HAFASTrip, error) {
-	loc, err := time.LoadLocation("Europe/Berlin")
-	if err != nil {
-		loc = time.UTC
-	}
-	startOfDay, err := time.ParseInLocation("2006-01-02", date, loc)
+	startOfDay, err := time.ParseInLocation("2006-01-02", date, BerlinLoc)
 	if err != nil {
 		return nil, fmt.Errorf("invalid date %q: %w", date, err)
 	}
-	endOfDay := startOfDay.Add(24 * time.Hour)
+	// AddDate advances one calendar day, so the window is correct across DST
+	// transitions (23h/25h wall-clock days); Add(24h) would over/undershoot.
+	endOfDay := startOfDay.AddDate(0, 0, 1)
 
 	searchCtx, cancel := context.WithCancel(ctx)
 	defer cancel()
@@ -210,10 +208,9 @@ func (c *Client) findTripByNameAtHubs(ctx context.Context, normalizedLineName, d
 	hits := make(chan hit, 1)
 
 	var (
-		mu          sync.Mutex
-		failedHubs  = make(map[string]error)
-		succeeded   bool
-		totalHubs   = len(germanyHubs)
+		mu         sync.Mutex
+		failedHubs = make(map[string]error)
+		totalHubs  = len(germanyHubs)
 	)
 
 	g, gctx := errgroup.WithContext(searchCtx)
@@ -243,7 +240,6 @@ func (c *Client) findTripByNameAtHubs(ctx context.Context, normalizedLineName, d
 				}
 				hubHadSuccess = true
 				mu.Lock()
-				succeeded = true
 				delete(failedHubs, hubID)
 				mu.Unlock()
 				if len(deps) == 0 {
@@ -289,7 +285,11 @@ func (c *Client) findTripByNameAtHubs(ctx context.Context, normalizedLineName, d
 		if ctx.Err() != nil {
 			return nil, ctx.Err()
 		}
-		if !succeeded && len(failedHubs) == totalHubs {
+		// Only treat the search as an upstream failure when *every* hub failed;
+		// a successful hub deletes itself from failedHubs, so len==totalHubs means
+		// none succeeded. Partial failures fall through to a "not found" (nil,nil)
+		// to avoid spurious 503s on transient single-hub errors.
+		if len(failedHubs) == totalHubs {
 			for _, e := range failedHubs {
 				return nil, e
 			}
@@ -427,18 +427,23 @@ func (c *Client) doOnce(ctx context.Context, u string, out any) error {
 	return json.NewDecoder(io.LimitReader(resp.Body, 4<<20)).Decode(out)
 }
 
+// maxTripCacheTTL bounds how long a cached trip (which carries realtime fields
+// like Cancelled and delays) may be served. Without it, a far-future date caches
+// for days and masks realtime changes; even same-day entries cached at 00:01
+// would otherwise live ~24h.
+const maxTripCacheTTL = time.Hour
+
 func ttlUntilMidnightBerlin(date string) time.Duration {
-	loc, err := time.LoadLocation("Europe/Berlin")
+	t, err := time.ParseInLocation("2006-01-02", date, BerlinLoc)
 	if err != nil {
-		loc = time.UTC
+		return time.Minute
 	}
-	t, err := time.ParseInLocation("2006-01-02", date, loc)
-	if err != nil {
-		return time.Hour
-	}
-	ttl := time.Until(t.Add(24 * time.Hour))
+	ttl := time.Until(t.AddDate(0, 0, 1))
 	if ttl < time.Minute {
 		return time.Minute
+	}
+	if ttl > maxTripCacheTTL {
+		return maxTripCacheTTL
 	}
 	return ttl
 }

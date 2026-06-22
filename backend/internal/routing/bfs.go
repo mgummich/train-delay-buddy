@@ -3,7 +3,6 @@ package routing
 import (
 	"context"
 	"fmt"
-	"time"
 
 	"github.com/verspaetungsbegleiter/backend/internal/hafas"
 	"github.com/verspaetungsbegleiter/backend/internal/journey"
@@ -20,23 +19,37 @@ func NewBFSEngine(h *hafas.Client) *BFSEngine {
 }
 
 func (e *BFSEngine) Route(ctx context.Context, req RoutingRequest) (*RoutingResult, error) {
-	loc, err := time.LoadLocation("Europe/Berlin")
-	if err != nil {
-		loc = time.UTC
-	}
-	date := req.DepartureAfter.In(loc).Format("2006-01-02")
+	date := hafas.BerlinDate(req.DepartureAfter)
 
-	// Non-fatal: fromID falls back to req.FromStationID when trip is not found.
-	trip, _ := e.hafas.SearchTripByLineName(ctx, req.TrainNumber, date)
+	// Non-fatal: fromID falls back to req.FromStationID when the trip is not found.
+	// tripErr is kept so plausibility distinguishes an upstream failure (unknown)
+	// from a genuine "train not found".
+	trip, tripErr := e.hafas.SearchTripByLineName(ctx, req.TrainNumber, date)
 
 	fromID := req.FromStationID
-	if trip != nil && trip.Origin.ID != "" {
-		fromID = trip.Origin.ID
+	departureAfter := req.DepartureAfter
+	if trip != nil {
+		if trip.Origin.ID != "" {
+			fromID = trip.Origin.ID
+		}
+		// Use the trip's actual departure so already-departed trains are still
+		// included in the journeys response (HAFAS filters by departure time).
+		if trip.Departure != nil && trip.Departure.Before(departureAfter) {
+			departureAfter = *trip.Departure
+		} else if len(trip.Stopovers) > 0 {
+			dep := trip.Stopovers[0].PlannedDeparture
+			if dep == nil {
+				dep = trip.Stopovers[0].Departure
+			}
+			if dep != nil && dep.Before(departureAfter) {
+				departureAfter = *dep
+			}
+		}
 	}
 
-	plausibility := computePlausibility(trip, req.TrainNumber, req.ToStationID)
+	plausibility := computePlausibility(trip, tripErr, req.ToStationID)
 
-	hafasJourneys, err := e.hafas.SearchJourneys(ctx, fromID, req.ToStationID, req.DepartureAfter, 10)
+	hafasJourneys, err := e.hafas.SearchJourneys(ctx, fromID, req.ToStationID, departureAfter, 10)
 	if err != nil {
 		return nil, err
 	}
@@ -138,7 +151,7 @@ func findOriginalIndex(journeys []hafas.HAFASJourney, trainNumber string) int {
 	norm := hafas.NormalizeTrainNumber(trainNumber)
 	for i, j := range journeys {
 		for _, leg := range j.Legs {
-			if leg.Line != nil && hafas.NormalizeTrainNumber(leg.Line.Name) == norm {
+			if leg.Line != nil && hafas.TrainNumberMatches(leg.Line.Name, norm) {
 				return i
 			}
 		}
@@ -159,7 +172,11 @@ func countTransfers(legs []hafas.HAFASLeg) int {
 	return 0
 }
 
-func computePlausibility(trip *hafas.HAFASTrip, trainNumber, toStationID string) journey.Plausibility {
+func computePlausibility(trip *hafas.HAFASTrip, tripErr error, toStationID string) journey.Plausibility {
+	if tripErr != nil {
+		r := "train lookup temporarily unavailable"
+		return journey.Plausibility{OnTrainConfidence: "unknown", Reason: &r}
+	}
 	if trip == nil {
 		r := "train not found in HAFAS"
 		return journey.Plausibility{OnTrainConfidence: "unknown", Reason: &r}

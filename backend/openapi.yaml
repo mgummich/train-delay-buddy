@@ -398,6 +398,8 @@ paths:
           $ref: '#/components/responses/TrainNotFound'
         "429":
           $ref: '#/components/responses/TooManyRequests'
+        "503":
+          $ref: '#/components/responses/ServiceUnavailable'
 
   /stations:
     get:

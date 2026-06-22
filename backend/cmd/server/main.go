@@ -20,9 +20,18 @@ import (
 	"github.com/verspaetungsbegleiter/backend/internal/config"
 	"github.com/verspaetungsbegleiter/backend/internal/hafas"
 	"github.com/verspaetungsbegleiter/backend/internal/journey"
-	"github.com/verspaetungsbegleiter/backend/internal/migrate"
 	_ "github.com/verspaetungsbegleiter/backend/internal/metrics" // register Prometheus metrics
+	"github.com/verspaetungsbegleiter/backend/internal/migrate"
 	"github.com/verspaetungsbegleiter/backend/internal/routing"
+)
+
+// HTTP server timeouts. WriteTimeout must exceed the worst-case search budget
+// (parallel hub scan can exceed 30s under upstream stress). Premature writes
+// surface as nginx 502 (upstream prematurely closed connection).
+const (
+	serverReadTimeout  = 15 * time.Second
+	serverWriteTimeout = 90 * time.Second
+	serverIdleTimeout  = 60 * time.Second
 )
 
 func main() {
@@ -99,9 +108,9 @@ func main() {
 	srv := &http.Server{
 		Addr:         ":" + cfg.Port,
 		Handler:      router,
-		ReadTimeout:  15 * time.Second,
-		WriteTimeout: 20 * time.Second,
-		IdleTimeout:  60 * time.Second,
+		ReadTimeout:  serverReadTimeout,
+		WriteTimeout: serverWriteTimeout,
+		IdleTimeout:  serverIdleTimeout,
 	}
 
 	done := make(chan struct{})
