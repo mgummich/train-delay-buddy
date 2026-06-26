@@ -26,7 +26,7 @@ RUN CGO_ENABLED=0 GOOS=linux go build \
     ./cmd/server
 
 # ── production ───────────────────────────────────────────────────────────────
-FROM alpine:3.24.0 AS production
+FROM alpine:3.24.1 AS production
 LABEL org.opencontainers.image.title="verspaetungs-begleiter-backend" \
       org.opencontainers.image.source="https://github.com/mgummich/train-delay-buddy" \
       org.opencontainers.image.licenses="MIT"
