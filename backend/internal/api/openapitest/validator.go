@@ -153,8 +153,7 @@ func (v *Validator) wrap(next http.Handler, validateReq bool) http.Handler {
 			}
 		}
 		w.WriteHeader(rec.Code)
-		// nosemgrep: go.lang.security.audit.xss.no-direct-write-to-responsewriter.no-direct-write-to-responsewriter
 		// Test-only wrapper: proxies the app's own already-recorded response; no user input.
-		_, _ = w.Write(rec.Body.Bytes())
+		_, _ = w.Write(rec.Body.Bytes()) // nosemgrep: go.lang.security.audit.xss.no-direct-write-to-responsewriter.no-direct-write-to-responsewriter
 	})
 }
