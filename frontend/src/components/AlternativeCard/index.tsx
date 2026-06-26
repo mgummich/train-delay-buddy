@@ -1,6 +1,7 @@
 import { memo } from 'react'
 import { cn } from '@/lib/utils'
 import { RiskBadge } from '@/components/RiskBadge'
+import { IconClock } from '@/components/icons/IconClock'
 import { formatTime } from '@/lib/datetime'
 
 type BadgeVariant = 'riskant' | 'schnellste' | 'stabilste' | 'nur-db'
@@ -73,18 +74,7 @@ export const AlternativeCard = memo(function AlternativeCard({
       {/* Sub-line */}
       <div className="text-text-muted tnum text-[14.5px] flex items-center gap-2 flex-wrap">
         <span className="flex items-center gap-[5px] whitespace-nowrap">
-          <svg
-            width="15"
-            height="15"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.9"
-            strokeLinecap="round"
-          >
-            <circle cx="12" cy="12" r="9" />
-            <path d="M12 8v4l3 3" />
-          </svg>
+          <IconClock />
           Ankunft <strong className="text-text-primary font-semibold">{formatTime(eta)}</strong>
         </span>
         <span className="text-text-faint">·</span>

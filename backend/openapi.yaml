@@ -392,15 +392,19 @@ paths:
                   name: "Berlin Hbf"
                 stops: []
                 status: "running"
+        "400":
+          $ref: '#/components/responses/MalformedRequest'
         "404":
           $ref: '#/components/responses/TrainNotFound'
         "429":
           $ref: '#/components/responses/TooManyRequests'
+        "503":
+          $ref: '#/components/responses/ServiceUnavailable'
 
   /stations:
     get:
       operationId: searchStations
-      summary: Station name autocomplete (proxied from db.transport.rest, Redis-cached 5min)
+      summary: Station name autocomplete (proxied from HAFAS sidecar, Redis-cached 5min)
       tags: [Stations]
       parameters:
         - $ref: '#/components/parameters/InstallId'
@@ -453,6 +457,9 @@ paths:
           $ref: '#/components/responses/ServiceUnavailable'
 
   /health:
+    servers:
+      - url: /
+        description: Health probes are served at root, outside the /v1 prefix
     get:
       operationId: healthCheck
       summary: Liveness probe
@@ -471,10 +478,11 @@ paths:
                     enum: [ok]
               example:
                 status: "ok"
-        "429":
-          $ref: '#/components/responses/TooManyRequests'
 
   /readyz:
+    servers:
+      - url: /
+        description: Health probes are served at root, outside the /v1 prefix
     get:
       operationId: readinessCheck
       summary: Readiness probe — checks Redis, Postgres, HAFAS connectivity
@@ -486,8 +494,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ReadinessResponse'
-        "429":
-          $ref: '#/components/responses/TooManyRequests'
         "503":
           description: Service not ready — one or more dependencies unavailable
           content:
@@ -1040,7 +1046,7 @@ components:
             status: 429
 
     ServiceUnavailable:
-      description: "Backend dependency unavailable (db.transport.rest unreachable or MAX_ACTIVE_JOURNEYS capacity reached)"
+      description: "Backend dependency unavailable (HAFAS sidecar unreachable or MAX_ACTIVE_JOURNEYS capacity reached)"
       headers:
         X-Request-Id:
           $ref: '#/components/headers/RequestId'

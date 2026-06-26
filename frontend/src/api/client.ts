@@ -17,7 +17,9 @@ async function resolveInstallId(): Promise<string> {
  * `fetch` is wrapped to allow MSW interception in tests after module init.
  */
 export const apiClient = createClient<paths>({
-  baseUrl: import.meta.env.VITE_API_BASE_URL ?? '',
+  // Default to /v1 (matches the OpenAPI servers[0].url and the nginx/Vite proxy prefix).
+  // Override via VITE_API_BASE_URL for cross-domain deployments (e.g. https://api.example.com/v1).
+  baseUrl: import.meta.env.VITE_API_BASE_URL ?? '/v1',
   // Use a wrapper so tests can patch globalThis.fetch after module init (e.g. MSW).
   fetch: (...args: Parameters<typeof fetch>) => globalThis.fetch(...args),
 })

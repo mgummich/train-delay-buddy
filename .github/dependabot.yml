@@ -1,0 +1,99 @@
+version: 2
+
+updates:
+  # Go backend
+  - package-ecosystem: gomod
+    directory: /backend
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: Europe/Berlin
+    labels: [dependencies, backend]
+    commit-message:
+      prefix: chore(deps)
+
+  # Frontend npm
+  - package-ecosystem: npm
+    directory: /frontend
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: Europe/Berlin
+    labels: [dependencies, frontend]
+    commit-message:
+      prefix: chore(deps)
+    groups:
+      react-ecosystem:
+        patterns: ["react*", "@types/react*"]
+      tanstack:
+        patterns: ["@tanstack/*"]
+      vite-ecosystem:
+        patterns: ["vite*", "@vitejs/*", "vite-plugin-*"]
+      tailwind:
+        patterns: ["tailwindcss*", "@tailwindcss/*"]
+      testing:
+        patterns: ["vitest*", "@vitest/*", "msw*", "@testing-library/*"]
+
+  # E2E tests npm
+  - package-ecosystem: npm
+    directory: /tests/e2e
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: Europe/Berlin
+    labels: [dependencies, e2e]
+    commit-message:
+      prefix: chore(deps)
+    groups:
+      playwright:
+        patterns: ["@playwright/*", "playwright*"]
+
+  # Docs site npm
+  - package-ecosystem: npm
+    directory: /website
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: Europe/Berlin
+    labels: [dependencies, docs]
+    commit-message:
+      prefix: chore(deps)
+
+  # Docker base images
+  - package-ecosystem: docker
+    directory: /backend
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: Europe/Berlin
+    labels: [dependencies, docker]
+    commit-message:
+      prefix: chore(deps)
+
+  - package-ecosystem: docker
+    directory: /frontend
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: Europe/Berlin
+    labels: [dependencies, docker]
+    commit-message:
+      prefix: chore(deps)
+
+  # GitHub Actions
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: Europe/Berlin
+    labels: [dependencies, ci]
+    commit-message:
+      prefix: chore(deps)

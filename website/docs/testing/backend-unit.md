@@ -11,40 +11,40 @@ cd backend
 go test ./...
 ```
 
-No external services are required. Postgres, Valkey, and HAFAS are all replaced with in-memory fakes that implement the same Go interfaces as the real clients.
+No external services. Postgres, Valkey, HAFAS replaced with in-memory fakes implementing the same Go interfaces.
 
-## What is covered
+## Coverage
 
-The backend ships with ~50 `*_test.go` files covering:
+~50 `*_test.go` files covering:
 
 - HAFAS client + mapper + coalescer + filter.
 - Journey poller, worker pool, ID generation.
-- Routing — BFS and ETA scorer.
+- Routing — BFS + ETA scorer.
 - Migration runner.
-- All HTTP handlers — happy path + every problem response.
+- All HTTP handlers — happy + every problem response.
 - All middleware — rate-limit, request-ID, CORS, logging.
-- Config loader — required fields, defaults, validation.
+- Config loader — required, defaults, validation.
 
 ## Conventions
 
-### Package layout
+### Layout
 
-Tests live next to the code they cover:
+Tests next to code:
 
 ```
 internal/journey/poller.go
-internal/journey/poller_test.go    ← same package, can touch internals
+internal/journey/poller_test.go      ← same package, can touch internals
 ```
 
-For black-box tests (preferred for handlers), use the `_test` package suffix:
+Black-box (preferred for handlers): `_test` suffix:
 
 ```
 internal/api/handlers/journeys_test.go    ← package handlers_test
 ```
 
-### Table-driven tests
+### Table-driven
 
-The codebase prefers table-driven tests for any function with > 2 distinct inputs:
+Preferred for any function with >2 distinct inputs:
 
 ```go
 func TestComputeETA(t *testing.T) {
@@ -68,17 +68,17 @@ func TestComputeETA(t *testing.T) {
 
 ### Fakes, not mocks
 
-Mocking libraries are not used. Each non-trivial collaborator has a dedicated fake under `internal/<pkg>/fake.go`:
+No mocking libraries. Each non-trivial collaborator has a dedicated fake in `internal/<pkg>/fake.go`:
 
-- `internal/hafas/fake.go` — an in-memory `Client` that returns canned responses keyed by trip ID.
-- `internal/journey/storefake.go` — an in-memory `Store`.
-- `internal/journey/clockfake.go` — a controllable `Clock` for time-based tests.
+- `internal/hafas/fake.go` — in-memory `Client`, canned responses keyed by trip ID.
+- `internal/journey/storefake.go` — in-memory `Store`.
+- `internal/journey/clockfake.go` — controllable `Clock`.
 
-The advantage: a fake is real Go code, fully type-checked by the compiler. There are no string-typed mock expectations to drift out of date.
+Fakes are real Go code, fully type-checked. No string-typed mock expectations to drift.
 
 ### Time
 
-Time-sensitive tests always inject `journey.Clock` (an interface with `Now()` and `NewTicker(d)`). The fake clock lets you advance time deterministically:
+Time-sensitive tests inject `journey.Clock` (`Now()` + `NewTicker(d)`). Fake clock advances deterministically:
 
 ```go
 clk := journey.NewFakeClock(time.Date(2026, 6, 12, 8, 0, 0, 0, time.UTC))
@@ -86,49 +86,36 @@ poller := journey.NewPoller(..., journey.WithClock(clk))
 go poller.Run(ctx)
 
 clk.Advance(30 * time.Second)   // forces one tick
-// assert observable side effects
 ```
 
-No `time.Sleep` in tests. Ever.
+**No `time.Sleep` in tests. Ever.**
 
-## Useful invocations
+## Invocations
 
 ```bash
-# All tests
-go test ./...
-
-# Verbose, with package timing
-go test -v ./...
-
-# One package
-go test -v ./internal/journey/...
-
-# One test
-go test -run TestPollerTick ./internal/journey/...
-
-# Race detector (default for CI)
-go test -race -count=1 ./...
-
-# Benchmarks
-go test -bench=. -benchmem ./internal/routing/
-
-# Coverage summary
-go test -cover ./...
-
-# Coverage profile + HTML report
-go test -coverprofile=cover.out ./...
-go tool cover -html=cover.out
+go test ./...                                  # all
+go test -v ./...                               # verbose + timing
+go test -v ./internal/journey/...              # one package
+go test -run TestPollerTick ./internal/journey/...   # one test
+go test -race -count=1 ./...                   # CI default
+go test -bench=. -benchmem ./internal/routing/ # benchmarks
+go test -cover ./...                           # coverage summary
+go test -coverprofile=cover.out ./... && go tool cover -html=cover.out
 ```
 
-## Continuous integration
+## CI
 
-`.github/workflows/ci.yml` job `backend`:
+`backend` job:
 
 ```yaml
 - name: Test
   env:
-    CGO_ENABLED: "0"
-  run: go test -race -count=1 -timeout=5m ./...
+    CGO_ENABLED: "1"   # required for -race (gcc on ubuntu-latest)
+  run: go test -race -count=1 -timeout=5m -coverprofile=coverage.out ./...
+- name: Coverage check
+  run: |
+    go tool cover -func=coverage.out | tail -1
+    # fails if < 55%
 ```
 
-`-count=1` prevents test-cache reuse on a fresh CI run (Go caches by source + flags). `-race` is mandatory — concurrency bugs found at PR time are cheap; the same bug in production is expensive.
+`-count=1` defeats cache. `-race` mandatory — concurrency bugs at PR time are cheap; in prod, expensive. 55% floor will rise as suite matures.

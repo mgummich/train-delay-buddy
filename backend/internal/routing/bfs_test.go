@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -23,61 +24,66 @@ func newBFSEngine(t *testing.T, handler http.HandlerFunc) routing.Engine {
 		HAFASRequestTimeout:  5 * time.Second,
 		HAFASCBThreshold:     5,
 		HAFASCBProbeInterval: 30 * time.Second,
-	})
+	}, nil)
 	return routing.NewBFSEngine(client)
+}
+
+// bfsHandler builds an httptest handler that serves departure boards, trip details,
+// and journeys for BFS routing tests.
+func bfsHandler(
+	departureLineName string, tripID string, trip hafas.HAFASTrip,
+	journeys []hafas.HAFASJourney,
+) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case strings.HasSuffix(r.URL.Path, "/departures"):
+			json.NewEncoder(w).Encode(hafas.HAFASDeparturesResponse{ //nolint:errcheck
+				Departures: []hafas.HAFASDeparture{{
+					TripId: tripID,
+					Line:   &hafas.HAFASLine{Name: departureLineName},
+				}},
+			})
+		case strings.HasPrefix(r.URL.Path, "/trips/"):
+			json.NewEncoder(w).Encode(struct { //nolint:errcheck
+				Trip hafas.HAFASTrip `json:"trip"`
+			}{Trip: trip})
+		case r.URL.Path == "/journeys":
+			json.NewEncoder(w).Encode(hafas.HAFASJourneysResponse{Journeys: journeys}) //nolint:errcheck
+		default:
+			http.NotFound(w, r)
+		}
+	}
 }
 
 func TestBFS_ReturnsOriginalAndAlternatives(t *testing.T) {
 	dep1, _ := time.Parse(time.RFC3339, "2026-06-10T14:00:00Z")
-	arr1, _ := time.Parse(time.RFC3339, "2026-06-10T17:00:00Z") // original: arrives 17:00
+	arr1, _ := time.Parse(time.RFC3339, "2026-06-10T17:00:00Z")
 	dep2, _ := time.Parse(time.RFC3339, "2026-06-10T14:30:00Z")
-	arr2, _ := time.Parse(time.RFC3339, "2026-06-10T16:30:00Z") // alt: arrives 16:30 — better
+	arr2, _ := time.Parse(time.RFC3339, "2026-06-10T16:30:00Z")
 
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path == "/trips" {
-			json.NewEncoder(w).Encode(hafas.HAFASTripsResponse{
-				Trips: []hafas.HAFASTrip{
-					{
-						Line:        hafas.HAFASLine{Name: "ICE 123", Operator: &hafas.HAFASOperator{Name: "DB Fernverkehr AG"}},
-						Origin:      hafas.HAFASPlace{ID: "8000261", Name: "München Hbf"},
-						Destination: hafas.HAFASPlace{ID: "8011160", Name: "Berlin Hbf"},
-						Departure:   &dep1,
-						Stopovers: []hafas.HAFASStopover{
-							{Stop: hafas.HAFASPlace{ID: "8000261"}, PlannedDeparture: &dep1},
-							{Stop: hafas.HAFASPlace{ID: "8000105"}, PlannedArrival: &arr1},
-						},
-					},
-				},
-			})
-			return
-		}
-		// /journeys endpoint
-		json.NewEncoder(w).Encode(hafas.HAFASJourneysResponse{
-			Journeys: []hafas.HAFASJourney{
-				{ // original — has ICE 123
-					Legs: []hafas.HAFASLeg{{
-						Origin: hafas.HAFASPlace{ID: "8000261"}, Destination: hafas.HAFASPlace{ID: "8000105"},
-						PlannedDeparture: &dep1, PlannedArrival: &arr1,
-						Line: &hafas.HAFASLine{Name: "ICE 123", Operator: &hafas.HAFASOperator{Name: "DB Fernverkehr AG"}},
-					}},
-				},
-				{ // alternative — arrives earlier
-					Legs: []hafas.HAFASLeg{{
-						Origin: hafas.HAFASPlace{ID: "8000261"}, Destination: hafas.HAFASPlace{ID: "8000105"},
-						PlannedDeparture: &dep2, PlannedArrival: &arr2,
-						Line: &hafas.HAFASLine{Name: "ICE 456", Operator: &hafas.HAFASOperator{Name: "DB Fernverkehr AG"}},
-					}},
-				},
-			},
-		})
-	}))
-	t.Cleanup(srv.Close)
+	trip := hafas.HAFASTrip{
+		ID:     "trip-ice-123",
+		Line:   hafas.HAFASLine{Name: "ICE 123", Operator: &hafas.HAFASOperator{Name: "DB Fernverkehr AG"}},
+		Origin: hafas.HAFASPlace{ID: "8000261", Name: "München Hbf"},
+		Stopovers: []hafas.HAFASStopover{
+			{Stop: hafas.HAFASPlace{ID: "8000261"}, PlannedDeparture: &dep1},
+			{Stop: hafas.HAFASPlace{ID: "8000105"}, PlannedArrival: &arr1},
+		},
+	}
+	journeys := []hafas.HAFASJourney{
+		{Legs: []hafas.HAFASLeg{{
+			Origin: hafas.HAFASPlace{ID: "8000261"}, Destination: hafas.HAFASPlace{ID: "8000105"},
+			PlannedDeparture: &dep1, PlannedArrival: &arr1,
+			Line: &hafas.HAFASLine{Name: "ICE 123", Operator: &hafas.HAFASOperator{Name: "DB Fernverkehr AG"}},
+		}}},
+		{Legs: []hafas.HAFASLeg{{
+			Origin: hafas.HAFASPlace{ID: "8000261"}, Destination: hafas.HAFASPlace{ID: "8000105"},
+			PlannedDeparture: &dep2, PlannedArrival: &arr2,
+			Line: &hafas.HAFASLine{Name: "ICE 456", Operator: &hafas.HAFASOperator{Name: "DB Fernverkehr AG"}},
+		}}},
+	}
 
-	client := hafas.NewClient(config.Config{
-		HAFASBaseURL: srv.URL, HAFASRequestTimeout: 5 * time.Second,
-		HAFASCBThreshold: 5, HAFASCBProbeInterval: 30 * time.Second,
-	})
-	engine := routing.NewBFSEngine(client)
+	engine := newBFSEngine(t, bfsHandler("ICE 123", "trip-ice-123", trip, journeys))
 
 	result, err := engine.Route(context.Background(), routing.RoutingRequest{
 		TrainNumber:    "ICE 123",
@@ -104,32 +110,28 @@ func TestBFS_DBOnlyFilterExcludesNonDB(t *testing.T) {
 	arrOrig, _ := time.Parse(time.RFC3339, "2026-06-10T17:00:00Z")
 	arrAlt, _ := time.Parse(time.RFC3339, "2026-06-10T16:00:00Z")
 
-	engine := newBFSEngine(t, func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path == "/trips" {
-			json.NewEncoder(w).Encode(hafas.HAFASTripsResponse{
-				Trips: []hafas.HAFASTrip{{
-					Line: hafas.HAFASLine{Name: "ICE 1", Operator: &hafas.HAFASOperator{Name: "DB Fernverkehr AG"}},
-					Origin: hafas.HAFASPlace{ID: "A"},
-					Stopovers: []hafas.HAFASStopover{{Stop: hafas.HAFASPlace{ID: "A"}, PlannedDeparture: &dep}},
-				}},
-			})
-			return
-		}
-		json.NewEncoder(w).Encode(hafas.HAFASJourneysResponse{
-			Journeys: []hafas.HAFASJourney{
-				{Legs: []hafas.HAFASLeg{{ // original
-					Origin: hafas.HAFASPlace{ID: "A"}, Destination: hafas.HAFASPlace{ID: "B"},
-					PlannedDeparture: &dep, PlannedArrival: &arrOrig,
-					Line: &hafas.HAFASLine{Name: "ICE 1", Operator: &hafas.HAFASOperator{Name: "DB Fernverkehr AG"}},
-				}}},
-				{Legs: []hafas.HAFASLeg{{ // Flixtrain — must be filtered
-					Origin: hafas.HAFASPlace{ID: "A"}, Destination: hafas.HAFASPlace{ID: "B"},
-					PlannedDeparture: &dep, PlannedArrival: &arrAlt,
-					Line: &hafas.HAFASLine{Name: "FLX 1", Operator: &hafas.HAFASOperator{Name: "Flixtrain"}},
-				}}},
-			},
-		})
-	})
+	trip := hafas.HAFASTrip{
+		ID:     "trip-ice-1",
+		Line:   hafas.HAFASLine{Name: "ICE 1", Operator: &hafas.HAFASOperator{Name: "DB Fernverkehr AG"}},
+		Origin: hafas.HAFASPlace{ID: "A"},
+		Stopovers: []hafas.HAFASStopover{
+			{Stop: hafas.HAFASPlace{ID: "A"}, PlannedDeparture: &dep},
+		},
+	}
+	journeys := []hafas.HAFASJourney{
+		{Legs: []hafas.HAFASLeg{{
+			Origin: hafas.HAFASPlace{ID: "A"}, Destination: hafas.HAFASPlace{ID: "B"},
+			PlannedDeparture: &dep, PlannedArrival: &arrOrig,
+			Line: &hafas.HAFASLine{Name: "ICE 1", Operator: &hafas.HAFASOperator{Name: "DB Fernverkehr AG"}},
+		}}},
+		{Legs: []hafas.HAFASLeg{{
+			Origin: hafas.HAFASPlace{ID: "A"}, Destination: hafas.HAFASPlace{ID: "B"},
+			PlannedDeparture: &dep, PlannedArrival: &arrAlt,
+			Line: &hafas.HAFASLine{Name: "FLX 1", Operator: &hafas.HAFASOperator{Name: "Flixtrain"}},
+		}}},
+	}
+
+	engine := newBFSEngine(t, bfsHandler("ICE 1", "trip-ice-1", trip, journeys))
 
 	result, err := engine.Route(context.Background(), routing.RoutingRequest{
 		TrainNumber: "ICE 1", FromStationID: "A", ToStationID: "B",

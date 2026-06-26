@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
 import type { JourneySummary } from '@/api/validation'
 import { formatTime, minutesSince } from '@/lib/datetime'
+import { IconClock } from '@/components/icons/IconClock'
 
 interface SummaryHeaderProps {
   summary: JourneySummary
@@ -97,19 +98,7 @@ export function SummaryHeader({ summary, tab, onTabChange }: SummaryHeaderProps)
 
         {summary.timeGainVsCurrentRouteMinutes !== null && (
           <div className="flex items-center gap-[7px] pt-[11px] border-t border-border-subtle">
-            <svg
-              className="text-warn flex-shrink-0"
-              width="15"
-              height="15"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1.9"
-              strokeLinecap="round"
-            >
-              <circle cx="12" cy="12" r="9" />
-              <path d="M12 8v4l3 3" />
-            </svg>
+            <IconClock className="text-warn flex-shrink-0" />
             <span className="text-text-muted text-[13.5px]">
               {t('companion.vsSchedule', { minutes: summary.timeGainVsCurrentRouteMinutes })}
             </span>

@@ -15,6 +15,7 @@ import { useInstallStore } from '@/store/installStore'
 import { useJourneyStore } from '@/store/journeyStore'
 import { formatTime } from '@/lib/datetime'
 import { apiClient } from '@/api/client'
+import { IconClock } from '@/components/icons/IconClock'
 
 function IconShield({ size = 30 }: { size?: number }) {
   return (
@@ -90,19 +91,7 @@ export function AlternativesScreen() {
           className="mx-4 mt-2 bg-bg-subtle rounded-card px-[15px] py-[13px]
           flex gap-[11px] items-start"
         >
-          <svg
-            className="text-text-muted flex-shrink-0 mt-[1px]"
-            width="17"
-            height="17"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.9"
-            strokeLinecap="round"
-          >
-            <circle cx="12" cy="12" r="9" />
-            <path d="M12 8v4l3 3" />
-          </svg>
+          <IconClock size={17} className="text-text-muted flex-shrink-0 mt-[1px]" />
           <p className="text-text-muted text-[14px] leading-[1.45]">
             {t('alternatives.currentTrain', {
               time: formatTime(journeyData.summary.eta),

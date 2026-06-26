@@ -20,17 +20,19 @@ func makeTestJourney(id string) *journey.Journey {
 		ETagEpoch:   1749600000,
 		ETagCounter: 42,
 		Summary: journey.Summary{
-			ETA:           time.Date(2026, 6, 10, 17, 24, 0, 0, time.UTC),
-			Status:        journey.StatusOK,
-			DataFetchedAt: time.Now(),
-			LastUpdatedAt: time.Now(),
+			ETA:            time.Date(2026, 6, 10, 17, 24, 0, 0, time.UTC),
+			Status:         journey.StatusOK,
+			DataConfidence: journey.DataConfidenceHigh,
+			DataFetchedAt:  time.Now(),
+			LastUpdatedAt:  time.Now(),
 		},
 		Legs:  []journey.Leg{},
 		Stops: []journey.Stop{},
 	}
 }
 
-func routeSummaryRequest(h *handlers.SummaryHandler, id, ifNoneMatch string) *httptest.ResponseRecorder {
+func routeSummaryRequest(t testing.TB, h *handlers.SummaryHandler, id, ifNoneMatch string) *httptest.ResponseRecorder {
+	t.Helper()
 	r := chi.NewRouter()
 	r.Get("/v1/journeys/{id}/summary", h.Get)
 	req := httptest.NewRequest(http.MethodGet, "/v1/journeys/"+id+"/summary", nil)
@@ -38,7 +40,7 @@ func routeSummaryRequest(h *handlers.SummaryHandler, id, ifNoneMatch string) *ht
 		req.Header.Set("If-None-Match", ifNoneMatch)
 	}
 	rr := httptest.NewRecorder()
-	r.ServeHTTP(rr, req)
+	serveRouter(t, r, rr, req)
 	return rr
 }
 
@@ -48,7 +50,7 @@ func TestSummary_NoETag_Returns200WithBody(t *testing.T) {
 	store.journeys[j.ID] = j
 	h := handlers.NewSummaryHandler(store)
 
-	rr := routeSummaryRequest(h, j.ID, "")
+	rr := routeSummaryRequest(t, h, j.ID, "")
 
 	if rr.Code != http.StatusOK {
 		t.Fatalf("expected 200, got %d: %s", rr.Code, rr.Body.String())
@@ -72,7 +74,7 @@ func TestSummary_MatchingETag_Returns304NoBody(t *testing.T) {
 	h := handlers.NewSummaryHandler(store)
 
 	etag := fmt.Sprintf(`"%s"`, j.ETag())
-	rr := routeSummaryRequest(h, j.ID, etag)
+	rr := routeSummaryRequest(t, h, j.ID, etag)
 
 	if rr.Code != http.StatusNotModified {
 		t.Fatalf("expected 304, got %d", rr.Code)
@@ -88,7 +90,7 @@ func TestSummary_StaleETag_Returns200(t *testing.T) {
 	store.journeys[j.ID] = j
 	h := handlers.NewSummaryHandler(store)
 
-	rr := routeSummaryRequest(h, j.ID, `"jrn_testid00000000000000000003:1749600000:41"`)
+	rr := routeSummaryRequest(t, h, j.ID, `"jrn_testid00000000000000000003:1749600000:41"`)
 
 	if rr.Code != http.StatusOK {
 		t.Fatalf("expected 200 for stale ETag, got %d", rr.Code)
@@ -97,7 +99,7 @@ func TestSummary_StaleETag_Returns200(t *testing.T) {
 
 func TestSummary_NotFound_Returns404(t *testing.T) {
 	h := handlers.NewSummaryHandler(newMockStore())
-	rr := routeSummaryRequest(h, "jrn_notexist0000000000000001", "")
+	rr := routeSummaryRequest(t, h, "jrn_notexist0000000000000001", "")
 	if rr.Code != http.StatusNotFound {
 		t.Errorf("expected 404, got %d", rr.Code)
 	}

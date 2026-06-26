@@ -17,6 +17,9 @@ const isCI = !!process.env.CI;
 
 export default defineConfig({
   testDir: ".",
+  // integration/ runs against a real docker stack via playwright.integration.config.ts.
+  // Keep it out of the default mocked run (npm test / CI E2E job).
+  testIgnore: ["**/integration/**"],
   fullyParallel: true,
   forbidOnly: isCI,
   retries: isCI ? 2 : 0,

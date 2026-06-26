@@ -13,11 +13,9 @@ DROP INDEX IF EXISTS journeys_install_id_idx;
 --    etag_counter, last_polled_at), so every poll UPDATE qualifies for a
 --    Heap-Only Tuple chain — skipping index maintenance entirely.
 --    HOT requires free space on the same heap page; fillfactor=70 reserves 30%.
---    CLUSTER rewrites the heap immediately so the new fillfactor takes effect
---    now rather than waiting for autovacuum to cycle through every page.
---    (Takes ACCESS EXCLUSIVE for the duration; fast on ≤2000 rows.)
+--    New pages written after this migration will respect the 70% fill limit.
+--    Existing pages are reclaimed by the aggressive autovacuum configured below.
 ALTER TABLE journeys SET (fillfactor = 70);
-CLUSTER journeys USING journeys_active_idx;
 ANALYZE journeys;
 
 -- 3. Aggressive per-table autovacuum.

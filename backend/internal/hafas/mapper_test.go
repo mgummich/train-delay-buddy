@@ -26,6 +26,27 @@ func TestNormalizeTrainNumber(t *testing.T) {
 	}
 }
 
+func TestTrainNumberMatches(t *testing.T) {
+	cases := []struct {
+		candidate, query string
+		want             bool
+	}{
+		{"IC 944", "IC 944", true},
+		{"IC944", "IC 944", true},
+		{"IC 944", "944", true},  // numeric-only query matches suffix
+		{"ICE 944", "944", true}, // different prefix, same number
+		{"IC 943", "944", false},
+		{"IC 944", "IC 943", false},
+		{"944", "944", true},
+	}
+	for _, c := range cases {
+		got := hafas.TrainNumberMatches(c.candidate, c.query)
+		if got != c.want {
+			t.Errorf("TrainNumberMatches(%q, %q) = %v, want %v", c.candidate, c.query, got, c.want)
+		}
+	}
+}
+
 func TestMapStations_FiltersNonStop(t *testing.T) {
 	results := []hafas.HAFASLocationResult{
 		{Type: "stop", ID: "8000105", Name: "Frankfurt (Main) Hbf"},

@@ -29,6 +29,7 @@ export function SubAppBar({ eyebrow, showSettings = true }: SubAppBarProps) {
   return (
     <div className="flex items-center px-4 pt-[6px] pb-2">
       <button
+        type="button"
         onClick={() => void navigate(-1)}
         aria-label="Zurück"
         className="-ml-2 w-[38px] h-[38px] flex items-center justify-center
@@ -43,6 +44,7 @@ export function SubAppBar({ eyebrow, showSettings = true }: SubAppBarProps) {
 
       {showSettings ? (
         <button
+          type="button"
           onClick={() => void navigate('/settings')}
           aria-label="Einstellungen"
           className="w-[38px] h-[38px] flex items-center justify-center

@@ -86,7 +86,7 @@ func TestCreateJourney_Returns201(t *testing.T) {
 		Original: journey.Journey{
 			ID: "jrn_testid00000000000000000",
 			Summary: journey.Summary{
-				ETA: eta, Status: journey.StatusOK,
+				ETA: eta, Status: journey.StatusOK, DataConfidence: journey.DataConfidenceHigh,
 				DataFetchedAt: time.Now(), LastUpdatedAt: time.Now(),
 			},
 		},
@@ -101,7 +101,7 @@ func TestCreateJourney_Returns201(t *testing.T) {
 		bytes.NewBufferString(body))
 	req.Header.Set("Content-Type", "application/json")
 	rr := httptest.NewRecorder()
-	h.Create(rr, req)
+	validate(t, h.Create, rr, req)
 
 	if rr.Code != http.StatusCreated {
 		t.Fatalf("expected 201, got %d: %s", rr.Code, rr.Body.String())
@@ -122,7 +122,7 @@ func TestCreateJourney_MissingTrainNumber_Returns422(t *testing.T) {
 	req := httptest.NewRequest(http.MethodPost, "/v1/journeys", bytes.NewBufferString(body))
 	req.Header.Set("Content-Type", "application/json")
 	rr := httptest.NewRecorder()
-	h.Create(rr, req)
+	validateResp(t, h.Create, rr, req)
 	if rr.Code != http.StatusUnprocessableEntity {
 		t.Errorf("expected 422, got %d", rr.Code)
 	}
@@ -132,7 +132,7 @@ func TestGetJourney_Returns200(t *testing.T) {
 	store := newMockStore()
 	j := &journey.Journey{
 		ID: "jrn_test00000000000000000001",
-		Summary: journey.Summary{ETA: time.Now(), DataFetchedAt: time.Now(), LastUpdatedAt: time.Now()},
+		Summary: journey.Summary{ETA: time.Now(), Status: journey.StatusOK, DataConfidence: journey.DataConfidenceHigh, DataFetchedAt: time.Now(), LastUpdatedAt: time.Now()},
 		Legs: []journey.Leg{}, Stops: []journey.Stop{},
 	}
 	store.journeys[j.ID] = j
@@ -142,7 +142,7 @@ func TestGetJourney_Returns200(t *testing.T) {
 	r := chi.NewRouter()
 	r.Get("/v1/journeys/{id}", h.Get)
 	rr := httptest.NewRecorder()
-	r.ServeHTTP(rr, httptest.NewRequest(http.MethodGet, "/v1/journeys/"+j.ID, nil))
+	serveRouter(t, r, rr, httptest.NewRequest(http.MethodGet, "/v1/journeys/"+j.ID, nil))
 
 	if rr.Code != http.StatusOK {
 		t.Errorf("expected 200, got %d", rr.Code)
@@ -154,7 +154,7 @@ func TestGetJourney_NotFound_Returns404(t *testing.T) {
 	r := chi.NewRouter()
 	r.Get("/v1/journeys/{id}", h.Get)
 	rr := httptest.NewRecorder()
-	r.ServeHTTP(rr, httptest.NewRequest(http.MethodGet, "/v1/journeys/jrn_notexist0000000000000", nil))
+	serveRouter(t, r, rr, httptest.NewRequest(http.MethodGet, "/v1/journeys/jrn_notexist0000000000000", nil))
 	if rr.Code != http.StatusNotFound {
 		t.Errorf("expected 404, got %d", rr.Code)
 	}
@@ -168,7 +168,7 @@ func TestDeleteJourney_Returns204(t *testing.T) {
 	r := chi.NewRouter()
 	r.Delete("/v1/journeys/{id}", h.Delete)
 	rr := httptest.NewRecorder()
-	r.ServeHTTP(rr, httptest.NewRequest(http.MethodDelete, "/v1/journeys/jrn_del00000000000000000001", nil))
+	serveRouter(t, r, rr, httptest.NewRequest(http.MethodDelete, "/v1/journeys/jrn_del00000000000000000001", nil))
 	if rr.Code != http.StatusNoContent {
 		t.Errorf("expected 204, got %d", rr.Code)
 	}
@@ -179,7 +179,7 @@ func TestDeleteJourney_NotFound_Returns404(t *testing.T) {
 	r := chi.NewRouter()
 	r.Delete("/v1/journeys/{id}", h.Delete)
 	rr := httptest.NewRecorder()
-	r.ServeHTTP(rr, httptest.NewRequest(http.MethodDelete, "/v1/journeys/jrn_notexist0000000000000", nil))
+	serveRouter(t, r, rr, httptest.NewRequest(http.MethodDelete, "/v1/journeys/jrn_notexist0000000000000", nil))
 	if rr.Code != http.StatusNotFound {
 		t.Errorf("expected 404, got %d", rr.Code)
 	}

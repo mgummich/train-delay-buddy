@@ -5,41 +5,39 @@ title: Security
 
 # Security
 
-Security model, threat mitigations, and known limitations.
+Security model, mitigations, known limits.
 
-## Authentication model
+## Auth model
 
-The API has **no traditional user accounts or passwords.** Identity is established via a persistent device UUID (`X-Install-Id`), generated on first app launch and stored in IndexedDB with a localStorage fallback. This is device-scoped, not person-scoped — a single human using two devices has two install IDs.
+**No user accounts.** Identity via persistent device UUID (`X-Install-Id`), first-launch generated, IDB + localStorage fallback. Device-scoped, not person-scoped — one user, two devices, two IDs.
 
-This model is intentional: the app has no sign-up friction, no password store to leak, and no password-reset flows to abuse. Abuse is bounded by rate limiting and capacity caps rather than authentication.
+Intentional: no sign-up friction, no password store, no reset flows. Abuse bounded by rate limit + capacity caps instead.
 
 ## Journey ownership (IDOR prevention)
 
-Every per-journey route (`GET /v1/journeys/{id}`, `DELETE`, `/summary`, `/legs`, `/alternatives`) enforces **ownership** via the `JourneyOwnership` middleware:
+Per-journey routes enforce ownership via `JourneyOwnership` middleware:
 
-1. The middleware loads the journey from the store by ID.
-2. It compares the request's `X-Install-Id` to the `install_id` recorded at journey creation.
-3. On mismatch, or when the header is absent, it returns **404 Not Found** — never 403.
+1. Load journey by ID.
+2. Compare request `X-Install-Id` against recorded `install_id`.
+3. Mismatch or missing header → **404 Not Found** (never 403).
 
-Returning 404 unconditionally means an attacker cannot confirm whether a journey ID exists for a different install, preventing enumeration. Journey IDs are ULIDs (~125 bits random), making brute-force infeasible, but the ownership check provides defence-in-depth if an ID is leaked via logs, referrers, or screenshots.
+Unconditional 404 prevents enumeration. Journey IDs are ULIDs (~125 bits random) — brute force infeasible; ownership check is defence-in-depth if an ID leaks via logs/referrers/screenshots.
 
-## Rate limiting
+## Rate limit
 
-Two layers of rate limiting protect the API:
-
-### Per-install limit
-Controlled by `RATE_LIMIT_PER_INSTALL` (default 60 req/min). Applied when `X-Install-Id` is present.
+### Per-install
+`RATE_LIMIT_PER_INSTALL` (default 60 req/min). When `X-Install-Id` present.
 
 ### Per-IP fallback
-Controlled by `RATE_LIMIT_PER_IP` (default 30 req/min). Applied when the install header is absent.
+`RATE_LIMIT_PER_IP` (default 30 req/min). When install header absent.
 
-`X-Real-IP` (set by Nginx from `$remote_addr`) is trusted; `X-Forwarded-For` is never trusted because it is client-supplied and can be spoofed.
+`X-Real-IP` (Nginx-set from `$remote_addr`) is trusted; `X-Forwarded-For` is never trusted (client-supplied, spoofable).
 
 ### Backend selection
 
-In single-instance deployments, rate limits are enforced by an in-memory token-bucket (`golang.org/x/time/rate`). This is fast but **not shared across instances**.
+Single-instance: in-memory token-bucket (`golang.org/x/time/rate`). Fast but **not shared**.
 
-In multi-instance deployments, the backend automatically switches to a **Valkey-backed fixed-window counter** when `VALKEY_URL` is set:
+Multi-instance: auto-switches to **Valkey-backed fixed-window** when `VALKEY_URL` set:
 
 ```
 Lua INCR + EXPIRE atomic fixed-window (60 s)
@@ -47,19 +45,17 @@ Lua INCR + EXPIRE atomic fixed-window (60 s)
      Key: rl:ip:<remote-ip>
 ```
 
-The Valkey limiter fails open on backend error — a Valkey outage causes rate limits to be unenforced rather than locking out all users. Log and alert on `valkey_command_duration_seconds` p99 spikes to detect this.
+Valkey limiter **fails open** on error — outage means unenforced limits, not locked-out users. Alert on `valkey_command_duration_seconds` p99 to detect.
 
-## Idempotency key scoping
+## Idempotency-key scoping
 
-`Idempotency-Key` values are namespaced by install ID internally: the Valkey cache key is `installID:rawKey`. This prevents two different installs using the same client-chosen key from seeing each other's cached responses — which would otherwise disclose foreign journey IDs.
+`Idempotency-Key` is namespaced by install ID internally: Valkey key is `installID:rawKey`. Prevents two installs with the same client-chosen key from seeing each other's cached responses (which would disclose foreign journey IDs).
 
 ## CORS
 
-`CORS_ALLOWED_ORIGINS` is an explicit allow-list (default empty — no cross-origin requests). When set, only listed origins receive CORS headers. `Vary: Origin` is set. `Access-Control-Allow-Credentials` is **not** set — the API does not use cookies.
+`CORS_ALLOWED_ORIGINS` is explicit allow-list (default empty — no cross-origin). When set, only listed origins get CORS headers. `Vary: Origin` set. `Access-Control-Allow-Credentials` **not set** — no cookies.
 
 ## Security headers (Nginx)
-
-Nginx applies the following headers on every response:
 
 | Header | Value |
 |--------|-------|
@@ -69,39 +65,39 @@ Nginx applies the following headers on every response:
 | `Permissions-Policy` | camera, microphone, geolocation blocked |
 | `Content-Security-Policy` | `default-src 'self'`; no inline scripts |
 
-HSTS is intentionally omitted from Nginx — it should be set at the TLS terminator (Caddy, Traefik, Cloud LB), not at the application layer, because Nginx may serve plain HTTP behind the terminator.
+HSTS intentionally omitted from Nginx — set at TLS terminator (Caddy/Traefik/Cloud LB), not app layer (Nginx may serve plain HTTP behind the terminator).
 
-## Container security posture
+## Container posture
 
-All production containers run with:
+All prod containers:
 
-- **Non-root user** — backend as UID 10001 (`app`), nginx as `node`/non-root.
-- **`cap_drop: ALL`** — no Linux capabilities unless explicitly added.
-- **`no-new-privileges: true`** — prevents privilege escalation via setuid binaries.
-- **`read_only: true`** on the backend container — root filesystem is read-only; `/tmp` is a `tmpfs` mount.
-- **Pinned image tags** — `nginx:1.27-alpine`, `valkey/valkey:8-alpine`, `postgres:16.4-alpine`. Not digests, but avoids the floating `latest` risk.
+- **Non-root** — backend UID 10001 (`app`), nginx non-root.
+- **`cap_drop: ALL`** — no capabilities unless re-added.
+- **`no-new-privileges: true`** — blocks setuid escalation.
+- **`read_only: true`** on backend — root fs read-only; `/tmp` is tmpfs.
+- **Pinned tags** — `nginx:1.31.1-alpine` (in frontend image), `valkey/valkey:9.1.0-alpine3.23`, `postgres:18.4-alpine3.23`. Not digests, but avoids floating `latest`.
 
-See [Docker Compose layout](./configuration/docker-compose#security-posture-production-stack) for the full table.
+Full table: [Docker Compose layout → Security posture](./configuration/docker-compose#security-posture-production).
 
 ## SAST in CI
 
-The `.github/workflows/ci.yml` `sast` job runs on every push:
+`sast` job on every push:
 
-- **gitleaks** — secrets scan across full git history.
-- **gosec** — Go SAST, severity HIGH+, SARIF upload to GitHub Code Scanning.
-- **semgrep** — multi-ruleset: `p/default`, `p/security-audit`, `p/owasp-top-ten`, `p/dockerfile`, `p/secrets`.
+- **gitleaks** — secrets, full git history.
+- **gosec** — Go SAST, HIGH+, SARIF → GitHub Code Scanning.
+- **semgrep** — `p/default`, `p/security-audit`, `p/owasp-top-ten`, `p/dockerfile`, `p/secrets`.
 
-## Known limitations and accepted risks
+## Known limits + accepted risks
 
 | Risk | Status | Mitigation |
 |------|--------|-----------|
-| No user authentication | Accepted | Rate limiting + ULID IDs + ownership check |
-| In-memory rate limits bypass on multi-instance | Fixed | Valkey-backed `RedisLimiter` auto-selected when `VALKEY_URL` set |
-| `X-Install-Id` is device-scoped, not person-scoped | Accepted by design | Not a security concern; no PII tied to the ID |
-| No TLS at app layer | Accepted | TLS must be terminated upstream (Caddy/Traefik/LB) |
-| `/metrics` blocked by Nginx but not the backend itself | Accepted | Internal network only; document in ops runbook |
-| Floating minor image tags (no digest pinning) | Low | Automated rebuilds re-scan images; consider digest pinning for high-compliance environments |
+| No user auth | Accepted | Rate limit + ULID + ownership |
+| In-memory limit bypass on multi-instance | Fixed | Valkey `RedisLimiter` auto-selected when `VALKEY_URL` set |
+| `X-Install-Id` device-scoped, not person-scoped | Accepted by design | No PII tied |
+| No TLS at app layer | Accepted | TLS at terminator upstream |
+| `/metrics` blocked by Nginx but not backend itself | Accepted | Internal network only — document in runbook |
+| Floating minor tags (no digest pin) | Low | Auto-rebuilds rescan; digest-pin for high-compliance |
 
-## Reporting a vulnerability
+## Reporting
 
-Open a private GitHub security advisory at the repository's **Security** tab. Include: affected component, reproduction steps, and assessed impact. Critical findings will be addressed within 48 hours.
+Open a private GitHub security advisory at the repo's **Security** tab. Include: component, repro, impact. Critical findings handled within 48 h.

@@ -11,7 +11,8 @@ import (
 	"github.com/verspaetungsbegleiter/backend/internal/api/handlers"
 )
 
-func routeLegsRequest(h *handlers.LegsHandler, id, ifNoneMatch string) *httptest.ResponseRecorder {
+func routeLegsRequest(t testing.TB, h *handlers.LegsHandler, id, ifNoneMatch string) *httptest.ResponseRecorder {
+	t.Helper()
 	r := chi.NewRouter()
 	r.Get("/v1/journeys/{id}/legs", h.Get)
 	req := httptest.NewRequest(http.MethodGet, "/v1/journeys/"+id+"/legs", nil)
@@ -19,7 +20,7 @@ func routeLegsRequest(h *handlers.LegsHandler, id, ifNoneMatch string) *httptest
 		req.Header.Set("If-None-Match", ifNoneMatch)
 	}
 	rr := httptest.NewRecorder()
-	r.ServeHTTP(rr, req)
+	serveRouter(t, r, rr, req)
 	return rr
 }
 
@@ -29,7 +30,7 @@ func TestLegs_Returns200WithLegsAndStops(t *testing.T) {
 	store.journeys[j.ID] = j
 	h := handlers.NewLegsHandler(store)
 
-	rr := routeLegsRequest(h, j.ID, "")
+	rr := routeLegsRequest(t, h, j.ID, "")
 
 	if rr.Code != http.StatusOK {
 		t.Fatalf("expected 200, got %d: %s", rr.Code, rr.Body.String())
@@ -46,7 +47,7 @@ func TestLegs_MatchingETag_Returns304(t *testing.T) {
 	h := handlers.NewLegsHandler(store)
 
 	etag := fmt.Sprintf(`"%s"`, j.ETag())
-	rr := routeLegsRequest(h, j.ID, etag)
+	rr := routeLegsRequest(t, h, j.ID, etag)
 
 	if rr.Code != http.StatusNotModified {
 		t.Fatalf("expected 304, got %d", rr.Code)
@@ -55,7 +56,7 @@ func TestLegs_MatchingETag_Returns304(t *testing.T) {
 
 func TestLegs_NotFound_Returns404(t *testing.T) {
 	h := handlers.NewLegsHandler(newMockStore())
-	rr := routeLegsRequest(h, "jrn_notexist0000000000000002", "")
+	rr := routeLegsRequest(t, h, "jrn_notexist0000000000000002", "")
 	if rr.Code != http.StatusNotFound {
 		t.Errorf("expected 404, got %d", rr.Code)
 	}

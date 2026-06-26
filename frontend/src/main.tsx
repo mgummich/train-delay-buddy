@@ -8,11 +8,12 @@ import { OfflineStateLoader } from '@/components/OfflineStateLoader'
 import '@/i18n/index'
 import '@/index.css'
 
-// Enable MSW in development
+// MSW is opt-in via VITE_ENABLE_MSW=true. Default dev mode hits the real backend
+// through the Vite proxy; mocks are reserved for offline/demo work and tests.
 async function prepareApp(): Promise<void> {
-  if (import.meta.env.DEV) {
+  if (import.meta.env.DEV && import.meta.env.VITE_ENABLE_MSW === 'true') {
     const { worker } = await import('@/mocks/browser')
-    await worker.start({ onUnhandledRequest: 'warn' })
+    await worker.start({ onUnhandledRequest: 'bypass' })
   }
 }
 

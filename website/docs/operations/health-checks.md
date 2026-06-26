@@ -8,49 +8,40 @@ sidebar_position: 3
 
 Two endpoints, two purposes:
 
-| Endpoint | Purpose | What to use it for |
-|----------|---------|--------------------|
-| `GET /health` | **Liveness** — "the process is alive" | Container restart trigger |
-| `GET /readyz` | **Readiness** — "the process can serve traffic right now" | Load-balancer routing decision |
+| Endpoint | Purpose | Use for |
+|----------|---------|---------|
+| `GET /health` | Liveness — process is alive | Container restart trigger |
+| `GET /readyz` | Readiness — can serve right now | LB routing |
 
 ## `/health`
 
-Returns `200 OK` whenever the process is running. It never depends on downstream subsystems — it would be wrong to restart the container because Valkey is briefly slow.
+`200 OK` whenever the process runs. Never depends on downstream — restarting because Valkey is briefly slow would be wrong.
 
 ```http
 GET /health HTTP/1.1
 ```
-
 ```json
 { "status": "ok" }
 ```
 
-Use it as the Docker `HEALTHCHECK`, the Kubernetes `livenessProbe`, and the Compose health check. The container should be restarted only when this endpoint stops responding (which means the process is wedged or has crashed).
+Use as Docker `HEALTHCHECK`, k8s `livenessProbe`, Compose health check. Restart only when this stops responding (process wedged / crashed).
 
 ## `/readyz`
 
-Returns `200 OK` only when the backend can actually serve user requests. It probes:
+`200 OK` only when backend can serve. Probes:
 
-- **Valkey** — does `PING` return within 200 ms?
-- **Postgres** — does `SELECT 1` return within 500 ms?
-- **HAFAS** — is the circuit breaker closed (or half-open with the last probe succeeded)?
-
-```http
-GET /readyz HTTP/1.1
-```
+- **Valkey** — `PING` < 200 ms
+- **Postgres** — `SELECT 1` < 500 ms
+- **HAFAS** — breaker closed (or half-open with last probe ok)
 
 ```json
 {
   "status": "ok",
-  "checks": {
-    "valkey": "ok",
-    "postgres": "ok",
-    "hafas": "ok"
-  }
+  "checks": { "valkey": "ok", "postgres": "ok", "hafas": "ok" }
 }
 ```
 
-When something is impaired, the response is `503 Service Unavailable` and the impaired key carries detail:
+Impaired → `503` + detail on the impaired key:
 
 ```json
 {
@@ -63,14 +54,12 @@ When something is impaired, the response is `503 Service Unavailable` and the im
 }
 ```
 
-Note that `hafas` being down does **not** make the backend unable to serve all requests — `GET /v1/journeys/{id}/summary` still works from cached state. The load balancer's behaviour is a policy choice:
+HAFAS down does **not** kill all requests — `GET /v1/journeys/{id}/summary` still serves cached state. LB policy is your call:
 
-- **Strict**: route away from any instance reporting `degraded`. Best when you have many instances and one being slow doesn't matter.
-- **Permissive**: route to any instance with status ∈ {`ok`, `degraded`}, and only drain on full `down` (Postgres or Valkey unreachable). Best for small deployments where degraded availability is better than no availability.
+- **Strict:** drain any `degraded`. Best with many instances.
+- **Permissive:** route to `ok` ∪ `degraded`; drain only on full down (Postgres/Valkey unreachable). Best for small deploys where degraded > none.
 
-## Compose health checks
-
-Each service in the production Compose file defines a health check:
+## Compose
 
 ```yaml
 backend:
@@ -79,79 +68,54 @@ backend:
     interval: 10s
     timeout: 5s
     retries: 5
-    start_period: 15s
-```
+    start_period: 15s     # migrations + Valkey warm-up
 
-The `start_period` gives the backend 15 seconds to apply migrations and warm up Valkey before the orchestrator counts failures.
-
-Postgres:
-
-```yaml
 postgres:
   healthcheck:
     test: ["CMD-SHELL", "pg_isready -U vbb"]
     interval: 5s
-```
 
-Valkey:
-
-```yaml
 valkey:
   healthcheck:
     test: ["CMD", "valkey-cli", "ping"]
     interval: 5s
-```
 
-Nginx:
-
-```yaml
 nginx:
   healthcheck:
     test: ["CMD", "wget", "-qO-", "http://localhost/health"]
 ```
 
-Nginx's health check proxies to the backend, so a healthy Nginx implies a healthy backend.
+Nginx proxies `/health` to backend — healthy Nginx implies healthy backend.
 
-## Kubernetes probes
+## Kubernetes
 
 ```yaml
 livenessProbe:
-  httpGet:
-    path: /health
-    port: 8080
+  httpGet: { path: /health, port: 8080 }
   initialDelaySeconds: 15
   periodSeconds: 10
   failureThreshold: 3
   timeoutSeconds: 2
 
 readinessProbe:
-  httpGet:
-    path: /readyz
-    port: 8080
+  httpGet: { path: /readyz, port: 8080 }
   initialDelaySeconds: 5
   periodSeconds: 5
   failureThreshold: 2
   timeoutSeconds: 2
 
 startupProbe:
-  httpGet:
-    path: /health
-    port: 8080
+  httpGet: { path: /health, port: 8080 }
   failureThreshold: 30
   periodSeconds: 2
 ```
 
-The `startupProbe` gives slow Postgres migrations up to 60 seconds before the liveness probe starts holding the container accountable.
+`startupProbe` gives slow migrations up to 60 s before liveness starts holding it accountable.
 
 ## Manual verification
 
 ```bash
-# Liveness — always 200 if the process is alive
-curl -i http://localhost:8080/health
-
-# Readiness — 200 or 503 with subsystem detail
-curl -s http://localhost:8080/readyz | jq
-
-# Force-check via nginx (which proxies /health)
-curl -i http://localhost/health
+curl -i http://localhost:8080/health         # liveness — always 200 if alive
+curl -s http://localhost:8080/readyz | jq    # readiness — 200 or 503
+curl -i http://localhost/health              # via nginx
 ```

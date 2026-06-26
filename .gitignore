@@ -11,6 +11,11 @@ frontend/tsconfig.app.tsbuildinfo
 
 # Test output
 tests/e2e/playwright-report/
+tests/e2e/playwright-report-integration/
+tests/e2e/test-results/
+test-results/
+backend/coverage.out
+.playwright-mcp/
 
 # Claude Code local config
 .claude/

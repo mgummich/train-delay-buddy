@@ -10,15 +10,22 @@ import (
 )
 
 var trainNumberRe = regexp.MustCompile(`^([A-Z]+)([0-9].*)$`)
+var digitsOnlyRe = regexp.MustCompile(`^[0-9]+$`)
 
-// berlinLoc is cached once at startup; LoadLocation reads tzdata on every call.
-var berlinLoc = func() *time.Location {
+// BerlinLoc is cached once at startup; LoadLocation reads tzdata on every call.
+// Exported so other packages (e.g. routing) reuse it instead of re-parsing tzdata.
+var BerlinLoc = func() *time.Location {
 	l, err := time.LoadLocation("Europe/Berlin")
 	if err != nil {
 		return time.UTC
 	}
 	return l
 }()
+
+// BerlinDate formats t as YYYY-MM-DD in the Europe/Berlin wall-clock day.
+func BerlinDate(t time.Time) string {
+	return t.In(BerlinLoc).Format("2006-01-02")
+}
 
 // NormalizeTrainNumber inserts a space between the letter prefix and numeric part.
 // "ICE123" → "ICE 123". Already-spaced inputs pass through unchanged.
@@ -28,6 +35,23 @@ func NormalizeTrainNumber(s string) string {
 		return m[1] + " " + m[2]
 	}
 	return s
+}
+
+// TrainNumberMatches reports whether candidate (a HAFAS line name) matches query.
+// Exact match after normalization, or numeric suffix match when query is pure digits
+// (e.g. "944" matches "IC 944").
+func TrainNumberMatches(candidate, query string) bool {
+	normCandidate := NormalizeTrainNumber(candidate)
+	if normCandidate == query {
+		return true
+	}
+	if digitsOnlyRe.MatchString(query) {
+		// normCandidate is "PREFIX NUM" after normalization; compare just the number part.
+		if parts := strings.SplitN(normCandidate, " ", 2); len(parts) == 2 {
+			return parts[1] == query
+		}
+	}
+	return false
 }
 
 // MapStations converts HAFAS location results to StationRef slice.
@@ -92,7 +116,7 @@ func FilterTripsByDate(trips []HAFASTrip, date string) []HAFASTrip {
 		if dep == nil {
 			continue
 		}
-		if dep.In(berlinLoc).Format("2006-01-02") == date {
+		if dep.In(BerlinLoc).Format("2006-01-02") == date {
 			out = append(out, t)
 		}
 	}

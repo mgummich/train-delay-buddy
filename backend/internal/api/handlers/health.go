@@ -60,7 +60,7 @@ func (h *HealthHandler) Readiness(w http.ResponseWriter, r *http.Request) {
 
 	if h.hafasBaseURL != "" {
 		req, err := http.NewRequestWithContext(ctx, http.MethodGet,
-			h.hafasBaseURL+"/stations?query=test&results=1", nil)
+			h.hafasBaseURL+"/locations?query=test&results=1&stops=true&addresses=false&poi=false", nil)
 		if err != nil {
 			checks["hafas"] = "error"
 		} else {

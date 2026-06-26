@@ -37,6 +37,7 @@ export function AppBar() {
         </span>
       </div>
       <button
+        type="button"
         onClick={() => void navigate('/settings')}
         aria-label="Einstellungen"
         className="w-[38px] h-[38px] rounded-[10px] flex items-center justify-center

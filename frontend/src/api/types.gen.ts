@@ -158,7 +158,7 @@ export interface paths {
       path?: never
       cookie?: never
     }
-    /** Station name autocomplete (proxied from db.transport.rest, Redis-cached 5min) */
+    /** Station name autocomplete (proxied from HAFAS sidecar, Redis-cached 5min) */
     get: operations['searchStations']
     put?: never
     post?: never
@@ -602,7 +602,7 @@ export interface components {
         'application/problem+json': components['schemas']['Problem']
       }
     }
-    /** @description Backend dependency unavailable (db.transport.rest unreachable or MAX_ACTIVE_JOURNEYS capacity reached) */
+    /** @description Backend dependency unavailable (HAFAS sidecar unreachable or MAX_ACTIVE_JOURNEYS capacity reached) */
     ServiceUnavailable: {
       headers: {
         'X-Request-Id': components['headers']['RequestId']
@@ -1077,8 +1077,10 @@ export interface operations {
           'application/json': components['schemas']['Train']
         }
       }
+      400: components['responses']['MalformedRequest']
       404: components['responses']['TrainNotFound']
       429: components['responses']['TooManyRequests']
+      503: components['responses']['ServiceUnavailable']
     }
   }
   searchStations: {
@@ -1163,7 +1165,6 @@ export interface operations {
           }
         }
       }
-      429: components['responses']['TooManyRequests']
     }
   }
   readinessCheck: {
@@ -1184,7 +1185,6 @@ export interface operations {
           'application/json': components['schemas']['ReadinessResponse']
         }
       }
-      429: components['responses']['TooManyRequests']
       /** @description Service not ready — one or more dependencies unavailable */
       503: {
         headers: {

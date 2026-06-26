@@ -6,43 +6,45 @@ sidebar_position: 1
 
 # Prerequisites
 
-The project can be run two ways: **fully containerised** with Docker Compose (recommended for first-time setup) or **hybrid local** with the infrastructure in Docker and the application services running directly on your host (recommended for IDE debugging and faster build cycles).
+Two paths: **Docker Compose** (recommended first-time) or **hybrid local** (infra in Docker, app on host — best for IDE debug + fast cycles).
 
-## Required for Docker Compose path
+## Docker Compose path
 
-| Tool | Minimum version | Check command |
-|------|-----------------|---------------|
+| Tool | Min | Check |
+|------|-----|-------|
 | Docker Engine | 24.0 | `docker --version` |
 | Docker Compose | v2 (plugin) | `docker compose version` |
 
-That is the full list. The containers carry their own Go, Node, Postgres, and Valkey runtimes.
+That's all — containers carry Go, Node, Postgres, Valkey.
 
-## Required for local development
+## Local development
 
-In addition to Docker (for Postgres and Valkey):
+Plus, for the host-running services:
 
-| Tool | Minimum version | Check command |
-|------|-----------------|---------------|
+| Tool | Min | Check |
+|------|-----|-------|
 | Go | 1.25 | `go version` |
 | Node.js | 22 LTS | `node --version` |
 | npm | 10 | `npm --version` |
 
-Use [`mise`](https://mise.jdx.dev/) or [`asdf`](https://asdf-vm.com/) to pin and switch versions if you work across multiple projects.
+Use [`mise`](https://mise.jdx.dev/) or [`asdf`](https://asdf-vm.com/) to pin / switch versions.
 
-## Network requirements
+## Network
 
-The backend calls the public HAFAS proxy at `https://v6.db.transport.rest`. No API key is needed, but your machine (or your Docker network) must be able to reach the internet over HTTPS port 443.
+The `db-vendo-client` HAFAS sidecar is bundled in Docker Compose — no external API key or outbound HTTPS to third-party endpoints required for local dev.
 
-If you sit behind a corporate proxy, configure Docker's daemon proxy settings *and* the `HTTPS_PROXY` / `HTTP_PROXY` environment variables for the backend container.
+The sidecar itself reaches DB's upstream; ensure port 443 outbound is open from the Docker network.
 
-## Disk and memory
+Corporate proxy: set Docker daemon proxy + `HTTPS_PROXY`/`HTTP_PROXY` for the `hafas-proxy` container.
 
-- **Disk**: ~1.5 GB after `docker compose build` (multi-stage builders pull Go and Node toolchain images).
-- **RAM**: 1.5 GB is comfortable. The hard caps are `backend: 512 MB`, `valkey: 300 MB`, `postgres: 256 MB`, `nginx: 128 MB`.
+## Disk + memory
 
-## Optional but recommended
+- **Disk:** ~1.5 GB after `docker compose build` (multi-stage pulls Go + Node toolchains).
+- **RAM:** 1.5 GB comfortable. Caps: `backend 512 MB`, `valkey 300 MB`, `postgres 256 MB`, `nginx 128 MB`.
 
-- `httpie` or `curl` — exploring the API by hand.
-- `jq` — formatting JSON responses.
-- `psql` — direct database access during debugging (Docker Compose forwards the port in dev mode).
-- A modern browser with PWA support (any recent Chrome, Edge, Safari, or Firefox).
+## Optional
+
+- `httpie` / `curl` — API exploration.
+- `jq` — JSON formatting.
+- `psql` — direct DB access (dev mode forwards port).
+- Modern PWA-capable browser (recent Chrome, Edge, Safari, Firefox).

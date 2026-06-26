@@ -1,7 +1,8 @@
 import { describe, it, expect } from 'vitest'
 import { renderHook, act, waitFor } from '@testing-library/react'
 import { http } from 'msw'
-import { server, MSW_ERRORS } from '@/test/msw-handlers'
+import { server } from '@/test/msw-server'
+import { MSW_ERRORS } from '@/test/msw-handlers'
 import { useTrainValidation } from './useTrainValidation'
 
 const TRAINS_URL = 'http://localhost/v1/trains/:number'
@@ -23,6 +24,20 @@ describe('useTrainValidation', () => {
 
     await waitFor(() => expect(result.current.isValidating).toBe(false))
     expect(result.current.error).toBe('Zug nicht gefunden für heute')
+  })
+
+  it('sets upstream error when backend returns 503', async () => {
+    server.use(http.get(TRAINS_URL, () => MSW_ERRORS.upstreamUnavailable()))
+    const { result } = renderHook(() => useTrainValidation())
+
+    act(() => {
+      result.current.validate('ICE123')
+    })
+
+    await waitFor(() => expect(result.current.isValidating).toBe(false))
+    expect(result.current.error).toBe(
+      'Bahn-API gerade nicht erreichbar, bitte später erneut versuchen'
+    )
   })
 
   it('clears error on valid train', async () => {

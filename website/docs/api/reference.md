@@ -6,21 +6,21 @@ sidebar_position: 1
 
 # API reference
 
-The OpenAPI 3.1 spec at `backend/openapi.yaml` is the source of truth. The frontend's TypeScript types are generated from it; CI fails if they diverge.
+`backend/openapi.yaml` (OpenAPI 3.1) is the source of truth. Frontend TypeScript types are generated from it; CI fails on drift.
 
-## Browsing the spec interactively
+## Browse interactively
 
 ```bash
-# Scalar (recommended — modern UI)
+# Scalar (recommended)
 npx @scalar/cli serve backend/openapi.yaml
 
-# Or Swagger UI
+# Swagger UI
 docker run --rm -p 8000:8080 \
   -e SWAGGER_JSON=/spec/openapi.yaml \
   -v "$PWD/backend/openapi.yaml:/spec/openapi.yaml" \
   swaggerapi/swagger-ui
 
-# Or Redoc
+# Redoc
 npx redocly preview-docs backend/openapi.yaml
 ```
 
@@ -28,22 +28,20 @@ npx redocly preview-docs backend/openapi.yaml
 
 | Method | Path | Purpose |
 |--------|------|---------|
-| `POST` | `/v1/journeys` | Create a journey, start the poller, compute initial alternatives |
-| `GET` | `/v1/journeys/{id}` | Full journey: summary + legs + stops. Use for the initial load, not for polling |
-| `DELETE` | `/v1/journeys/{id}` | Terminate monitoring, stop the poller |
+| `POST` | `/v1/journeys` | Create journey, start poller, compute initial alternatives |
+| `GET` | `/v1/journeys/{id}` | Full journey (summary + legs + stops). Initial load, not polling |
+| `DELETE` | `/v1/journeys/{id}` | Terminate, stop poller |
 | `GET` | `/v1/journeys/{id}/summary` | Compact status — poll every 30 s with `If-None-Match` |
-| `GET` | `/v1/journeys/{id}/legs` | Leg + stop data for the timeline view |
-| `GET` | `/v1/journeys/{id}/alternatives` | Ranked alternative routes |
-| `POST` | `/v1/journeys/{id}/alternatives` | Trigger fresh recomputation — returns `202 Accepted` immediately |
-| `GET` | `/v1/trains/{number}` | Validate a train number, return origin/destination/status |
-| `GET` | `/v1/stations?q=` | Station-name autocomplete (Valkey-cached 5 min) |
-| `GET` | `/health` | Liveness probe — `200` while the process is alive |
-| `GET` | `/readyz` | Readiness probe — `200`/`503` with Valkey/Postgres/HAFAS status |
-| `GET` | `/metrics` | Prometheus metrics (blocked behind Nginx in production) |
+| `GET` | `/v1/journeys/{id}/legs` | Leg + stop data for timeline |
+| `GET` | `/v1/journeys/{id}/alternatives` | Ranked alternatives |
+| `POST` | `/v1/journeys/{id}/alternatives` | Force recomputation — `202 Accepted` |
+| `GET` | `/v1/trains/{number}` | Validate train, return origin/destination/status |
+| `GET` | `/v1/stations?q=` | Station autocomplete (Valkey 5 min cache) |
+| `GET` | `/health` | Liveness — `200` while alive |
+| `GET` | `/readyz` | Readiness — `200`/`503` with Valkey/Postgres/HAFAS status |
+| `GET` | `/metrics` | Prometheus (blocked by Nginx in prod) |
 
 ## `POST /v1/journeys`
-
-Create a new journey.
 
 ```http
 POST /v1/journeys HTTP/1.1
@@ -82,20 +80,18 @@ Content-Type: application/json
 }
 ```
 
-### Status codes
-
 | Code | Meaning |
 |------|---------|
-| `201` | Journey created |
-| `400` | Invalid body — see `urn:verspbegl:error:validation` problem |
-| `404` | No route possible — `urn:verspbegl:error:no-route` |
-| `429` | Rate limit exceeded — `Retry-After` header set |
-| `502` | HAFAS upstream error |
-| `503` | At capacity (`MAX_ACTIVE_JOURNEYS` reached) — `Retry-After` set |
+| `201` | Created |
+| `400` | Invalid body (`urn:verspbegl:error:validation`) |
+| `404` | No route (`urn:verspbegl:error:no-route`) |
+| `429` | Rate limit (`Retry-After`) |
+| `502` | HAFAS upstream |
+| `503` | At capacity (`MAX_ACTIVE_JOURNEYS`), `Retry-After` |
 
 ## `GET /v1/journeys/{id}/summary`
 
-The polling endpoint. Always call with `If-None-Match` to leverage the 304 fast-path.
+Polling endpoint. Always send `If-None-Match` for 304 fast-path.
 
 ```http
 GET /v1/journeys/jrn_01j2k3m4n5p6q7r8/summary HTTP/1.1
@@ -108,7 +104,7 @@ ETag: "MTA6Mw"
 Cache-Control: no-store
 ```
 
-When state changes:
+On change:
 
 ```http
 HTTP/1.1 200 OK
@@ -127,10 +123,6 @@ Content-Type: application/json
 
 ## `GET /v1/journeys/{id}/alternatives`
 
-```http
-GET /v1/journeys/jrn_01j2k3m4n5p6q7r8/alternatives HTTP/1.1
-```
-
 ```json
 [
   {
@@ -144,22 +136,18 @@ GET /v1/journeys/jrn_01j2k3m4n5p6q7r8/alternatives HTTP/1.1
 ]
 ```
 
-Ordering is by `(etaUtc ASC, transferBufferMinutes DESC, legCount ASC)`. Maximum 5 results.
+Order: `(etaUtc ASC, transferBufferMinutes DESC, legCount ASC)`. Max 5.
 
 ## `GET /readyz`
 
 ```json
 {
   "status": "ok",
-  "checks": {
-    "valkey": "ok",
-    "postgres": "ok",
-    "hafas": "ok"
-  }
+  "checks": { "valkey": "ok", "postgres": "ok", "hafas": "ok" }
 }
 ```
 
-When any subsystem is impaired, the response code is `503` and the corresponding key reports a problem detail:
+Impaired subsystem → `503` + problem detail:
 
 ```json
 {
@@ -172,4 +160,4 @@ When any subsystem is impaired, the response code is `503` and the corresponding
 }
 ```
 
-Configure your load balancer to use `/readyz` for routing decisions and `/health` for liveness only.
+LB: `/readyz` for routing, `/health` for liveness only.

@@ -9,26 +9,26 @@ sidebar_position: 1
 
 **Real-time alternative routing for Deutsche Bahn journeys.**
 
-Enter your current train and your destination station. The backend monitors your connection live by polling [HAFAS](https://v6.db.transport.rest) every 30 seconds. As delays emerge, a Breadth-First-Search (BFS) routing engine surfaces ranked alternative routes that get you to your destination earlier — with transfer buffer, risk badges, and confidence indicators.
+Enter current train + destination station. Backend monitors the connection by polling HAFAS every 30 s. As delays emerge, a BFS routing engine surfaces ranked alternatives that arrive earlier — with transfer buffer, risk badges, confidence indicators.
 
 :::info Not affiliated with Deutsche Bahn
-The app uses the public, community-operated [`v6.db.transport.rest`](https://v6.db.transport.rest) HAFAS proxy. No API key is required.
+Uses a self-hosted [`db-vendo-client`](https://github.com/public-transport/db-vendo-client) HAFAS sidecar bundled in Docker Compose. No external API key required.
 :::
 
-## What this documentation covers
+## What this site covers
 
-This site is the **single source of truth** for everything about the project:
+Single source of truth for the project:
 
-- **Getting started** — prerequisites, Docker Compose quick-start, local non-Dockerised dev.
-- **Usage** — end-to-end walkthrough of the app, PWA installation on iOS, Android, and desktop.
-- **Architecture** — backend internals (Go, chi, poller, BFS), frontend internals (React 19, Vite, TanStack Query), data flow, multi-layer cache strategy.
-- **Configuration** — every environment variable, Docker Compose layout, dev vs. prod profiles.
-- **API reference** — every endpoint, conventions (RFC 7807 errors, `Idempotency-Key`, `If-None-Match`), and OpenAPI source.
-- **Database** — schema, migration strategy, direct connection.
+- **Getting started** — prerequisites, Docker quick-start, non-Docker dev.
+- **Usage** — app walkthrough, PWA install on iOS/Android/desktop.
+- **Architecture** — backend (Go, chi, poller, BFS), frontend (React 19, Vite, TanStack Query), data flow, multi-layer cache.
+- **Configuration** — every env var, Compose layout, dev vs. prod.
+- **API reference** — endpoints, conventions (RFC 7807, `Idempotency-Key`, `If-None-Match`), OpenAPI source.
+- **Database** — schema, migrations, direct access.
 - **Development** — scripts, codegen, pre-commit hooks.
-- **Testing** — backend `go test`, Vitest + MSW, Playwright E2E.
-- **Operations** — production deployment, Prometheus metrics, liveness/readiness probes, the CI/CD pipeline that builds and publishes this site.
-- **Troubleshooting** — every failure mode we have hit, with diagnosis and fix.
+- **Testing** — Go, Vitest + MSW, Playwright E2E.
+- **Operations** — prod deploy, Prometheus, probes, CI/CD that built this site.
+- **Troubleshooting** — every failure mode hit, with diagnosis + fix.
 
 ## Screenshots
 
@@ -41,26 +41,26 @@ This site is the **single source of truth** for everything about the project:
   <figure><img src="/img/screenshots/10-darkmode-beispiel.png" alt="Dark mode example" /><figcaption>Dark mode</figcaption></figure>
 </div>
 
-## Tech stack at a glance
+## Stack
 
-| Layer | Technology |
-|-------|------------|
-| **Backend** | Go 1.25 — chi router, pgx/v5, go-redis, Prometheus metrics |
-| **Frontend** | React 19, TypeScript, Vite 6, TanStack Query, Zustand, Tailwind CSS, shadcn/ui |
-| **Database** | PostgreSQL 18 |
-| **Cache** | Valkey 9.1 (BSD Redis fork, volatile-LRU, 256 MB cap) |
-| **Reverse proxy** | Nginx (production) |
-| **Containerisation** | Docker + Docker Compose |
-| **External data** | `v6.db.transport.rest` — open HAFAS API for DB realtime data |
-| **PWA** | vite-plugin-pwa + Workbox, installable on iOS and Android |
+| Layer | Tech |
+|-------|------|
+| Backend | Go 1.25 — chi, pgx/v5, go-redis, Prometheus |
+| Frontend | React 19, TypeScript, Vite 8, TanStack Query, Zustand, Tailwind, shadcn/ui |
+| Database | PostgreSQL 18 |
+| Cache | Valkey 9.1 (BSD Redis fork, volatile-LRU, 256 MB cap) |
+| Reverse proxy | Nginx (prod) |
+| Containers | Docker + Compose |
+| External data | `db-vendo-client` sidecar — self-hosted HAFAS for DB realtime |
+| PWA | vite-plugin-pwa + Workbox, installable iOS + Android |
 
 ## Five-minute mental model
 
-1. Frontend creates a *journey* (`POST /v1/journeys`) with train number + destination + filters.
-2. Backend runs BFS, persists the resulting route in Postgres, caches in Valkey, starts a 30-second poller goroutine.
-3. Poller fetches realtime data from HAFAS, applies trip updates to the legs, recomputes the summary, and re-runs BFS to find alternatives.
-4. Frontend polls `GET /v1/journeys/{id}/summary` with `If-None-Match`. Backend returns **304** when nothing changed, **200** + a new ETag otherwise.
-5. When `summary.alternativeAvailable === true`, the UI loads `GET /v1/journeys/{id}/alternatives` and surfaces a ranked list to the user.
-6. User taps an alternative → the poller switches to that route. User taps "complete journey" → `DELETE /v1/journeys/{id}` stops the poller.
+1. Frontend creates a *journey* (`POST /v1/journeys`) with train + destination + filters.
+2. Backend runs BFS, persists in Postgres, caches in Valkey, starts a 30 s poller goroutine.
+3. Poller fetches HAFAS realtime, applies updates to legs, recomputes summary + alternatives.
+4. Frontend polls `/summary` with `If-None-Match`. Backend → **304** unchanged, **200** + new ETag otherwise.
+5. `summary.alternativeAvailable === true` → UI loads `/alternatives` and surfaces ranked list.
+6. Tap alternative → poller switches. Tap "complete journey" → `DELETE /v1/journeys/{id}` stops poller.
 
-Continue with the [Quick start](./getting-started/quick-start-docker).
+Continue: [Quick start](./getting-started/quick-start-docker).

@@ -5,11 +5,10 @@
  * Override in individual tests with server.use(http.get(...)).
  *
  * Usage:
- *   import { server } from '@/test/msw-handlers'
+ *   import { server } from '@/test/msw-server'
  *   server.use(http.get('/v1/journeys/:id/summary', () => HttpResponse.json(myMock)))
  */
 import { http, HttpResponse, passthrough } from 'msw'
-import { setupServer } from 'msw/node'
 import type { paths } from '@/api/types.gen'
 
 // ── Default mock data ────────────────────────────────────────────────────────
@@ -119,10 +118,6 @@ export const defaultHandlers = [
     HttpResponse.json({ status: 'ok', checks: { redis: 'ok', postgres: 'ok', hafas: 'ok' } })
   ),
 ]
-
-// ── MSW server instance ──────────────────────────────────────────────────────
-
-export const server = setupServer(...defaultHandlers)
 
 // ── Error response helpers ───────────────────────────────────────────────────
 
