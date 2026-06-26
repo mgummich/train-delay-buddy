@@ -125,6 +125,8 @@ test.describe("full-stack journey flow — real data", () => {
     const startPage = new StartPage(page);
     await startPage.goto();
     await startPage.fillTrain(trainNumber);
+    // nosemgrep: javascript.lang.security.audit.detect-non-literal-regexp.detect-non-literal-regexp
+    // Test-only: regex built from HAFAS station name fixture, not untrusted input.
     await startPage.pickDestination(destQuery, new RegExp(destName.split(" ")[0], "i"));
     await startPage.submit();
 
