@@ -57,8 +57,8 @@ func (m *mockStore) Terminate(_ context.Context, id string) error {
 	delete(m.journeys, id)
 	return nil
 }
-func (m *mockStore) GetActive(_ context.Context, _ int) ([]journey.Journey, error)   { return nil, nil }
-func (m *mockStore) CountActive(_ context.Context) (int, error)                       { return 0, nil }
+func (m *mockStore) GetActive(_ context.Context, _ int) ([]journey.Journey, error) { return nil, nil }
+func (m *mockStore) CountActive(_ context.Context) (int, error)                    { return 0, nil }
 func (m *mockStore) GetIdempotency(_ context.Context, _ string) (*journey.IdempotencyEntry, error) {
 	return nil, nil
 }
@@ -131,9 +131,9 @@ func TestCreateJourney_MissingTrainNumber_Returns422(t *testing.T) {
 func TestGetJourney_Returns200(t *testing.T) {
 	store := newMockStore()
 	j := &journey.Journey{
-		ID: "jrn_test00000000000000000001",
+		ID:      "jrn_test00000000000000000001",
 		Summary: journey.Summary{ETA: time.Now(), Status: journey.StatusOK, DataConfidence: journey.DataConfidenceHigh, DataFetchedAt: time.Now(), LastUpdatedAt: time.Now()},
-		Legs: []journey.Leg{}, Stops: []journey.Stop{},
+		Legs:    []journey.Leg{}, Stops: []journey.Stop{},
 	}
 	store.journeys[j.ID] = j
 

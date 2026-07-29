@@ -1,9 +1,22 @@
 import { QueryClient } from '@tanstack/react-query'
 
 /**
+ * Extracts the HTTP status from a thrown query error. Hooks throw the parsed
+ * RFC 7807 Problem body from openapi-fetch (which carries a numeric `status`),
+ * or an Error with a `status` property attached at the throw site.
+ */
+function errorStatus(error: unknown): number | undefined {
+  if (typeof error === 'object' && error !== null && 'status' in error) {
+    const s = (error as { status: unknown }).status
+    if (typeof s === 'number') return s
+  }
+  return undefined
+}
+
+/**
  * Singleton TanStack Query client shared across the app.
- * Retry policy: skip on 4xx (client error), exponential backoff on 5xx up to 3 attempts.
- * Respects `Retry-After` header on 429 responses.
+ * Retry policy: skip on 4xx (client error) except 429, exponential backoff
+ * up to 3 attempts otherwise.
  */
 export const queryClient = new QueryClient({
   defaultOptions: {
@@ -11,19 +24,11 @@ export const queryClient = new QueryClient({
       staleTime: 0,
       gcTime: 5 * 60_000,
       retry: (failureCount, error: unknown) => {
-        if (error instanceof Response && error.status < 500) return false
+        const status = errorStatus(error)
+        if (status !== undefined && status < 500 && status !== 429) return false
         return failureCount < 3
       },
-      retryDelay: (attemptIndex, error: unknown) => {
-        // Honour Retry-After on 429 responses
-        if (error instanceof Response && error.status === 429) {
-          const retryAfter = error.headers.get('Retry-After')
-          if (retryAfter) {
-            return parseInt(retryAfter, 10) * 1000 * 2 ** attemptIndex
-          }
-        }
-        return Math.min(1000 * 2 ** attemptIndex, 30_000)
-      },
+      retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30_000),
     },
   },
 })

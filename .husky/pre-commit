@@ -1,1 +1,16 @@
-cd frontend && npx lint-staged
+staged=$(git diff --cached --name-only --diff-filter=ACM)
+
+if echo "$staged" | grep -q '^frontend/'; then
+  (cd frontend && npx lint-staged) || exit 1
+fi
+
+# gofmt is also gated in CI; this is just fast local feedback.
+staged_go=$(echo "$staged" | grep '^backend/.*\.go$' || true)
+if [ -n "$staged_go" ]; then
+  unformatted=$(gofmt -l $staged_go)
+  if [ -n "$unformatted" ]; then
+    echo "gofmt required for:" >&2
+    echo "$unformatted" >&2
+    exit 1
+  fi
+fi

@@ -33,5 +33,4 @@ var (
 			Help: "HAFAS circuit breaker state: 0=closed, 1=half-open, 2=open.",
 		},
 	)
-
 )

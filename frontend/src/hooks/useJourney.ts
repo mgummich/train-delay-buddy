@@ -3,7 +3,7 @@ import { apiClient } from '@/api/client'
 import { queryKeys } from '@/lib/queryClient'
 import { saveJourney } from '@/lib/indexeddb'
 import { useJourneyStore } from '@/store/journeyStore'
-import type { JourneySummary } from '@/api/validation'
+import { journeySummarySchema, safeParse, type JourneySummary } from '@/api/validation'
 
 type NetworkInformation = { saveData?: boolean; effectiveType?: string }
 
@@ -29,7 +29,10 @@ async function fetchSummary(journeyId: string, etag: string | null) {
     headers,
   })
 
-  if (!response.ok && response.status !== 304) throw error ?? new Error(`HTTP ${response.status}`)
+  if (!response.ok && response.status !== 304)
+    // Attach status so the queryClient retry predicate can skip 4xx even when
+    // the error body wasn't parseable Problem JSON.
+    throw error ?? Object.assign(new Error(`HTTP ${response.status}`), { status: response.status })
 
   if (response.status === 304) return null
 
@@ -71,7 +74,7 @@ export function useJourney(journeyId: string, currentEtag?: string | null) {
         savedAt: new Date().toISOString(),
       })
 
-      return data as JourneySummary
+      return safeParse(journeySummarySchema, data)
     },
     refetchInterval: (query) => {
       const d = query.state.data

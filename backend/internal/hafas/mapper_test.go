@@ -85,10 +85,10 @@ func TestMapTripToTrainResponse_RunningStatus(t *testing.T) {
 	dep := time.Now().Add(-1 * time.Hour)
 	arr := time.Now().Add(3 * time.Hour)
 	trip := hafas.HAFASTrip{
-		Line:        hafas.HAFASLine{Name: "IC 42"},
-		Departure:   &dep,
-		Arrival:     &arr,
-		Stopovers:   []hafas.HAFASStopover{},
+		Line:      hafas.HAFASLine{Name: "IC 42"},
+		Departure: &dep,
+		Arrival:   &arr,
+		Stopovers: []hafas.HAFASStopover{},
 	}
 	resp := hafas.MapTripToTrainResponse(trip, "2026-06-11", time.Now())
 	if resp.Status != "running" {

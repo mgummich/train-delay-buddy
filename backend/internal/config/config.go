@@ -36,11 +36,11 @@ type Config struct {
 // VALKEY_URL takes precedence over REDIS_URL for backwards compatibility.
 func Load() Config {
 	return Config{
-		Port:                 env("PORT", "8080"),
+		Port: env("PORT", "8080"),
 		// Valkey is a BSD-licensed Redis fork and is wire-compatible.
 		// Prefer VALKEY_URL; fall back to REDIS_URL for backwards compatibility.
-		RedisURL:             env("VALKEY_URL", env("REDIS_URL", "redis://valkey:6379")),
-		DatabaseURL:          env("DATABASE_URL", "postgres://vbb:vbb@postgres:5432/vbb"),
+		RedisURL:    env("VALKEY_URL", env("REDIS_URL", "redis://valkey:6379")),
+		DatabaseURL: env("DATABASE_URL", "postgres://vbb:vbb@postgres:5432/vbb"),
 		// Compose sets HAFAS_BASE_URL to the bundled db-vendo-client sidecar.
 		// Public v6.db.transport.rest is the fallback for bare-metal runs without the sidecar.
 		HAFASBaseURL:         env("HAFAS_BASE_URL", "https://v6.db.transport.rest"),
