@@ -71,8 +71,11 @@ func env(key, fallback string) string {
 
 func envInt(key string, fallback int) int {
 	if v := os.Getenv(key); v != "" {
-		if i, err := strconv.Atoi(v); err == nil {
-			return i
+		// 32 bit: every int config here is a small count, and some are
+		// narrowed to int32 (pgxpool conn limits). Reject anything larger
+		// instead of silently overflowing.
+		if i, err := strconv.ParseInt(v, 10, 32); err == nil {
+			return int(i)
 		}
 	}
 	return fallback

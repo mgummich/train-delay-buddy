@@ -49,3 +49,13 @@ func TestLoad_EnvOverride(t *testing.T) {
 		t.Errorf("HAFASWorkerPoolSize: got %d, want 100", cfg.HAFASWorkerPoolSize)
 	}
 }
+
+func TestLoad_IntOverflowFallsBackToDefault(t *testing.T) {
+	// Values beyond int32 would overflow when narrowed for pgxpool.
+	os.Setenv("DB_MAX_OPEN_CONNS", "99999999999")
+	t.Cleanup(func() { os.Unsetenv("DB_MAX_OPEN_CONNS") })
+
+	if got := config.Load().DBMaxOpenConns; got != 20 {
+		t.Errorf("DBMaxOpenConns: got %d, want default 20", got)
+	}
+}
