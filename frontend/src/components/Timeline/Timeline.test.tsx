@@ -33,7 +33,7 @@ describe('Node', () => {
 describe('TransferBlock', () => {
   it('renders OK transfer with accent bg', () => {
     const { container } = render(
-      <MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+      <MemoryRouter>
         <TransferBlock bufferMinutes={9} nextTrain="RE 4321" nextPlatform="5" critical={false} />
       </MemoryRouter>
     )
@@ -44,7 +44,7 @@ describe('TransferBlock', () => {
 
   it('renders critical transfer with warn bg and link', () => {
     render(
-      <MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+      <MemoryRouter>
         <TransferBlock bufferMinutes={2} nextTrain="ICE 1573" nextPlatform="1" critical={true} />
       </MemoryRouter>
     )

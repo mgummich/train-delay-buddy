@@ -9,7 +9,7 @@ import '../../i18n/index'
 describe('SummaryHeader', () => {
   it('renders time gain and ETA', () => {
     render(
-      <MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+      <MemoryRouter>
         <SummaryHeader
           summary={buildSummary() as JourneySummary}
           tab="timeline"
@@ -25,7 +25,7 @@ describe('SummaryHeader', () => {
 
   it('has aria-live="polite" on the ETA region', () => {
     const { container } = render(
-      <MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+      <MemoryRouter>
         <SummaryHeader
           summary={buildSummary() as JourneySummary}
           tab="timeline"
@@ -40,7 +40,7 @@ describe('SummaryHeader', () => {
     // 0.5 min < ageMin < 2 min → "Möglicherweise veraltet" inline badge
     const staleTime = new Date(Date.now() - 90 * 1000).toISOString()
     render(
-      <MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+      <MemoryRouter>
         <SummaryHeader
           summary={buildSummary({ dataFetchedAt: staleTime }) as JourneySummary}
           tab="timeline"
@@ -55,7 +55,7 @@ describe('SummaryHeader', () => {
     // ageMin >= 2 → "Daten veraltet – kein Netz?" banner card
     const staleTime = new Date(Date.now() - 4 * 60 * 1000).toISOString()
     render(
-      <MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+      <MemoryRouter>
         <SummaryHeader
           summary={buildSummary({ dataFetchedAt: staleTime }) as JourneySummary}
           tab="timeline"
@@ -68,7 +68,7 @@ describe('SummaryHeader', () => {
 
   it('renders role="alert" when status is critical', () => {
     const { container } = render(
-      <MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+      <MemoryRouter>
         <SummaryHeader
           summary={buildCriticalSummary() as JourneySummary}
           tab="timeline"
@@ -81,7 +81,7 @@ describe('SummaryHeader', () => {
 
   it('renders Timeline and Karte tab buttons', () => {
     render(
-      <MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+      <MemoryRouter>
         <SummaryHeader
           summary={buildSummary() as JourneySummary}
           tab="timeline"
