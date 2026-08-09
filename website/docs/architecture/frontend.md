@@ -106,7 +106,7 @@ The consequence is that the `JourneySummary` return type is a deliberate lie on 
 | `formatTime`, `formatDateTime` | renders `–` | A bad timestamp must not throw mid-render |
 | `minutesSince` | returns `Infinity` | Unknown freshness must *surface* the stale-data warning, not hide it |
 
-Validate once at the boundary; do not re-`safeParse` values that already passed through a hook (e.g. a cached `journey.summary`) — it costs a `useMemo` and buys only a duplicate log line.
+Validate at each boundary a value actually crosses — which is not the same as validating once per shape. `CompanionScreen` re-`safeParse`s `journey.summary` even though the polled summary was already validated, because that field arrives from `GET /journeys/{id}`, a different endpoint. Its generated type is also looser: several fields the Zod schema requires are `?:` optional in the OpenAPI spec, so the call is a real narrowing, not a duplicate.
 
 ## Error handling + retry
 
