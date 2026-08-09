@@ -72,7 +72,14 @@ flowchart LR
 
 - `postgres:18.4-alpine3.23`. Named volume `postgres_data` at `/var/lib/postgresql`.
 - `POSTGRES_PASSWORD` required.
+- `user: "70:70"` — the Alpine `postgres` user. Starting as that UID directly skips the image entrypoint's root phase, which is what makes `cap_drop: ALL` viable (the root phase needs `CHOWN`/`SETUID`/`SETGID`).
 - Healthcheck: `pg_isready`. Limits: 256 MB / 0.5 CPU.
+
+:::warning Keep `postgres_data` a named volume
+`user: "70:70"` works because both volume cases end up owned by UID 70: an existing volume was initialised by the root entrypoint, and a fresh *named* volume is seeded from the image, where the data dir is already UID 70.
+
+A **host bind mount** is not seeded — it starts owned by the host user, and `initdb` fails because Postgres cannot write it. If you must bind-mount, `chown 70:70` the target first.
+:::
 
 ### valkey — hot cache
 
@@ -115,8 +122,8 @@ In prod the frontend is baked into the Nginx image — no standalone service.
 
 | Control | Status |
 |---------|--------|
-| Non-root containers | ✅ Backend UID 10001 |
-| `cap_drop: ALL` | ✅ Backend, valkey; Nginx re-adds `CHOWN, SETGID, SETUID, NET_BIND_SERVICE, DAC_OVERRIDE` |
+| Non-root containers | ✅ Backend UID 10001, postgres UID 70, valkey UID 999 |
+| `cap_drop: ALL` | ✅ Backend, postgres, valkey; Nginx re-adds `CHOWN, SETGID, SETUID, NET_BIND_SERVICE, DAC_OVERRIDE` |
 | `no-new-privileges: true` | ✅ All |
 | `read_only` root fs | ✅ Backend (tmpfs `/tmp` 64 MB) |
 | Secrets via env | ✅ `POSTGRES_PASSWORD` only |

@@ -92,11 +92,38 @@ CI `npm run codegen:check` fails on drift. Cannot ship a frontend whose types di
 
 ## Boundary validation
 
-OpenAPI types describe shape, not runtime correctness. `src/api/validation.ts` has Zod schemas per endpoint that flow into UI logic. Hooks `schema.parse(data)` before returning to catch:
+OpenAPI types describe shape, not runtime correctness. `src/api/validation.ts` has Zod schemas per endpoint that flow into UI logic. Hooks call `safeParse(schema, data)` at the fetch boundary to catch:
 
 - Backend regressions shipped without OpenAPI update.
 - Service Worker serving corrupted cache.
-- Single debuggable failure mode (`ZodError`) instead of cryptic `undefined.map` deep in render.
+
+`safeParse` **never throws.** On a schema mismatch it logs `[API schema drift]` with the Zod issues and returns the raw data unchanged. Crashing a live journey mid-trip is worse than rendering a slightly wrong field, so drift degrades instead of failing.
+
+The consequence is that the `JourneySummary` return type is a deliberate lie on the failure path — a field the type promises may be absent at runtime. **Render paths must therefore tolerate garbage rather than trust the type.** `lib/datetime.ts` is where that is absorbed:
+
+| Function | Malformed input | Why |
+|----------|-----------------|-----|
+| `formatTime`, `formatDateTime` | renders `–` | A bad timestamp must not throw mid-render |
+| `minutesSince` | returns `Infinity` | Unknown freshness must *surface* the stale-data warning, not hide it |
+
+Validate once at the boundary; do not re-`safeParse` values that already passed through a hook (e.g. a cached `journey.summary`) — it costs a `useMemo` and buys only a duplicate log line.
+
+## Error handling + retry
+
+Every hook throws through `apiError(response, error)` in `src/api/client.ts`, which stamps two fields onto the throwable:
+
+- `status` — from the `Response`, not the body. A non-JSON upstream failure (nginx 502/504 HTML) leaves openapi-fetch's `error` undefined, so hooks gate on `!response.ok`, never on `if (error)`. Gating on `error` would resolve the query with `undefined` data instead of failing.
+- `retryAfter` — parsed from the `Retry-After` header, which is unreachable once the body has been read off the `Response`. Only the HTTP-delay-seconds form is supported; the HTTP-date form yields `undefined` rather than `NaN`.
+
+`lib/queryClient.ts` reads both back:
+
+| Error | Retry? | Delay |
+|-------|--------|-------|
+| 4xx except 429 | No | — |
+| 429 with `Retry-After` | Yes, ≤ 3× | `min(Retry-After × 2ⁿ, 300s)` — per [`openapi.yaml`](../api/reference) |
+| 5xx, network, unknown | Yes, ≤ 3× | `min(1s × 2ⁿ, 30s)` |
+
+The backend rate limiter sends `Retry-After: 30`, so a throttled client backs off 30s / 60s / 120s. Honouring the header is a contract, not an optimisation: ignoring it means three retries inside 7 seconds against a limiter that asked for 30.
 
 ## Install ID
 

@@ -48,7 +48,7 @@ Out of scope (for now):
 ## PR checklist
 
 - [ ] Conventional Commits title.
-- [ ] Files formatted (`go fmt ./...`, `npm run lint:fix`).
+- [ ] Files formatted (`gofmt -w .`, `npm run lint:fix`) — both are hard CI gates, and `.husky/pre-commit` checks them on staged files.
 - [ ] Tests added / updated.
 - [ ] CI green.
 - [ ] OpenAPI changed → `types.gen.ts` regenerated + committed.

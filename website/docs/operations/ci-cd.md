@@ -36,13 +36,14 @@ Jobs: `backend` + `frontend` + `sast` run in parallel; `docker` and `e2e` wait o
 - setup-go@v6 (cache, go.mod-based)
 - go mod verify
 - go vet ./...
+- gofmt -l .          # non-empty output = fail
 - go build ./...
 - go test -race -count=1 -timeout=5m -coverprofile=coverage.out ./...
 - coverage check: fail if < 55%
 - govulncheck ./...
 ```
 
-`-race` adds ~30% runtime but catches concurrency bugs. `-count=1` defeats test cache. `CGO_ENABLED=1` required for the race detector. `govulncheck` scans against the Go vuln DB.
+`-race` adds ~30% runtime but catches concurrency bugs. `-count=1` defeats test cache. `CGO_ENABLED=1` required for the race detector. `govulncheck` scans against the Go vuln DB. `gofmt -l` prints unformatted files and exits 0, so the step tests the output for emptiness — `.husky/pre-commit` gates the same thing locally on staged files.
 
 ### `frontend`
 
@@ -152,7 +153,7 @@ permissions:
 
 ```bash
 # Backend
-(cd backend && go mod verify && go vet ./... && CGO_ENABLED=1 go test -race -count=1 ./...)
+(cd backend && go mod verify && go vet ./... && test -z "$(gofmt -l .)" && CGO_ENABLED=1 go test -race -count=1 ./...)
 
 # Frontend
 (cd frontend && npm ci && npm run codegen:check && npm run lint && npm run typecheck && npm run test)

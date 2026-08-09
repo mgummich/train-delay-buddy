@@ -71,7 +71,7 @@ Client + poller never interact directly. They share state via Valkey. Client pol
 | Valkey down | 500 `urn:verspbegl:error:internal` + log | Generic error banner, manual retry |
 | Postgres down | `/readyz` 503 | Same — backend keeps serving last Valkey snapshot until TTL |
 | Network offline | `fetch` rejects | OfflineStateLoader reads IndexedDB |
-| Rate limit | 429 + Retry-After | Banner + countdown; calls suppressed until Retry-After |
+| Rate limit | 429 + Retry-After | Banner + countdown; TanStack Query retries ≤ 3× at `min(Retry-After × 2ⁿ, 300s)` |
 | Idempotency replay | 200 from Valkey-cached response | Indistinguishable from normal success — by design |
 
 ## TTLs
