@@ -8,6 +8,12 @@ on:
       - "README.md"
       - "design_handoff_verspaetungsbegleiter/screenshots/**"
       - ".github/workflows/docs.yml"
+  pull_request:
+    paths:
+      - "website/**"
+      - "README.md"
+      - "design_handoff_verspaetungsbegleiter/screenshots/**"
+      - ".github/workflows/docs.yml"
   workflow_dispatch:
 
 permissions:
@@ -16,8 +22,10 @@ permissions:
   id-token: write
 
 concurrency:
-  group: pages
-  cancel-in-progress: false
+  # Pages deployments must serialise on a single group; PR builds only need to
+  # cancel their own superseded runs.
+  group: ${{ github.event_name == 'pull_request' && format('docs-{0}', github.ref) || 'pages' }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   build:
@@ -49,6 +57,7 @@ jobs:
   deploy:
     name: Deploy to GitHub Pages
     needs: build
+    if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     environment:
       name: github-pages
