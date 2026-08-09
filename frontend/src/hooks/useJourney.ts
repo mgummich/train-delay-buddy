@@ -1,5 +1,5 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { apiClient } from '@/api/client'
+import { apiClient, apiError } from '@/api/client'
 import { queryKeys } from '@/lib/queryClient'
 import { saveJourney } from '@/lib/indexeddb'
 import { useJourneyStore } from '@/store/journeyStore'
@@ -29,10 +29,7 @@ async function fetchSummary(journeyId: string, etag: string | null) {
     headers,
   })
 
-  if (!response.ok && response.status !== 304)
-    // Attach status so the queryClient retry predicate can skip 4xx even when
-    // the error body wasn't parseable Problem JSON.
-    throw error ?? Object.assign(new Error(`HTTP ${response.status}`), { status: response.status })
+  if (!response.ok && response.status !== 304) throw apiError(response, error)
 
   if (response.status === 304) return null
 

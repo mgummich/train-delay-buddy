@@ -15,7 +15,7 @@ import { useJourneyStore } from '@/store/journeyStore'
 import { apiClient, isDeleteNotFound } from '@/api/client'
 import { formatTime } from '@/lib/datetime'
 import { clearJourney } from '@/lib/indexeddb'
-import { journeySummarySchema, safeParse, type JourneySummary } from '@/api/validation'
+import type { JourneySummary } from '@/api/validation'
 
 const RAIL_WIDTH = 44 // px — left column for timeline nodes + rail
 
@@ -92,12 +92,9 @@ export function CompanionScreen() {
     if (journeyError && !journey) void navigate('/')
   }, [journeyError, journey, navigate])
 
-  const rawSummary = journey?.summary
-  const fallbackSummary = useMemo(
-    () => (rawSummary ? safeParse(journeySummarySchema, rawSummary) : undefined),
-    [rawSummary]
-  )
-  const summary: JourneySummary | undefined = liveSummary ?? fallbackSummary
+  // No safeParse on the fallback: it comes from a response useJourney already
+  // validated. Render guards below tolerate a missing summary either way.
+  const summary: JourneySummary | undefined = liveSummary ?? journey?.summary
 
   const stops = useMemo(() => journey?.stops ?? [], [journey?.stops])
   const legs = useMemo(() => journey?.legs ?? [], [journey?.legs])

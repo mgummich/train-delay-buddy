@@ -53,6 +53,13 @@ export type NextStep = NonNullable<z.infer<typeof nextStepSchema>>
  * Parse API response through schema. On failure: log the drift and return
  * raw data — never throw, because crashing a live journey is worse than
  * showing slightly stale data.
+ *
+ * The `T` on the failure path is a deliberate lie: drifted data is returned
+ * unchanged and may be missing fields the type promises. Consumers must
+ * therefore tolerate garbage rather than trust the type — see the malformed-
+ * timestamp guards in `lib/datetime.ts`. An honest `T | Partial<T>` return
+ * would push a narrowing burden onto every render path for a case that only
+ * occurs on backend schema drift.
  */
 export function safeParse<T>(schema: z.ZodType<T>, data: unknown): T {
   const result = schema.safeParse(data)

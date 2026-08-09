@@ -1,14 +1,16 @@
 import { useQuery, type UseQueryOptions } from '@tanstack/react-query'
-import { apiClient } from '@/api/client'
+import { apiClient, apiError } from '@/api/client'
 import { queryKeys } from '@/lib/queryClient'
 
 type JourneyFullData = Awaited<ReturnType<typeof fetchJourneyFull>>
 
 async function fetchJourneyFull(journeyId: string) {
-  const { data, error } = await apiClient.GET('/journeys/{id}', {
+  const { data, error, response } = await apiClient.GET('/journeys/{id}', {
     params: { path: { id: journeyId } },
   })
-  if (error) throw error
+  // Gate on response.ok, not on `error` — a non-JSON upstream failure leaves
+  // `error` undefined and would otherwise resolve the query with undefined data.
+  if (!response.ok) throw apiError(response, error)
   return data!
 }
 
