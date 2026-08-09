@@ -2,7 +2,7 @@
 # backend/Dockerfile
 
 # ── dev stage (used by docker-compose.override.yml) ─────────────────────────
-FROM golang:1.26.4-alpine AS dev
+FROM golang:1.26.5-alpine AS dev
 WORKDIR /app
 RUN apk add --no-cache curl \
     && adduser -D -u 10001 app \
@@ -14,7 +14,7 @@ RUN go mod download
 CMD ["go", "run", "./cmd/server"]
 
 # ── builder ──────────────────────────────────────────────────────────────────
-FROM golang:1.26.4-alpine AS builder
+FROM golang:1.26.5-alpine AS builder
 WORKDIR /app
 COPY go.mod go.sum ./
 RUN go mod download
