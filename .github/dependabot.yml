@@ -90,7 +90,6 @@ updates:
     cooldown:
       # Let a release sit before we take it — blunts compromised-release windows.
       default-days: 7
-      semver-major-days: 14
     labels: [dependencies, docker]
     commit-message:
       prefix: chore(deps)
@@ -105,7 +104,6 @@ updates:
     cooldown:
       # Let a release sit before we take it — blunts compromised-release windows.
       default-days: 7
-      semver-major-days: 14
     labels: [dependencies, docker]
     commit-message:
       prefix: chore(deps)
@@ -121,7 +119,6 @@ updates:
     cooldown:
       # Let a release sit before we take it — blunts compromised-release windows.
       default-days: 7
-      semver-major-days: 14
     labels: [dependencies, ci]
     commit-message:
       prefix: chore(deps)
