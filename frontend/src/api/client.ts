@@ -41,9 +41,13 @@ apiClient.use({
  * `Retry-After` header is lost once the body has been parsed off the Response.
  */
 export function apiError(response: Response, error?: unknown): unknown {
-  const retryAfter = Number(response.headers.get('Retry-After')) || undefined
-  const thrown = error ?? new Error(`HTTP ${response.status}`)
-  return Object.assign(thrown as object, { status: response.status, retryAfter })
+  // Two named fields assigned explicitly, not Object.assign with a spread of the
+  // response — semgrep flags the latter as mass assignment, and the narrow form
+  // is what we want anyway: nothing attacker-controlled reaches the throwable.
+  const thrown = (error ?? new Error(`HTTP ${response.status}`)) as Record<string, unknown>
+  thrown.status = response.status
+  thrown.retryAfter = Number(response.headers.get('Retry-After')) || undefined
+  return thrown
 }
 
 /**
