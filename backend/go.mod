@@ -1,6 +1,6 @@
 module github.com/verspaetungsbegleiter/backend
 
-go 1.25.11
+go 1.25.12
 
 require (
 	github.com/getkin/kin-openapi v0.140.0
@@ -8,7 +8,7 @@ require (
 	github.com/jackc/pgx/v5 v5.10.0
 	github.com/prometheus/client_golang v1.21.1
 	github.com/redis/go-redis/v9 v9.20.1
-	golang.org/x/sync v0.17.0
+	golang.org/x/sync v0.21.0
 	golang.org/x/time v0.15.0
 )
 
@@ -30,6 +30,6 @@ require (
 	github.com/santhosh-tekuri/jsonschema/v6 v6.0.2 // indirect
 	go.uber.org/atomic v1.11.0 // indirect
 	golang.org/x/sys v0.30.0 // indirect
-	golang.org/x/text v0.29.0 // indirect
+	golang.org/x/text v0.39.0 // indirect
 	google.golang.org/protobuf v1.36.1 // indirect
 )

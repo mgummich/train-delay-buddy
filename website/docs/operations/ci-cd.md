@@ -15,6 +15,16 @@ Two workflows in `.github/workflows/`:
 
 Both run on `ubuntu-latest`.
 
+:::note Actions are SHA-pinned
+Every `uses:` is pinned to a full commit SHA with the human-readable version in a trailing comment:
+
+```yaml
+- uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+```
+
+A tag like `@v6` is mutable — whoever controls the action repo can repoint it at new code, which runs with your workflow's token. Semgrep's `github-actions-mutable-action-tag` enforces this. The listings below show the readable version; the workflow files carry the SHA. Dependabot's `github-actions` ecosystem bumps both together.
+:::
+
 ## `ci.yml`
 
 Jobs: `backend` + `frontend` + `sast` run in parallel; `docker` and `e2e` wait on them.
@@ -69,7 +79,7 @@ permissions:
   contents: read
   security-events: write
 - gitleaks/gitleaks-action@v3        # secrets, full history
-- securego/gosec@master              # Go SAST, HIGH severity, SARIF
+- securego/gosec@v2.28.0             # Go SAST, HIGH severity, SARIF
 - github/codeql-action/upload-sarif@v4
 - pip install semgrep
   semgrep scan \
