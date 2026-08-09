@@ -4,4 +4,6 @@ node_modules/
 coverage/
 playwright-report/
 vite.config.js
+tailwind.config.js
+*.tsbuildinfo
 *.bak
