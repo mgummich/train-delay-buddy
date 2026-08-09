@@ -7,7 +7,7 @@ import '../../i18n/index'
 describe('PlausibilityDialog', () => {
   it('renders nothing when closed', () => {
     render(
-      <MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+      <MemoryRouter>
         <PlausibilityDialog open={false} onConfirm={vi.fn()} onDeny={vi.fn()} />
       </MemoryRouter>
     )
@@ -16,7 +16,7 @@ describe('PlausibilityDialog', () => {
 
   it('shows dialog when open=true', () => {
     render(
-      <MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+      <MemoryRouter>
         <PlausibilityDialog open={true} onConfirm={vi.fn()} onDeny={vi.fn()} />
       </MemoryRouter>
     )
@@ -27,7 +27,7 @@ describe('PlausibilityDialog', () => {
   it('calls onConfirm when confirm button clicked', () => {
     const onConfirm = vi.fn()
     render(
-      <MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+      <MemoryRouter>
         <PlausibilityDialog open={true} onConfirm={onConfirm} onDeny={vi.fn()} />
       </MemoryRouter>
     )
@@ -38,7 +38,7 @@ describe('PlausibilityDialog', () => {
   it('calls onDeny when deny button clicked', () => {
     const onDeny = vi.fn()
     render(
-      <MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+      <MemoryRouter>
         <PlausibilityDialog open={true} onConfirm={vi.fn()} onDeny={onDeny} />
       </MemoryRouter>
     )
