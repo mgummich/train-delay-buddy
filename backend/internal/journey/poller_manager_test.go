@@ -147,11 +147,11 @@ func TestPollerManager_Poll_StopsWhenJourneyExpired(t *testing.T) {
 
 	// Journey was created 25 hours ago — exceeds ttlHours=24.
 	expired := &journey.Journey{
-		ID:        "jrn_expired",
-		CreatedAt: time.Now().Add(-25 * time.Hour),
-		Legs:      []journey.Leg{},
+		ID:          "jrn_expired",
+		CreatedAt:   time.Now().Add(-25 * time.Hour),
+		Legs:        []journey.Leg{},
 		Destination: journey.StationRef{ID: "dest", Name: "Berlin"},
-		Filters:   journey.Filters{SafetyLevel: journey.SafetyLevelNormal},
+		Filters:     journey.Filters{SafetyLevel: journey.SafetyLevelNormal},
 	}
 	store := &stubStore{getJourney: expired}
 	pm := newTestPollerManager(ctx, store, 5*time.Millisecond)

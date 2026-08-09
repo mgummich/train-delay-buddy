@@ -35,6 +35,15 @@ jobs:
       - name: Vet
         run: go vet ./...
 
+      - name: gofmt
+        run: |
+          unformatted=$(gofmt -l .)
+          if [ -n "$unformatted" ]; then
+            echo "gofmt required for:"
+            echo "$unformatted"
+            exit 1
+          fi
+
       - name: Build
         run: go build ./...
 

@@ -157,8 +157,8 @@ func (h *JourneysHandler) Create(w http.ResponseWriter, r *http.Request) {
 	}
 
 	result, err := h.engine.Route(r.Context(), routing.RoutingRequest{
-		TrainNumber:   req.TrainNumber,
-		ToStationID:   req.Destination,
+		TrainNumber:    req.TrainNumber,
+		ToStationID:    req.Destination,
 		DepartureAfter: time.Now(),
 		Filters:        filters,
 		InstallID:      installID,

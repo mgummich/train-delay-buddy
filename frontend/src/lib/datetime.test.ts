@@ -12,6 +12,11 @@ describe('formatTime', () => {
     // 17:24 UTC = 18:24 Berlin (CET)
     expect(formatTime(DST_SAMPLES.winterTime)).toBe('18:24')
   })
+
+  it('renders malformed input as dash instead of throwing', () => {
+    expect(formatTime('not-a-date')).toBe('–')
+    expect(formatDateTime('not-a-date')).toBe('–')
+  })
 })
 
 describe('minutesSince', () => {

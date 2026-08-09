@@ -73,7 +73,12 @@ git commit -m "feat(api): add Idempotency-Key support to POST /v1/journeys"
 Types: `feat`, `fix`, `refactor`, `chore`, `docs`, `test`, `perf`, `style`, `build`, `ci`.
 Scopes: `api`, `frontend`, `backend`, `db`, `docker`, `nginx`, `ci`, `docs`.
 
-Pre-commit hook (Husky + lint-staged) runs ESLint + Prettier on staged TS/TSX. `--no-verify` only in emergencies.
+Pre-commit hook (`.husky/pre-commit`), scoped to what you actually staged:
+
+- Any `frontend/` file staged → `lint-staged` (ESLint + Prettier) on staged TS/TSX.
+- Any `backend/**.go` staged → `gofmt -l` on the **staged blob** (`git show :path`), not the worktree file, so a partial `git add -p` is judged on what is being committed.
+
+Both are fast local feedback only — CI re-checks the merged tree. `--no-verify` only in emergencies.
 
 ## 5. Push + PR
 
@@ -94,7 +99,7 @@ Push to `master` → docs deploy (`.github/workflows/docs.yml`) → Docusaurus b
 
 ## Code style
 
-- **Go:** `gofmt -s`, `go vet`. Narrow interfaces ("accept interfaces, return structs"). No `context.Background()` in handlers — propagate from request.
+- **Go:** `gofmt`, `go vet` — both are hard CI gates; `gofmt -l .` failing fails the build. Narrow interfaces ("accept interfaces, return structs"). No `context.Background()` in handlers — propagate from request.
 - **TypeScript:** ESLint + Prettier per `frontend/.eslintrc.cjs`. No `any`. No `// @ts-ignore` — use `// @ts-expect-error <reason>` if absolutely necessary.
 - **SQL:** lowercase keywords, snake_case columns, trailing commas in column lists.
 

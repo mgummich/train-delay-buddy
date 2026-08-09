@@ -1,4 +1,4 @@
-import { use } from 'react'
+import { useEffect, useState } from 'react'
 import { useRouteError, isRouteErrorResponse, Link } from 'react-router-dom'
 import { loadJourney } from '@/lib/indexeddb'
 
@@ -27,11 +27,13 @@ export function ScreenError({ message }: { message: string }) {
   )
 }
 
-let cachedJourneyPromise: Promise<Awaited<ReturnType<typeof loadJourney>>> | null = null
-
 export function CompanionError() {
-  if (!cachedJourneyPromise) cachedJourneyPromise = loadJourney()
-  const cached = use(cachedJourneyPromise)
+  const [cached, setCached] = useState<Awaited<ReturnType<typeof loadJourney>>>(null)
+  // The journey hint pops in a frame late; on an error screen that's fine and
+  // avoids suspending inside the route's own error element.
+  useEffect(() => {
+    loadJourney().then(setCached, () => {})
+  }, [])
 
   return (
     <div className="min-h-screen bg-bg-app flex flex-col p-4 gap-4">

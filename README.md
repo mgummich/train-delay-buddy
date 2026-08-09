@@ -93,6 +93,18 @@ verspaetungs-begleiter/
 
 Detail in [Architecture overview](https://mgummich.github.io/train-delay-buddy/architecture/overview).
 
+## Local checks
+
+`.husky/pre-commit` gates staged files only — `lint-staged` for `frontend/`, `gofmt` for `backend/**.go`. Both are also hard CI gates, so run the full set before pushing:
+
+```bash
+(cd backend  && go vet ./... && test -z "$(gofmt -l .)" && CGO_ENABLED=1 go test -race ./...)
+(cd frontend && npm run codegen:check && npm run lint && npm run typecheck && npm run test)
+docker compose config --quiet          # verifies container hardening intact
+```
+
+Full list → [CI/CD](https://mgummich.github.io/train-delay-buddy/operations/ci-cd).
+
 ## Documentation
 
 The Docusaurus site at [mgummich.github.io/train-delay-buddy](https://mgummich.github.io/train-delay-buddy/) is the single source of truth for:

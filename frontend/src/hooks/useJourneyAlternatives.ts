@@ -1,14 +1,14 @@
 import { useQuery, type UseQueryOptions } from '@tanstack/react-query'
-import { apiClient } from '@/api/client'
+import { apiClient, apiError } from '@/api/client'
 import { queryKeys } from '@/lib/queryClient'
 
 type AlternativesData = Awaited<ReturnType<typeof fetchAlternatives>>
 
 async function fetchAlternatives(journeyId: string) {
-  const { data, error } = await apiClient.GET('/journeys/{id}/alternatives', {
+  const { data, error, response } = await apiClient.GET('/journeys/{id}/alternatives', {
     params: { path: { id: journeyId } },
   })
-  if (error) throw error
+  if (!response.ok) throw apiError(response, error)
   return data!
 }
 

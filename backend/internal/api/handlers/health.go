@@ -3,6 +3,7 @@ package handlers
 import (
 	"context"
 	"encoding/json"
+	"io"
 	"net/http"
 	"time"
 
@@ -68,6 +69,9 @@ func (h *HealthHandler) Readiness(w http.ResponseWriter, r *http.Request) {
 			if err != nil {
 				checks["hafas"] = "error"
 			} else {
+				// Drain (bounded — this is a hot probe path) before Close so the
+				// keep-alive connection is reusable.
+				io.Copy(io.Discard, io.LimitReader(resp.Body, 4<<10)) //nolint:errcheck
 				resp.Body.Close()
 				if resp.StatusCode >= 500 {
 					checks["hafas"] = "error"

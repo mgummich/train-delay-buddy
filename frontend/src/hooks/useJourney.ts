@@ -1,9 +1,9 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { apiClient } from '@/api/client'
+import { apiClient, apiError } from '@/api/client'
 import { queryKeys } from '@/lib/queryClient'
 import { saveJourney } from '@/lib/indexeddb'
 import { useJourneyStore } from '@/store/journeyStore'
-import type { JourneySummary } from '@/api/validation'
+import { journeySummarySchema, safeParse, type JourneySummary } from '@/api/validation'
 
 type NetworkInformation = { saveData?: boolean; effectiveType?: string }
 
@@ -29,7 +29,7 @@ async function fetchSummary(journeyId: string, etag: string | null) {
     headers,
   })
 
-  if (!response.ok && response.status !== 304) throw error ?? new Error(`HTTP ${response.status}`)
+  if (!response.ok && response.status !== 304) throw apiError(response, error)
 
   if (response.status === 304) return null
 
@@ -71,7 +71,7 @@ export function useJourney(journeyId: string, currentEtag?: string | null) {
         savedAt: new Date().toISOString(),
       })
 
-      return data as JourneySummary
+      return safeParse(journeySummarySchema, data)
     },
     refetchInterval: (query) => {
       const d = query.state.data

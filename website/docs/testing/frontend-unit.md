@@ -17,8 +17,9 @@ npm run test
 
 - **Hooks** (`src/hooks/*.test.tsx`) — each TanStack Query hook in isolation: cache key, refetch policy, error mapping, optimistic updates.
 - **Screens** (`src/screens/*.test.tsx`) — full mount via shared `render()`, asserts user-visible output.
-- **Lib** (`src/lib/*.test.ts`) — pure functions: datetime, install ID, IndexedDB, query client.
-- **Validation** (`src/api/validation.test.ts`) — Zod against compliant + adversarial inputs.
+- **Lib** (`src/lib/*.test.ts`) — pure functions: datetime, install ID, IndexedDB, query client. `queryClient.test.ts` pulls `retry` / `retryDelay` straight off `getDefaultOptions()` and asserts the policy per branch (4xx skip, 429 retry, `Retry-After` curve, 30s vs 300s caps) — no network needed.
+- **API client** (`src/api/client.test.ts`) — `apiError` status/`Retry-After` stamping, including the HTTP-date form that must not become `NaN`.
+- **Validation** (`src/api/validation.test.ts`) — Zod against compliant + adversarial inputs; asserts `safeParse` never throws.
 
 ## Conventions
 

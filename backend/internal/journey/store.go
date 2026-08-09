@@ -59,10 +59,10 @@ func newCacheEntry(j *Journey) journeyCacheEntry {
 
 func (e journeyCacheEntry) toJourney() *Journey {
 	j := e.Journey
-	j.InstallID    = e.CacheInstallID
-	j.ETagEpoch    = e.CacheETagEpoch
-	j.ETagCounter  = e.CacheETagCounter
-	j.CreatedAt    = e.CacheCreatedAt
+	j.InstallID = e.CacheInstallID
+	j.ETagEpoch = e.CacheETagEpoch
+	j.ETagCounter = e.CacheETagCounter
+	j.CreatedAt = e.CacheCreatedAt
 	j.TerminatedAt = e.CacheTerminatedAt
 	j.LastPolledAt = e.CacheLastPolledAt
 	return &j

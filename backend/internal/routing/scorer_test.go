@@ -63,8 +63,8 @@ func TestFilterBetterThan_OnlyKeepsFasterETAs(t *testing.T) {
 	reference := base
 	journeys := []journey.Journey{
 		makeJourney(base.Add(-30*time.Minute), nil), // 30 min faster — keep
-		makeJourney(base, nil),                       // same ETA — discard
-		makeJourney(base.Add(10*time.Minute), nil),   // slower — discard
+		makeJourney(base, nil),                      // same ETA — discard
+		makeJourney(base.Add(10*time.Minute), nil),  // slower — discard
 	}
 	filtered := routing.FilterBetterThan(journeys, reference)
 	if len(filtered) != 1 {

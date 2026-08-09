@@ -71,7 +71,7 @@ HSTS intentionally omitted from Nginx — set at TLS terminator (Caddy/Traefik/C
 
 All prod containers:
 
-- **Non-root** — backend UID 10001 (`app`), nginx non-root.
+- **Non-root** — backend UID 10001 (`app`), postgres UID 70, valkey UID 999, nginx non-root. Pinning postgres to UID 70 skips the image entrypoint's root phase, so it needs no capabilities at all.
 - **`cap_drop: ALL`** — no capabilities unless re-added.
 - **`no-new-privileges: true`** — blocks setuid escalation.
 - **`read_only: true`** on backend — root fs read-only; `/tmp` is tmpfs.

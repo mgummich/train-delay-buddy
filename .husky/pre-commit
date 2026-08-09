@@ -1,1 +1,25 @@
-cd frontend && npx lint-staged
+staged=$(git diff --cached --name-only --diff-filter=ACM)
+
+if echo "$staged" | grep -q '^frontend/'; then
+  (cd frontend && npx lint-staged) || exit 1
+fi
+
+# Pipes the staged blob (`git show :path`) into gofmt rather than checking the
+# worktree file, so a partial `git add -p` is judged on what is actually being
+# committed. gofmt is also gated in CI against the merged tree; this is just
+# fast local feedback.
+# ponytail: newline-separated paths — filenames with spaces or newlines would
+# split wrong. Switch to `-z` with a bash `read -d ''` loop if that ever occurs.
+unformatted=""
+for file in $(echo "$staged" | grep '^backend/.*\.go$' || true); do
+  if [ -n "$(git show ":$file" | gofmt -l)" ]; then
+    unformatted="$unformatted  $file
+"
+  fi
+done
+
+if [ -n "$unformatted" ]; then
+  echo "gofmt required for:" >&2
+  printf '%s' "$unformatted" >&2
+  exit 1
+fi

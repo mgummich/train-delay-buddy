@@ -32,9 +32,9 @@ func (f *fakeStore) UpdateState(context.Context, *journey.Journey, journey.Summa
 func (f *fakeStore) UpdateAlternatives(context.Context, string, []journey.Alternative) error {
 	return nil
 }
-func (f *fakeStore) Terminate(context.Context, string) error                       { return nil }
-func (f *fakeStore) GetActive(context.Context, int) ([]journey.Journey, error)     { return nil, nil }
-func (f *fakeStore) CountActive(context.Context) (int, error)                      { return 0, nil }
+func (f *fakeStore) Terminate(context.Context, string) error                   { return nil }
+func (f *fakeStore) GetActive(context.Context, int) ([]journey.Journey, error) { return nil, nil }
+func (f *fakeStore) CountActive(context.Context) (int, error)                  { return 0, nil }
 func (f *fakeStore) GetIdempotency(context.Context, string) (*journey.IdempotencyEntry, error) {
 	return nil, nil
 }

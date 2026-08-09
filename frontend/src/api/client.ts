@@ -33,6 +33,24 @@ apiClient.use({
 })
 
 /**
+ * Normalises an openapi-fetch failure into a throwable carrying `status` and
+ * `retryAfter` — the two fields the queryClient retry policy reads.
+ *
+ * The parsed Problem body alone is not enough on either axis: a non-JSON
+ * upstream error (nginx 502/504 HTML) leaves `error` undefined, and the
+ * `Retry-After` header is lost once the body has been parsed off the Response.
+ */
+export function apiError(response: Response, error?: unknown): unknown {
+  // Two named fields assigned explicitly, not Object.assign with a spread of the
+  // response — semgrep flags the latter as mass assignment, and the narrow form
+  // is what we want anyway: nothing attacker-controlled reaches the throwable.
+  const thrown = (error ?? new Error(`HTTP ${response.status}`)) as Record<string, unknown>
+  thrown.status = response.status
+  thrown.retryAfter = Number(response.headers.get('Retry-After')) || undefined
+  return thrown
+}
+
+/**
  * DELETE /v1/journeys/{id} returns 404 on second call by design (non-idempotent).
  * Callers should treat 404 on DELETE as a no-op, not an error.
  */

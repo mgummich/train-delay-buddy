@@ -181,8 +181,8 @@ func TestSearchTripByLineName_PartialHubFailure(t *testing.T) {
 			}
 			json.NewEncoder(w).Encode(hafas.HAFASDeparturesResponse{
 				Departures: []hafas.HAFASDeparture{{
-					TripId: "trip-x",
-					Line:   &hafas.HAFASLine{Name: "ICE 999"}, // not the train we look for
+					TripId:      "trip-x",
+					Line:        &hafas.HAFASLine{Name: "ICE 999"}, // not the train we look for
 					PlannedWhen: &dep,
 				}},
 			})
@@ -260,8 +260,8 @@ func TestSearchTripByLineName_SlowResponseCompletes(t *testing.T) {
 			time.Sleep(50 * time.Millisecond)
 			json.NewEncoder(w).Encode(hafas.HAFASDeparturesResponse{
 				Departures: []hafas.HAFASDeparture{{
-					TripId: "trip-1",
-					Line:   &hafas.HAFASLine{Name: "ICE 100"},
+					TripId:      "trip-1",
+					Line:        &hafas.HAFASLine{Name: "ICE 100"},
 					PlannedWhen: &dep,
 				}},
 			})

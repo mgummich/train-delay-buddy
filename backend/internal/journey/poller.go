@@ -91,17 +91,17 @@ func ApplyTripUpdates(legs []Leg, updates map[string]TripUpdate) ([]Leg, bool) {
 
 // PollerManager manages one goroutine per active journey plus the shared worker pool.
 type PollerManager struct {
-	ctx          context.Context
-	store        Store
-	fetchUpdates FetchTripUpdatesFn
+	ctx           context.Context
+	store         Store
+	fetchUpdates  FetchTripUpdatesFn
 	recomputeAlts RecomputeAlternativesFn
-	circuitState CircuitStateFn
-	pool         *WorkerPool
-	interval     time.Duration
-	ttlHours     int
-	logger       *slog.Logger
-	mu           sync.Mutex
-	cancels      map[string]context.CancelFunc
+	circuitState  CircuitStateFn
+	pool          *WorkerPool
+	interval      time.Duration
+	ttlHours      int
+	logger        *slog.Logger
+	mu            sync.Mutex
+	cancels       map[string]context.CancelFunc
 }
 
 // NewPollerManager creates a PollerManager. ctx should be the server lifetime context.
