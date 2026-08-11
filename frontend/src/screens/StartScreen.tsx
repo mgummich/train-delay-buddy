@@ -21,7 +21,7 @@ const schema = z.object({
       id: z.string(),
       name: z.string(),
     },
-    { required_error: 'Zielbahnhof wählen' }
+    { error: 'Zielbahnhof wählen' }
   ),
   onTrain: z.boolean(),
 })
