@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1
 
 # ─── dev stage ─────────────────────────────────────────────────────────────────
-FROM node:26.5.1-alpine AS dev
+FROM node:26.7.0-alpine AS dev
 WORKDIR /app
 RUN chown -R node:node /app
 USER node
@@ -12,7 +12,7 @@ EXPOSE 5173
 CMD ["npm", "run", "dev", "--", "--host", "0.0.0.0"]
 
 # ─── builder stage ─────────────────────────────────────────────────────────────
-FROM node:26.5.1-alpine AS builder
+FROM node:26.7.0-alpine AS builder
 WORKDIR /app
 RUN chown -R node:node /app
 USER node
