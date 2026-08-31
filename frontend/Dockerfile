@@ -22,7 +22,7 @@ COPY --chown=node:node . .
 RUN npm run build
 
 # ─── prod stage ────────────────────────────────────────────────────────────────
-FROM nginx:1.31.3-alpine AS prod
+FROM nginx:1.31.4-alpine AS prod
 LABEL org.opencontainers.image.title="verspaetungs-begleiter-frontend" \
       org.opencontainers.image.source="https://github.com/mgummich/train-delay-buddy" \
       org.opencontainers.image.licenses="MIT"
