@@ -60,6 +60,11 @@ jobs:
           python3 -c "c=float('${COVERAGE}'); exit(0 if c >= 55 else (print(f'Coverage {c:.1f}% is below 55% threshold') or 1))"
 
       - name: govulncheck
+        env:
+          # setup-go pins GOTOOLCHAIN=local, which would scan against go.mod's
+          # minimum Go version. That lags the security patch releases, so scan
+          # with the newest toolchain instead.
+          GOTOOLCHAIN: latest
         run: |
           go install golang.org/x/vuln/cmd/govulncheck@v1.7.0
           govulncheck ./...
