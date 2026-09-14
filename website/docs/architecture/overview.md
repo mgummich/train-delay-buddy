@@ -1,7 +1,5 @@
 ---
-id: overview
 title: Architecture overview
-sidebar_position: 1
 ---
 
 # Architecture overview
@@ -72,4 +70,4 @@ Backend: strict `internal/api` → `internal/journey` → `internal/hafas`. Lowe
 
 Frontend mirrors via folder convention: `screens/` → `hooks/` → `api/`+`lib/`. Never reverse.
 
-Continue with [Backend deep-dive](./backend), [Frontend deep-dive](./frontend), or [Data flow](./data-flow).
+Continue with [Backend deep-dive](./backend.md), [Frontend deep-dive](./frontend.md), or [Data flow](./data-flow.md).

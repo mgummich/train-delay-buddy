@@ -1,7 +1,5 @@
 ---
-id: local-development
 title: Local development (no Docker)
-sidebar_position: 3
 ---
 
 # Local development — without Docker
@@ -35,9 +33,9 @@ go run ./cmd/server
 
 Migrations apply on every start. No separate `migrate up`.
 
-:::tip Hot reload with `air`
-Install [`air`](https://github.com/cosmtrek/air), drop `.air.toml` in `backend/`. Watches `.go`, rebuilds on save.
-:::
+!!! tip "Hot reload with `air`"
+
+    Install [`air`](https://github.com/cosmtrek/air), drop `.air.toml` in `backend/`. Watches `.go`, rebuilds on save.
 
 ### IDE debugging
 
@@ -89,7 +87,7 @@ curl -i http://localhost:5173/health
 # HTTP/1.1 200 OK
 ```
 
-`/readyz` `degraded`/`down` → [Troubleshooting](../troubleshooting).
+`/readyz` `degraded`/`down` → [Troubleshooting](../troubleshooting.md).
 
 ## Pitfalls
 

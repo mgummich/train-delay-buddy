@@ -1,7 +1,5 @@
 ---
-id: data-flow
 title: Data flow
-sidebar_position: 4
 ---
 
 # Data flow

@@ -1,7 +1,5 @@
 ---
-id: health-checks
 title: Health checks
-sidebar_position: 3
 ---
 
 # Health checks

@@ -1,7 +1,5 @@
 ---
-id: backend
 title: Backend internals
-sidebar_position: 2
 ---
 
 # Backend internals
@@ -156,12 +154,12 @@ CREATE INDEX journeys_active_idx
   WHERE terminated_at IS NULL;
 ```
 
-Full schema + indexes + access tips: [Database](../database).
+Full schema + indexes + access tips: [Database](../database.md).
 
 ## Observability
 
 - **Logs:** JSON via `slog`. Per-request: `request_id`, `method`, `path`, `status`, `duration_ms`, error keys.
-- **Metrics:** Prometheus collectors at package init — see [Operations → Monitoring](../operations/monitoring).
+- **Metrics:** Prometheus collectors at package init — see [Operations → Monitoring](../operations/monitoring.md).
 - **Tracing:** not wired. `context.Context` everywhere + `request_id` propagation make OpenTelemetry additive.
 
 ## Graceful shutdown

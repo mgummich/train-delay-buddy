@@ -1,7 +1,5 @@
 ---
-id: codegen
 title: Codegen — OpenAPI → TypeScript
-sidebar_position: 3
 ---
 
 # Codegen — OpenAPI → TypeScript
@@ -53,9 +51,9 @@ git add ../backend/openapi.yaml src/api/types.gen.ts
 git commit -m "feat(api): add Idempotency-Key support to POST /v1/journeys"
 ```
 
-:::warning Lockstep
-Always commit `openapi.yaml` + `types.gen.ts` in the same commit. Splitting produces a broken-build window on bisect.
-:::
+!!! warning "Lockstep"
+
+    Always commit `openapi.yaml` + `types.gen.ts` in the same commit. Splitting produces a broken-build window on bisect.
 
 ## CI enforcement
 

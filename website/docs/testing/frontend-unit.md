@@ -1,7 +1,5 @@
 ---
-id: frontend-unit
 title: Frontend unit tests
-sidebar_position: 3
 ---
 
 # Frontend unit tests

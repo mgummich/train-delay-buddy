@@ -1,7 +1,5 @@
 ---
-id: workflow
 title: Development workflow
-sidebar_position: 1
 ---
 
 # Development workflow
@@ -44,7 +42,7 @@ cd backend && go run ./cmd/server
 ### Backend
 
 - Touching public API? **Edit `backend/openapi.yaml` first**, then `cd frontend && npm run codegen`, then handler. Forces spec/types/code agreement upfront.
-- Adding config? **Add env var to `internal/config/config.go`**, default + document in [environment-variables](../configuration/environment-variables).
+- Adding config? **Add env var to `internal/config/config.go`**, default + document in [environment-variables](../configuration/environment-variables.md).
 - Touching hot path? **Write benchmark in `*_bench_test.go` first** — see `internal/journey/poller_test.go`.
 
 ### Frontend

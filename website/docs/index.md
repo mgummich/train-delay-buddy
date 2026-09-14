@@ -1,8 +1,5 @@
 ---
-id: intro
 title: Introduction
-slug: /
-sidebar_position: 1
 ---
 
 # Verspätungs-Begleiter
@@ -11,9 +8,9 @@ sidebar_position: 1
 
 Enter current train + destination station. Backend monitors the connection by polling HAFAS every 30 s. As delays emerge, a BFS routing engine surfaces ranked alternatives that arrive earlier — with transfer buffer, risk badges, confidence indicators.
 
-:::info Not affiliated with Deutsche Bahn
-Uses a self-hosted [`db-vendo-client`](https://github.com/public-transport/db-vendo-client) HAFAS sidecar bundled in Docker Compose. No external API key required.
-:::
+!!! info "Not affiliated with Deutsche Bahn"
+
+    Uses a self-hosted [`db-vendo-client`](https://github.com/public-transport/db-vendo-client) HAFAS sidecar bundled in Docker Compose. No external API key required.
 
 ## What this site covers
 
@@ -33,12 +30,12 @@ Single source of truth for the project:
 ## Screenshots
 
 <div className="screenshot-grid">
-  <figure><img src="/img/screenshots/1-start.png" alt="Start screen" /><figcaption>Start screen</figcaption></figure>
-  <figure><img src="/img/screenshots/2-alternativen.png" alt="Alternatives list" /><figcaption>Alternatives</figcaption></figure>
-  <figure><img src="/img/screenshots/3-reisebegleiter-timeline.png" alt="Companion timeline" /><figcaption>Companion timeline</figcaption></figure>
-  <figure><img src="/img/screenshots/5-filter-sheet.png" alt="Filter sheet" /><figcaption>Filter sheet</figcaption></figure>
-  <figure><img src="/img/screenshots/9-leer-zustand.png" alt="Empty state" /><figcaption>Empty state</figcaption></figure>
-  <figure><img src="/img/screenshots/10-darkmode-beispiel.png" alt="Dark mode example" /><figcaption>Dark mode</figcaption></figure>
+  <figure><img src="img/screenshots/1-start.png" alt="Start screen" /><figcaption>Start screen</figcaption></figure>
+  <figure><img src="img/screenshots/2-alternativen.png" alt="Alternatives list" /><figcaption>Alternatives</figcaption></figure>
+  <figure><img src="img/screenshots/3-reisebegleiter-timeline.png" alt="Companion timeline" /><figcaption>Companion timeline</figcaption></figure>
+  <figure><img src="img/screenshots/5-filter-sheet.png" alt="Filter sheet" /><figcaption>Filter sheet</figcaption></figure>
+  <figure><img src="img/screenshots/9-leer-zustand.png" alt="Empty state" /><figcaption>Empty state</figcaption></figure>
+  <figure><img src="img/screenshots/10-darkmode-beispiel.png" alt="Dark mode example" /><figcaption>Dark mode</figcaption></figure>
 </div>
 
 ## Stack
@@ -63,4 +60,4 @@ Single source of truth for the project:
 5. `summary.alternativeAvailable === true` → UI loads `/alternatives` and surfaces ranked list.
 6. Tap alternative → poller switches. Tap "complete journey" → `DELETE /v1/journeys/{id}` stops poller.
 
-Continue: [Quick start](./getting-started/quick-start-docker).
+Continue: [Quick start](./getting-started/quick-start-docker.md).

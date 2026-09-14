@@ -1,7 +1,5 @@
 ---
-id: caching
 title: Caching strategy
-sidebar_position: 5
 ---
 
 # Caching strategy

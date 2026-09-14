@@ -1,7 +1,5 @@
 ---
-id: scripts
 title: Scripts reference
-sidebar_position: 2
 ---
 
 # Scripts reference
@@ -26,18 +24,18 @@ Every npm + Go command, by goal.
 | `npm run codegen:check` | Verify generated types vs. spec (CI uses) |
 | `npm run size-limit` | Check bundle vs. configured limits |
 
-:::danger Use build mode — `tsc --noEmit` checks nothing here
-`frontend/tsconfig.json` is a solution-style config: `"files": []` plus `references` to `tsconfig.app.json` and `tsconfig.node.json`. **Non-build mode does not follow project references.** So `tsc --noEmit` resolves the root config, finds zero files, and exits 0 no matter what the code says:
+!!! danger "Use build mode — `tsc --noEmit` checks nothing here"
 
-```
-tsc --noEmit --listFiles | grep -c src/    →  0
-tsc -b --force --listFiles | grep -c src/  →  84
-```
+    `frontend/tsconfig.json` is a solution-style config: `"files": []` plus `references` to `tsconfig.app.json` and `tsconfig.node.json`. **Non-build mode does not follow project references.** So `tsc --noEmit` resolves the root config, finds zero files, and exits 0 no matter what the code says:
 
-`typecheck` was `tsc --noEmit` and therefore could never fail — a type error reached CI green and was caught only by `npm run build` in the `e2e` job. It is now `tsc -b --force`, the same check `build` performs, minus the Vite bundling step. `--force` skips the `.tsbuildinfo` cache so CI always checks the real tree.
+    ```
+    tsc --noEmit --listFiles | grep -c src/    →  0
+    tsc -b --force --listFiles | grep -c src/  →  84
+    ```
 
-If you add a project reference, the same trap applies to any new script: reach for `tsc -b`, not `tsc --noEmit`. `tests/e2e` and `website` use plain `include`-based configs with no references, so `tsc --noEmit` is correct there.
-:::
+    `typecheck` was `tsc --noEmit` and therefore could never fail — a type error reached CI green and was caught only by `npm run build` in the `e2e` job. It is now `tsc -b --force`, the same check `build` performs, minus the Vite bundling step. `--force` skips the `.tsbuildinfo` cache so CI always checks the real tree.
+
+    If you add a project reference, the same trap applies to any new script: reach for `tsc -b`, not `tsc --noEmit`. `tests/e2e` and `website` use plain `include`-based configs with no references, so `tsc --noEmit` is correct there.
 
 ## Backend (`cd backend`)
 

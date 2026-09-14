@@ -1,5 +1,4 @@
 ---
-id: contributing
 title: Contributing
 ---
 
@@ -40,8 +39,8 @@ Out of scope (for now):
 ## Pull request
 
 1. Fork, clone, branch from `master`.
-2. Make change. Follow [Development → Workflow](./development/workflow).
-3. Run CI checks locally (bottom of [CI/CD](./operations/ci-cd)).
+2. Make change. Follow [Development → Workflow](./development/workflow.md).
+3. Run CI checks locally (bottom of [CI/CD](./operations/ci-cd.md)).
 4. Open PR — clear title + body explaining *why*. Screenshots for UI.
 5. Be patient on review; nudge after a week.
 
@@ -57,7 +56,7 @@ Out of scope (for now):
 
 ## Style
 
-See [Development → Workflow](./development/workflow#code-style) for Go, TS, SQL conventions.
+See [Development → Workflow](./development/workflow.md#code-style) for Go, TS, SQL conventions.
 
 ## Licensing
 
