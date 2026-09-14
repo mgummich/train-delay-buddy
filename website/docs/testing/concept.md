@@ -1,7 +1,5 @@
 ---
-id: concept
 title: Test Concept
-sidebar_position: 1
 ---
 
 # Test Concept — Verspätungsbegleiter

@@ -1,7 +1,5 @@
 ---
-id: end-to-end
 title: End-to-end tests
-sidebar_position: 4
 ---
 
 # End-to-end tests

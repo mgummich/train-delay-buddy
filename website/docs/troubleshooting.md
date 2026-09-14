@@ -1,5 +1,4 @@
 ---
-id: troubleshooting
 title: Troubleshooting
 ---
 
@@ -30,7 +29,7 @@ docker compose up -d
 Compose logs show the failing file. Migrations run in transactions — no partial state.
 
 - **Bad new migration:** edit, save, restart.
-- **Conflicts existing data:** manually patch. See [Database → Migrations](./database#migrations).
+- **Conflicts existing data:** manually patch. See [Database → Migrations](./database.md#migrations).
 
 ### Backend exits: "dial tcp: connect: connection refused"
 
@@ -164,7 +163,7 @@ git commit -m "chore(api): sync generated TypeScript types"
 
 ### `tsc` fails after a backend OpenAPI change
 
-Expected — generated types changed, call sites haven't. Errors point to moved fields. See [Codegen](./development/codegen).
+Expected — generated types changed, call sites haven't. Errors point to moved fields. See [Codegen](./development/codegen.md).
 
 ### `docker compose build` fails on `RUN npm ci`
 

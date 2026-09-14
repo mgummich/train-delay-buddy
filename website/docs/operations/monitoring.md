@@ -1,7 +1,5 @@
 ---
-id: monitoring
 title: Monitoring and metrics
-sidebar_position: 2
 ---
 
 # Monitoring and metrics
@@ -12,9 +10,9 @@ Backend exposes Prometheus metrics at `GET /metrics` (standard text format).
 curl http://localhost:8080/metrics | head -40
 ```
 
-:::info `/metrics` is private
-Production Nginx blocks `/metrics` (`deny all`). Scrape on an internal network — directly against backend `:8080`.
-:::
+!!! info "`/metrics` is private"
+
+    Production Nginx blocks `/metrics` (`deny all`). Scrape on an internal network — directly against backend `:8080`.
 
 ## Scrape config
 

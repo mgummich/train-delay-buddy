@@ -1,0 +1,100 @@
+site_name: Verspätungs-Begleiter
+site_description: Real-time alternative routing for Deutsche Bahn journeys
+site_url: https://mgummich.github.io/train-delay-buddy/
+repo_url: https://github.com/mgummich/train-delay-buddy
+edit_uri: edit/master/website/docs/
+copyright: 'Copyright © 2026 Verspätungs-Begleiter. Not affiliated with Deutsche Bahn.'
+
+theme:
+  name: material
+  logo: img/logo.svg
+  favicon: img/logo.svg
+  palette:
+    - media: "(prefers-color-scheme)"
+      toggle:
+        icon: material/brightness-auto
+        name: Switch to light mode
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      toggle:
+        icon: material/brightness-4
+        name: Switch to system preference
+  features:
+    - navigation.sections
+    - navigation.top
+    - navigation.instant
+    - content.code.copy
+    - content.action.edit
+    - toc.follow
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - md_in_html
+  - tables
+  - toc:
+      permalink: true
+      toc_depth: "2-4"
+  - pymdownx.details
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+  - pymdownx.tabbed:
+      alternate_style: true
+
+plugins:
+  - search
+
+hooks:
+  - hooks/copy_screenshots.py
+
+nav:
+  - Introduction: index.md
+  - Getting Started:
+      - getting-started/prerequisites.md
+      - getting-started/quick-start-docker.md
+      - getting-started/local-development.md
+  - Usage:
+      - usage/app-walkthrough.md
+      - usage/pwa-installation.md
+  - Architecture:
+      - architecture/overview.md
+      - architecture/backend.md
+      - architecture/frontend.md
+      - architecture/data-flow.md
+      - architecture/caching.md
+  - Configuration:
+      - configuration/environment-variables.md
+      - configuration/docker-compose.md
+  - API:
+      - api/reference.md
+      - api/conventions.md
+  - Database: database.md
+  - Development:
+      - development/workflow.md
+      - development/scripts.md
+      - development/codegen.md
+  - Testing:
+      - testing/concept.md
+      - testing/backend-unit.md
+      - testing/frontend-unit.md
+      - testing/end-to-end.md
+  - Operations:
+      - operations/deployment.md
+      - operations/monitoring.md
+      - operations/health-checks.md
+      - operations/ci-cd.md
+  - Security: security.md
+  - Troubleshooting: troubleshooting.md
+  - Contributing: contributing.md

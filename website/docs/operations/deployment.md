@@ -1,7 +1,5 @@
 ---
-id: deployment
 title: Production deployment
-sidebar_position: 1
 ---
 
 # Production deployment
@@ -28,8 +26,8 @@ docker compose -f docker-compose.yml up -d
 - [ ] **`LOG_LEVEL=WARN`** in steady state.
 - [ ] **TLS terminator** in front of Nginx (Caddy/Traefik/Cloud LB). App does not do TLS.
 - [ ] **Persistent volume** for `postgres_data` on durable storage.
-- [ ] **Backups** scheduled + tested ([Database → Backups](../database#backups)).
-- [ ] **Monitoring** scrapes `/metrics` on internal network + alerts on SLOs ([Monitoring](./monitoring)).
+- [ ] **Backups** scheduled + tested ([Database → Backups](../database.md#backups)).
+- [ ] **Monitoring** scrapes `/metrics` on internal network + alerts on SLOs ([Monitoring](./monitoring.md)).
 - [ ] **LB readiness probe** → `/readyz`, not `/health`.
 
 ## TLS via Caddy

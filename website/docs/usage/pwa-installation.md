@@ -1,7 +1,5 @@
 ---
-id: pwa-installation
 title: PWA installation
-sidebar_position: 2
 ---
 
 # PWA installation

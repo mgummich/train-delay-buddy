@@ -86,7 +86,7 @@ verspaetungs-begleiter/
 ├── frontend/        # React 19 + Vite SPA / PWA
 ├── tests/e2e/       # Playwright suites
 ├── nginx/           # Reverse proxy + security headers + SPA fallback
-├── website/         # Docusaurus documentation site
+├── website/         # MkDocs Material documentation site
 ├── docs/            # Specs
 └── docker-compose.{yml,override.yml}
 ```
@@ -107,7 +107,7 @@ Full list → [CI/CD](https://mgummich.github.io/train-delay-buddy/operations/ci
 
 ## Documentation
 
-The Docusaurus site at [mgummich.github.io/train-delay-buddy](https://mgummich.github.io/train-delay-buddy/) is the single source of truth for:
+The MkDocs Material site at [mgummich.github.io/train-delay-buddy](https://mgummich.github.io/train-delay-buddy/) is the single source of truth for:
 
 - [Getting started](https://mgummich.github.io/train-delay-buddy/getting-started/quick-start-docker) — Docker quick-start, local dev, prerequisites
 - [Architecture](https://mgummich.github.io/train-delay-buddy/architecture/overview) — backend, frontend, data flow, caching
@@ -122,7 +122,8 @@ The Docusaurus site at [mgummich.github.io/train-delay-buddy](https://mgummich.g
 Build the docs locally:
 
 ```bash
-cd website && npm ci && npm run start
+pip install -r website/requirements.txt
+mkdocs serve -f website/mkdocs.yml
 ```
 
 ## License

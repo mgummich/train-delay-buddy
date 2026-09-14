@@ -1,7 +1,5 @@
 ---
-id: frontend
 title: Frontend internals
-sidebar_position: 3
 ---
 
 # Frontend internals
@@ -120,7 +118,7 @@ Every hook throws through `apiError(response, error)` in `src/api/client.ts`, wh
 | Error | Retry? | Delay |
 |-------|--------|-------|
 | 4xx except 429 | No | — |
-| 429 with `Retry-After` | Yes, ≤ 3× | `min(Retry-After × 2ⁿ, 300s)` — per [`openapi.yaml`](../api/reference) |
+| 429 with `Retry-After` | Yes, ≤ 3× | `min(Retry-After × 2ⁿ, 300s)` — per [`openapi.yaml`](../api/reference.md) |
 | 5xx, network, unknown | Yes, ≤ 3× | `min(1s × 2ⁿ, 30s)` |
 
 The backend rate limiter sends `Retry-After: 30`, so a throttled client backs off 30s / 60s / 120s. Honouring the header is a contract, not an optimisation: ignoring it means three retries inside 7 seconds against a limiter that asked for 30.
@@ -145,7 +143,7 @@ Bundled: `de` (default), `en` (fallback). `src/i18n/de.json` working copy. Keys 
 
 - `registerType: "autoUpdate"` — Workbox updates SW on new build.
 - Pre-cache: `index.html`, hashed JS/CSS/fonts, all icons.
-- Runtime cache: see [PWA installation](../usage/pwa-installation).
+- Runtime cache: see [PWA installation](../usage/pwa-installation.md).
 
 ## Build
 
@@ -165,5 +163,5 @@ npm run build
 
 ## Testing surface
 
-- **Unit:** Vitest + jsdom + MSW. See [Testing → Frontend unit](../testing/frontend-unit).
-- **E2E:** Playwright against full stack. See [Testing → End-to-end](../testing/end-to-end).
+- **Unit:** Vitest + jsdom + MSW. See [Testing → Frontend unit](../testing/frontend-unit.md).
+- **E2E:** Playwright against full stack. See [Testing → End-to-end](../testing/end-to-end.md).

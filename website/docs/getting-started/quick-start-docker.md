@@ -1,7 +1,5 @@
 ---
-id: quick-start-docker
 title: Quick start — Docker Compose
-sidebar_position: 2
 ---
 
 # Quick start — Docker Compose
@@ -16,15 +14,15 @@ cd verspaetungs-begleiter
 cp .env.example .env
 ```
 
-:::caution Set Postgres password
-`POSTGRES_PASSWORD` is required (Compose refuses to start without it). Edit `.env`:
+!!! warning "Set Postgres password"
 
-```bash
-POSTGRES_PASSWORD=change-me-locally
-```
+    `POSTGRES_PASSWORD` is required (Compose refuses to start without it). Edit `.env`:
 
-Production: strong random. Never reuse `vbb/vbb`.
-:::
+    ```bash
+    POSTGRES_PASSWORD=change-me-locally
+    ```
+
+    Production: strong random. Never reuse `vbb/vbb`.
 
 ## 2. Build + start
 
@@ -97,6 +95,6 @@ Two Compose files merged:
 1. **`docker-compose.yml`** — prod: hardened (non-root, `cap_drop: ALL`, `no-new-privileges`, read-only root fs on backend), no exposed DB ports, log rotation, resource limits, named volumes.
 2. **`docker-compose.override.yml`** — dev overlay: opens `5173`/`5432`/`8080` on `127.0.0.1`; mounts `./backend` + `./frontend`; switches build targets to `dev`.
 
-`docker compose up -d` without `-f` auto-merges. See [Configuration → Docker Compose](../configuration/docker-compose) for layering rules.
+`docker compose up -d` without `-f` auto-merges. See [Configuration → Docker Compose](../configuration/docker-compose.md) for layering rules.
 
-Next: [App walkthrough](../usage/app-walkthrough), or [Local development without Docker](./local-development) for IDE debugging.
+Next: [App walkthrough](../usage/app-walkthrough.md), or [Local development without Docker](./local-development.md) for IDE debugging.

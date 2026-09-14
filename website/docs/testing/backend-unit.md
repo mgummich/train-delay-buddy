@@ -1,7 +1,5 @@
 ---
-id: backend-unit
 title: Backend unit tests
-sidebar_position: 2
 ---
 
 # Backend unit tests

@@ -1,7 +1,5 @@
 ---
-id: docker-compose
 title: Docker Compose layout
-sidebar_position: 2
 ---
 
 # Docker Compose layout
@@ -75,11 +73,11 @@ flowchart LR
 - `user: "70:70"` — the Alpine `postgres` user. Starting as that UID directly skips the image entrypoint's root phase, which is what makes `cap_drop: ALL` viable (the root phase needs `CHOWN`/`SETUID`/`SETGID`).
 - Healthcheck: `pg_isready`. Limits: 256 MB / 0.5 CPU.
 
-:::warning Keep `postgres_data` a named volume
-`user: "70:70"` works because both volume cases end up owned by UID 70: an existing volume was initialised by the root entrypoint, and a fresh *named* volume is seeded from the image, where the data dir is already UID 70.
+!!! warning "Keep `postgres_data` a named volume"
 
-A **host bind mount** is not seeded — it starts owned by the host user, and `initdb` fails because Postgres cannot write it. If you must bind-mount, `chown 70:70` the target first.
-:::
+    `user: "70:70"` works because both volume cases end up owned by UID 70: an existing volume was initialised by the root entrypoint, and a fresh *named* volume is seeded from the image, where the data dir is already UID 70.
+
+    A **host bind mount** is not seeded — it starts owned by the host user, and `initdb` fails because Postgres cannot write it. If you must bind-mount, `chown 70:70` the target first.
 
 ### valkey — hot cache
 

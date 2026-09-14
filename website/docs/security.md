@@ -1,5 +1,4 @@
 ---
-id: security
 title: Security
 ---
 
@@ -77,7 +76,7 @@ All prod containers:
 - **`read_only: true`** on backend — root fs read-only; `/tmp` is tmpfs.
 - **Pinned tags** — `nginx:1.31.1-alpine` (in frontend image), `valkey/valkey:9.1.0-alpine3.23`, `postgres:18.4-alpine3.23`. Not digests, but avoids floating `latest`.
 
-Full table: [Docker Compose layout → Security posture](./configuration/docker-compose#security-posture-production).
+Full table: [Docker Compose layout → Security posture](./configuration/docker-compose.md#security-posture-production).
 
 ## SAST in CI
 

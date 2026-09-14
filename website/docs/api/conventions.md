@@ -1,7 +1,5 @@
 ---
-id: conventions
 title: API conventions
-sidebar_position: 2
 ---
 
 # API conventions
@@ -24,9 +22,9 @@ Mismatch or missing header → **404 Not Found** (never 403) — avoids leaking 
 
 `JourneyOwnership` middleware (`internal/api/middleware/ownership.go`) runs before any handler + attaches verified journey to context so handlers skip a second store read.
 
-:::info Why 404 not 403?
-403 would confirm the ID exists. Unconditional 404 prevents IDOR enumeration.
-:::
+!!! info "Why 404 not 403?"
+
+    403 would confirm the ID exists. Unconditional 404 prevents IDOR enumeration.
 
 ## Idempotency
 

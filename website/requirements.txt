@@ -1,0 +1,3 @@
+# mkdocs 2.0 drops plugin system, breaks this site
+mkdocs-material==9.7.7
+mkdocs<2
