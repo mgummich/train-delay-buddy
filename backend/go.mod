@@ -1,6 +1,6 @@
 module github.com/verspaetungsbegleiter/backend
 
-go 1.25.14
+go 1.26.0
 
 require (
 	github.com/getkin/kin-openapi v0.149.0
@@ -9,7 +9,7 @@ require (
 	github.com/prometheus/client_golang v1.24.1
 	github.com/redis/go-redis/v9 v9.22.0
 	golang.org/x/sync v0.22.0
-	golang.org/x/time v0.15.0
+	golang.org/x/time v0.16.0
 )
 
 require (
