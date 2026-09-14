@@ -1,6 +1,6 @@
 module github.com/verspaetungsbegleiter/backend
 
-go 1.25.12
+go 1.25.14
 
 require (
 	github.com/getkin/kin-openapi v0.145.0
