@@ -59,12 +59,15 @@ jobs:
           COVERAGE=$(go tool cover -func=coverage.out | tail -1 | awk '{print $NF}' | tr -d '%')
           python3 -c "c=float('${COVERAGE}'); exit(0 if c >= 55 else (print(f'Coverage {c:.1f}% is below 55% threshold') or 1))"
 
+      # Build and test run on go.mod's minimum Go version, but that minimum
+      # trails Go's security patch releases. Scan on the newest stable Go so
+      # govulncheck does not report stdlib issues that are already fixed.
+      - name: Set up latest Go for scanning
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: stable
+
       - name: govulncheck
-        env:
-          # setup-go pins GOTOOLCHAIN=local, which would scan against go.mod's
-          # minimum Go version. That lags the security patch releases, so scan
-          # with the newest toolchain instead.
-          GOTOOLCHAIN: latest
         run: |
           go install golang.org/x/vuln/cmd/govulncheck@v1.7.0
           govulncheck ./...
